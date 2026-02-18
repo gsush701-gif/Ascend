@@ -1,0 +1,83 @@
+import type { ResumeStrength, SignalState } from "../../../types/analyzer";
+import {
+  getFixPlanForSignal,
+  getSignalDisplay,
+  getSignalWhyItMatters,
+  getTangibleResumeExample,
+  matchSignalKey,
+} from "../utils";
+
+type MissingSignalsProps = {
+  signals: string[];
+  resumeStrength: ResumeStrength | null;
+};
+
+export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps) {
+  if (signals.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 mb-6">
+      <div className="text-base font-semibold mb-1">
+        Missing High-Priority Signals
+      </div>
+      <div className="text-xs text-zinc-500 mb-4">
+        Estimated 2-week plan to fix gap
+      </div>
+      <div className="space-y-3">
+        {signals.map((sig, i) => {
+          const why = getSignalWhyItMatters(sig);
+          const plan = getFixPlanForSignal(sig);
+          const example = getTangibleResumeExample(sig);
+          const signalKey = matchSignalKey(sig);
+          const useConsistentCopy =
+            signalKey && resumeStrength?.signals[signalKey] != null;
+          const display = useConsistentCopy
+            ? getSignalDisplay(
+                signalKey,
+                resumeStrength!.signals[signalKey] as SignalState
+              )
+            : null;
+
+          return (
+            <div
+              key={i}
+              className="group relative flex flex-col gap-2 rounded-xl border-l-4 border-rose-500/70 bg-rose-950/25 pl-4 pr-3 py-3 text-sm text-zinc-200"
+              title={`Why it matters: ${why}`}
+            >
+              <div className="min-w-0 flex-1">
+                {display ? (
+                  <span className="text-zinc-100">
+                    <span className="mr-1.5">{display.icon}</span>
+                    <span className="font-medium">{display.label}: </span>
+                    {display.message}
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-medium text-zinc-100">{sig}</span>
+                    <span className="text-zinc-500 mx-2">→</span>
+                    <span className="text-amber-200/90">{plan.action}</span>
+                    <span className="ml-2 text-xs text-zinc-500">
+                      ({plan.days} day{plan.days !== 1 ? "s" : ""})
+                    </span>
+                  </>
+                )}
+                <div className="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 hidden rounded-lg border border-rose-900/60 bg-rose-950/95 px-3 py-2 text-xs text-rose-100 shadow-xl group-hover:block">
+                  <span className="font-medium text-rose-200">
+                    Why it matters:
+                  </span>{" "}
+                  {why}
+                </div>
+              </div>
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-2.5 py-1.5 text-xs">
+                <span className="text-emerald-400 shrink-0">✅</span>
+                <span className="text-zinc-300">
+                  Add: &ldquo;{example}&rdquo;
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

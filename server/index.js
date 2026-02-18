@@ -14,35 +14,34 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
 });
 
-// --- Skill dictionary (expand anytime) ---
-const SKILLS = [
-  "python",
-  "java",
-  "javascript",
-  "typescript",
-  "c++",
-  "c#",
-  "sql",
-  "rest api",
-  "rest apis",
-  "api",
-  "node",
-  "express",
-  "react",
-  "next.js",
-  "aws",
-  "azure",
-  "gcp",
-  "docker",
-  "kubernetes",
-  "git",
-  "linux",
-  "data structures",
-  "algorithms",
-  "testing",
-  "pytest",
-  "jest",
-  "ci/cd",
+// --- Skill dictionary: canonical (lowercase, singular) + patterns to match ---
+// One canonical name per concept; patterns can be plural/variants. Output is normalized and deduplicated.
+const SKILL_ENTRIES = [
+  { canonical: "python", patterns: ["python"] },
+  { canonical: "java", patterns: ["java"] },
+  { canonical: "javascript", patterns: ["javascript"] },
+  { canonical: "typescript", patterns: ["typescript"] },
+  { canonical: "c++", patterns: ["c++"] },
+  { canonical: "c#", patterns: ["c#"] },
+  { canonical: "sql", patterns: ["sql"] },
+  { canonical: "rest api", patterns: ["rest api", "rest apis", "api"] },
+  { canonical: "node", patterns: ["node", "node.js"] },
+  { canonical: "express", patterns: ["express"] },
+  { canonical: "react", patterns: ["react"] },
+  { canonical: "next.js", patterns: ["next.js", "next js"] },
+  { canonical: "aws", patterns: ["aws"] },
+  { canonical: "azure", patterns: ["azure"] },
+  { canonical: "gcp", patterns: ["gcp"] },
+  { canonical: "docker", patterns: ["docker"] },
+  { canonical: "kubernetes", patterns: ["kubernetes", "k8s"] },
+  { canonical: "git", patterns: ["git"] },
+  { canonical: "linux", patterns: ["linux"] },
+  { canonical: "data structures", patterns: ["data structures", "data structure"] },
+  { canonical: "algorithms", patterns: ["algorithms", "algorithm"] },
+  { canonical: "testing", patterns: ["testing", "tests"] },
+  { canonical: "pytest", patterns: ["pytest"] },
+  { canonical: "jest", patterns: ["jest"] },
+  { canonical: "ci/cd", patterns: ["ci/cd", "cicd", "ci cd"] },
 ];
 
 function norm(s) {
@@ -60,9 +59,12 @@ function unique(arr) {
 function extractSkills(text) {
   const t = norm(text);
   const hits = [];
-  for (const skill of SKILLS) {
-    const key = norm(skill);
-    if (t.includes(key)) hits.push(skill);
+  for (const { canonical, patterns } of SKILL_ENTRIES) {
+    const matched = patterns.some((p) => {
+      const key = norm(p);
+      return key.length > 0 && t.includes(key);
+    });
+    if (matched) hits.push(canonical);
   }
   return unique(hits);
 }
@@ -128,6 +130,12 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
         .status(400)
         .json({ error: "Resume PDF is required (field name: resume)" });
     }
+    if (req.file.mimetype && req.file.mimetype !== "application/pdf") {
+      console.warn("Non-PDF upload rejected:", req.file.mimetype);
+      return res.status(400).json({
+        error: "Only PDF resumes are supported. Please upload a PDF file.",
+      });
+    }
     if (norm(jd).length < 20) {
       return res
         .status(400)
@@ -137,18 +145,18 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
     console.log("Parsing PDF bytes:", req.file.buffer.length);
 
     let resumeText = "";
+    let numPages = 0;
 
     try {
       const data = await pdfParse(req.file.buffer);
       resumeText = data.text || "";
+      numPages = data.numpages || 0;
     } catch (e) {
       console.error("pdf-parse failed:", e);
       return res
         .status(400)
         .json({ error: "Could not extract text from this PDF." });
     }
-
-    console.log("PDF parsed. Text length:", resumeText.length);
 
     if (resumeText.trim().length < 30) {
       return res.status(400).json({
@@ -194,6 +202,7 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
         jdSkillsCount: jdSkills.length,
         resumeSkillsFound: resumeSkills.length,
         pdfTextLength: resumeText.length,
+        pdfPages: numPages,
       },
     });
   } catch (err) {

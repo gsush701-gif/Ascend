@@ -1,3 +1,67 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+.text-hero {
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Landing: gradient blobs */
+@keyframes blob-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -40px) scale(1.05); }
+  66% { transform: translate(-20px, 20px) scale(0.98); }
+}
+
+@keyframes blob-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-40px, 30px) scale(1.02); }
+  66% { transform: translate(25px, -25px) scale(0.95); }
+}
+
+@keyframes blob-float-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-15px, -30px) scale(1.08); }
+}
+
+/* Landing: hero entrance */
+@keyframes hero-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Landing: card stagger */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Landing: CTA pulse glow */
+@keyframes cta-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(255, 255, 255, 0.15); }
+  50% { box-shadow: 0 0 32px rgba(255, 255, 255, 0.25); }
+}
+
+.animate-blob-1 { animation: blob-float-1 18s ease-in-out infinite; }
+.animate-blob-2 { animation: blob-float-2 22s ease-in-out infinite; }
+.animate-blob-3 { animation: blob-float-3 20s ease-in-out infinite; }
+.animate-hero-enter { animation: hero-enter 0.8s ease-out forwards; }
+.animate-card-enter { animation: card-enter 0.6s ease-out forwards; }
+.animate-cta-pulse { animation: cta-pulse 2.5s ease-in-out infinite; }
