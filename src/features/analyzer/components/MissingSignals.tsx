@@ -7,6 +7,14 @@ import {
   matchSignalKey,
 } from "../utils";
 
+export type SignalPriority = "high" | "medium" | "low";
+
+function getPriority(index: number): SignalPriority {
+  if (index <= 1) return "high";
+  if (index <= 3) return "medium";
+  return "low";
+}
+
 type MissingSignalsProps = {
   signals: string[];
   resumeStrength: ResumeStrength | null;
@@ -18,13 +26,14 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
   return (
     <div className="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 mb-6">
       <div className="text-base font-semibold mb-1">
-        Missing High-Priority Signals
+        Missing signals by priority
       </div>
       <div className="text-xs text-zinc-500 mb-4">
-        Estimated 2-week plan to fix gap
+        High = required · Medium = nice to have · Low = bonus
       </div>
       <div className="space-y-3">
         {signals.map((sig, i) => {
+          const priority = getPriority(i);
           const why = getSignalWhyItMatters(sig);
           const plan = getFixPlanForSignal(sig);
           const example = getTangibleResumeExample(sig);
@@ -38,12 +47,32 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
               )
             : null;
 
+          const priorityBorder =
+            priority === "high"
+              ? "border-rose-500/70"
+              : priority === "medium"
+                ? "border-amber-500/60"
+                : "border-zinc-500/50";
+          const priorityBadge =
+            priority === "high"
+              ? "bg-rose-500/20 text-rose-200"
+              : priority === "medium"
+                ? "bg-amber-500/20 text-amber-200"
+                : "bg-zinc-500/20 text-zinc-400";
+
           return (
             <div
               key={i}
-              className="group relative flex flex-col gap-2 rounded-xl border-l-4 border-rose-500/70 bg-rose-950/25 pl-4 pr-3 py-3 text-sm text-zinc-200"
+              className={`group relative flex flex-col gap-2 rounded-xl border-l-4 ${priorityBorder} bg-zinc-950/40 pl-4 pr-3 py-3 text-sm text-zinc-200`}
               title={`Why it matters: ${why}`}
             >
+              <div className="mb-1">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${priorityBadge}`}
+                >
+                  {priority} priority
+                </span>
+              </div>
               <div className="min-w-0 flex-1">
                 {display ? (
                   <span className="text-zinc-100">

@@ -1,209 +1,344 @@
-import { useNavigate } from "react-router-dom";
-import { FileText, Target, TrendingUp } from "lucide-react";
-import { PageLayout } from "../components/layout/PageLayout";
-import { Container } from "../components/ui/Container";
+import { Link } from "react-router-dom";
+import { PublicShell } from "../components/layout/PublicShell";
+import { Reveal } from "../components/ui/Reveal";
 
-function Background() {
+export function Landing() {
   return (
-    <>
-      {/* Base gradient */}
-      <div
-        className="absolute inset-0 -z-20"
-        style={{
-          background:
-            "linear-gradient(180deg, #09090b 0%, #0a0a0b 40%, #0c0c0e 100%)",
-        }}
-      />
-      {/* Animated gradient blobs */}
-      <div
-        className="absolute -z-10 top-[10%] left-[15%] w-[500px] h-[500px] rounded-full opacity-[0.35] blur-[100px] animate-blob-1"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%)",
-        }}
-      />
-      <div
-        className="absolute -z-10 top-[50%] right-[10%] w-[450px] h-[450px] rounded-full opacity-[0.3] blur-[90px] animate-blob-2"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(16, 185, 129, 0.35) 0%, transparent 70%)",
-        }}
-      />
-      <div
-        className="absolute -z-10 bottom-[20%] left-[40%] w-[380px] h-[380px] rounded-full opacity-[0.25] blur-[80px] animate-blob-3"
-        style={{
-          background:
-            "radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, transparent 70%)",
-        }}
-      />
-      {/* Subtle grid overlay */}
-      <div
-        className="absolute inset-0 -z-10 opacity-[0.04]"
-        style={{
-          backgroundImage: `
-            linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)
-          `,
-          backgroundSize: "64px 64px",
-        }}
-      />
-      {/* Shimmer: very subtle moving gradient */}
-      <div
-        className="absolute inset-0 -z-10 opacity-30"
-        style={{
-          background:
-            "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255,255,255,0.08), transparent 50%)",
-        }}
-      />
-      {/* Vignette */}
-      <div
-        className="absolute inset-0 -z-10 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.5) 100%)",
-        }}
-      />
-    </>
+    <PublicShell>
+      <div className="space-y-28 pb-10">
+        {/* HERO */}
+        <section className="pt-6 text-center">
+          <Reveal>
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
+              <span className="h-2 w-2 rounded-full bg-white/60" />
+              Internship Operating System
+              <span className="ml-2 rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] text-white/60">
+                Beta
+              </span>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.06}>
+            <h1 className="mx-auto mt-6 max-w-4xl text-5xl font-semibold leading-[1.05] tracking-tight">
+              The <span className="gradient-text">Operating System</span>
+              <br />
+              for internship applications
+            </h1>
+          </Reveal>
+
+          <Reveal delay={0.12}>
+            <p className="mx-auto mt-6 max-w-2xl text-lg text-white/65">
+              Manage every internship role from analysis to outcome. One place
+              for alignment, gaps, and tracking.
+            </p>
+          </Reveal>
+
+          <Reveal delay={0.18}>
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <Link
+                to="/signup"
+                className="w-full rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90 sm:w-auto"
+              >
+                Start free
+              </Link>
+              <Link
+                to="/dashboard"
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm text-white/80 transition hover:bg-white/10 sm:w-auto"
+              >
+                View Demo
+              </Link>
+              <a
+                href="#preview"
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-6 py-3 text-sm text-white/80 transition hover:bg-white/10 sm:w-auto"
+              >
+                See product preview
+              </a>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.24}>
+            <div className="mx-auto mt-10 max-w-3xl rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-xl">
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-white/70">
+                  <Badge>Alignment score</Badge>
+                  <Badge>Skill gaps</Badge>
+                  <Badge>Action plan</Badge>
+                  <Badge>Application tracker</Badge>
+                  <Badge>Deadlines</Badge>
+                </div>
+                <div className="shimmer-line mt-4 h-[2px] w-full rounded-full opacity-70" />
+                <div className="mt-4 text-center text-xs text-white/55">
+                  Built for students who want structure, not guesswork.
+                </div>
+              </div>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* PROBLEM → SOLUTION */}
+        <section className="grid gap-10 md:grid-cols-2">
+          <Reveal>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
+              <h2 className="text-2xl font-semibold">The problem</h2>
+              <ul className="mt-6 space-y-4 text-white/70">
+                <li>• Applying without knowing if your resume matches the role</li>
+                <li>• No clear feedback on missing skills or priorities</li>
+                <li>• Applications scattered across emails, notes, and tabs</li>
+              </ul>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.06}>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl">
+              <h2 className="text-2xl font-semibold">The system</h2>
+              <ul className="mt-6 space-y-4 text-white/70">
+                <li>• Score alignment against real job descriptions</li>
+                <li>• Identify skill gaps and what to improve first</li>
+                <li>• Track status, deadlines, and outcomes in one place</li>
+              </ul>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* HOW IT WORKS */}
+        <section id="how" className="text-center">
+          <Reveal>
+            <h2 className="text-2xl font-semibold">How it works</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-white/60">
+              Three steps. Clear output. No fluff.
+            </p>
+          </Reveal>
+
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            <Reveal>
+              <StepCard
+                title="1. Analyze a role"
+                desc="Upload your resume and paste a job description."
+              />
+            </Reveal>
+            <Reveal delay={0.06}>
+              <StepCard
+                title="2. Improve alignment"
+                desc="See missing skills and a short action plan."
+              />
+            </Reveal>
+            <Reveal delay={0.12}>
+              <StepCard
+                title="3. Track applications"
+                desc="Manage deadlines, status, and notes."
+              />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* PRODUCT PREVIEW MOCKUP */}
+        <section id="preview" className="space-y-8">
+          <Reveal>
+            <div className="text-center">
+              <h2 className="text-2xl font-semibold">Product preview</h2>
+              <p className="mx-auto mt-3 max-w-2xl text-sm text-white/60">
+                This is the experience: dashboard overview, alignment
+                intelligence, and tracking in one platform.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.06}>
+            <ProductMock />
+          </Reveal>
+        </section>
+
+        {/* FINAL CTA */}
+        <section id="cta" className="text-center">
+          <Reveal>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-10 backdrop-blur-xl">
+              <h2 className="text-3xl font-semibold">
+                Manage every internship role from analysis to outcome.
+              </h2>
+              <p className="mx-auto mt-4 max-w-xl text-sm text-white/60">
+                One place for each role: alignment, skill gaps, improvements,
+                and tracking.
+              </p>
+              <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Link
+                  to="/signup"
+                  className="w-full rounded-2xl bg-white px-8 py-4 text-sm font-semibold text-black transition hover:bg-white/90 sm:w-auto"
+                >
+                  Get started
+                </Link>
+                <Link
+                  to="/login"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-8 py-4 text-sm text-white/80 transition hover:bg-white/10 sm:w-auto"
+                >
+                  I already have an account
+                </Link>
+                <Link
+                  to="/dashboard"
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-8 py-4 text-sm text-white/80 transition hover:bg-white/10 sm:w-auto"
+                >
+                  View Demo
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+        </section>
+      </div>
+    </PublicShell>
   );
 }
 
-const STEPS = [
-  {
-    step: 1,
-    title: "Upload Resume",
-    description:
-      "Upload your resume (PDF). We parse skills and signals in seconds.",
-    icon: FileText,
-  },
-  {
-    step: 2,
-    title: "Compare to JD",
-    description:
-      "Paste any job description. We measure alignment and missing signals.",
-    icon: Target,
-  },
-  {
-    step: 3,
-    title: "Get Action Plan + Track Progress",
-    description:
-      "Get tangible bullets, a 2-week fix plan, and save to your tracker.",
-    icon: TrendingUp,
-  },
-];
-
-export function Landing() {
-  const navigate = useNavigate();
-
+function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <PageLayout>
-      <div className="relative min-h-screen overflow-hidden">
-        <Background />
+    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/70">
+      {children}
+    </span>
+  );
+}
 
-        {/* Hero */}
-        <section className="relative flex min-h-[85vh] flex-col items-center justify-center px-6 pt-20">
-          <Container className="flex flex-col items-center justify-center text-center">
-            <h1
-              className="animate-hero-enter text-6xl font-bold tracking-tight sm:text-7xl"
-              style={{ animationDelay: "0ms", animationFillMode: "backwards" }}
-            >
-              <span
-                className="inline-block bg-gradient-to-b from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent drop-shadow-[0_0_60px_rgba(255,255,255,0.2)]"
-                style={{
-                  textShadow: "0 0 80px rgba(255,255,255,0.15)",
-                }}
-              >
-                InternOS
-              </span>
-            </h1>
-            <p
-              className="mt-5 animate-hero-enter text-lg text-zinc-400 sm:text-xl"
-              style={{ animationDelay: "150ms", animationFillMode: "backwards" }}
-            >
-              Internship Performance System
-            </p>
-            <div
-              className="mt-12 flex flex-col gap-4 animate-hero-enter sm:flex-row sm:gap-5"
-              style={{ animationDelay: "280ms", animationFillMode: "backwards" }}
-            >
-              <button
-                type="button"
-                onClick={() => navigate("/analyzer")}
-                className="animate-cta-pulse inline-flex min-w-[200px] items-center justify-center rounded-xl border border-zinc-200 bg-zinc-100 px-6 py-4 text-base font-semibold text-zinc-900 transition-all duration-200 hover:-translate-y-0.5 hover:border-white hover:bg-white hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] focus:outline-none focus:ring-2 focus:ring-zinc-500"
-              >
-                Analyze Resume
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/tracker")}
-                className="inline-flex min-w-[200px] items-center justify-center rounded-xl border border-zinc-700 bg-zinc-800/80 px-6 py-4 text-base font-semibold text-zinc-200 transition-all duration-200 hover:-translate-y-0.5 hover:border-zinc-600 hover:bg-zinc-700/90 hover:shadow-[0_0_24px_rgba(255,255,255,0.08)] focus:outline-none focus:ring-2 focus:ring-zinc-600"
-              >
-                Open Tracker
-              </button>
-            </div>
-          </Container>
-        </section>
+function StepCard({
+  title,
+  desc,
+}: {
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl transition hover:bg-white/[0.07]">
+      <div className="text-lg font-semibold">{title}</div>
+      <div className="mt-4 text-sm text-white/65">{desc}</div>
+    </div>
+  );
+}
 
-        {/* How it works */}
-        <section className="relative border-t border-zinc-800/50 py-20">
-          <Container>
-            <h2 className="mb-14 text-center text-2xl font-semibold text-zinc-100">
-              How it works
-            </h2>
-            <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-              {STEPS.map((item, i) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.step}
-                    className="animate-card-enter rounded-2xl border border-zinc-800/60 bg-zinc-900/30 p-8 transition-all duration-300 hover:border-zinc-700/60 hover:bg-zinc-900/50 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_4px_24px_rgba(0,0,0,0.2)]"
-                    style={{
-                      animationDelay: `${400 + i * 120}ms`,
-                      animationFillMode: "backwards",
-                    }}
-                  >
-                    <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-700/60 bg-zinc-800/50 text-zinc-400">
-                      <Icon size={20} />
-                    </div>
-                    <div className="text-2xl font-bold text-zinc-500">
-                      {item.step}
-                    </div>
-                    <h3 className="mt-2 text-lg font-semibold text-zinc-200">
-                      {item.title}
-                    </h3>
-                    <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                      {item.description}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </Container>
-        </section>
-
-        {/* Value props / Trust strip */}
-        <section className="relative border-t border-zinc-800/50 py-12">
-          <Container>
-            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 text-center">
-              <span className="text-sm text-zinc-500">
-                Built for ambitious internship applicants
-              </span>
-              <span className="flex items-center gap-1.5 text-zinc-600">
-                <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
-                <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
-                <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
-              </span>
-              <span className="text-sm text-zinc-500">
-                Job-alignment intelligence
-              </span>
-            </div>
-          </Container>
-        </section>
-
-        {/* Footer */}
-        <footer className="relative border-t border-zinc-900/60 py-8 text-center text-xs text-zinc-500">
-          InternOS V1 • Job-Alignment Intelligence
-        </footer>
+function ProductMock() {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-xl">
+      {/* Top bar */}
+      <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-white/50" />
+          <div className="h-2 w-2 rounded-full bg-white/30" />
+          <div className="h-2 w-2 rounded-full bg-white/20" />
+          <div className="ml-3 text-xs text-white/60">InternOS • Dashboard</div>
+        </div>
+        <div className="text-xs text-white/55">Preview</div>
       </div>
-    </PageLayout>
+
+      {/* Mock content */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-12">
+        <div className="space-y-4 lg:col-span-7">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="text-xs text-white/55">Latest alignment score</div>
+            <div className="mt-3 flex items-end gap-4">
+              <div className="text-5xl font-semibold tracking-tight">64%</div>
+              <div className="pb-2 text-sm text-white/60">
+                3 skills away from strong match
+              </div>
+            </div>
+            <div className="mt-4 h-2 rounded-full bg-white/10">
+              <div className="h-2 w-[64%] rounded-full bg-white/70" />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <MiniStat label="Apps sent" value="12" />
+            <MiniStat label="Interviews" value="3" />
+            <MiniStat label="Avg score" value="68%" />
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="text-sm font-semibold">Upcoming deadlines</div>
+            <div className="mt-4 space-y-3">
+              <Row left="Google SWE Intern" right="3 days" />
+              <Row left="Backend Intern" right="6 days" />
+              <Row left="Data Analyst Intern" right="10 days" />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 lg:col-span-5">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="text-sm font-semibold">Readiness</div>
+            <div className="mt-4 space-y-3">
+              <Progress label="Resume" pct={70} />
+              <Progress label="Projects" pct={45} />
+              <Progress label="Deployments" pct={15} />
+              <Progress label="Interview prep" pct={25} />
+            </div>
+            <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-xs text-white/60">
+              Tip: Deploy one project to instantly improve credibility.
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="text-sm font-semibold">Next actions</div>
+            <div className="mt-4 space-y-3">
+              <ActionItem
+                title="Analyze a new job"
+                desc="Get missing skills + score"
+              />
+              <ActionItem
+                title="Add an application"
+                desc="Track status and deadlines"
+              />
+              <ActionItem
+                title="Upgrade bullets"
+                desc="Add impact + metrics"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="text-xs text-white/55">{label}</div>
+      <div className="mt-2 text-xl font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function Row({ left, right }: { left: string; right: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
+      <span className="text-white/85">{left}</span>
+      <span className="text-white/55">{right}</span>
+    </div>
+  );
+}
+
+function Progress({ label, pct }: { label: string; pct: number }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between text-xs text-white/60">
+        <span>{label}</span>
+        <span>{pct}%</span>
+      </div>
+      <div className="mt-2 h-2 rounded-full bg-white/10">
+        <div
+          className="h-2 rounded-full bg-white/70"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ActionItem({
+  title,
+  desc,
+}: {
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/[0.07]">
+      <div className="text-sm font-semibold">{title}</div>
+      <div className="mt-1 text-xs text-white/60">{desc}</div>
+    </div>
   );
 }

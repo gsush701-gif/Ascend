@@ -98,6 +98,50 @@ export function improveResumeBullet(bullet: string): string {
   return `${bullet.trim()} — add tech stack, scale (e.g. 2k+ requests), and outcome (e.g. 99% uptime).`;
 }
 
+export type BulletImprovementResult = {
+  improved: string;
+  why: string;
+  stack: string;
+  impact: string;
+};
+
+export function getBulletImprovementDetails(bullet: string): BulletImprovementResult {
+  const t = bullet.trim().toLowerCase();
+  const improved = improveResumeBullet(bullet);
+
+  let stack = "—";
+  let impact = "—";
+  if (t.includes("rest") || t.includes("api")) {
+    stack = "Express, MongoDB";
+    impact = "2k+ requests, 99% uptime";
+  } else if (t.includes("react") || t.includes("frontend")) {
+    stack = "React, Context";
+    impact = "30% page load improvement";
+  } else if (t.includes("deploy") || t.includes("host")) {
+    stack = "Render / Vercel, CI/CD";
+    impact = "99% uptime, 2k+ requests/month";
+  } else if (t.includes("test") || t.includes("jest")) {
+    stack = "Jest";
+    impact = "85% coverage, regressions caught";
+  } else if (t.includes("database") || t.includes("sql") || t.includes("mongodb")) {
+    stack = "PostgreSQL / MongoDB";
+    impact = "Indexed queries, main flows";
+  } else if (t.includes("full-stack") || t.includes("full stack")) {
+    stack = "API + UI + DB";
+    impact = "500+ users, 2 sprints";
+  } else if (improved !== bullet.trim()) {
+    stack = "Tech stack suggested";
+    impact = "Scale + outcome suggested";
+  }
+
+  const why =
+    improved === bullet.trim()
+      ? "Add tech stack, scale (e.g. 2k+ requests), and a measurable outcome (e.g. 99% uptime) so recruiters see impact."
+      : "Added clarity, technical depth, and quantified impact so the bullet stands out to ATS and recruiters.";
+
+  return { improved, why, stack, impact };
+}
+
 export function getApplicationConfidence(
   report: Report,
   resumeStrength: ResumeStrength | null

@@ -35,14 +35,17 @@ export function JobDescriptionBox({
       />
       <Button
         onClick={onAnalyze}
-        disabled={!canAnalyze}
+        disabled={!canAnalyze || loading}
         className={cn(
-          "mt-4 w-full",
+          "mt-4 w-full btn-press inline-flex items-center justify-center gap-2",
           canAnalyze ? "" : "opacity-60 cursor-not-allowed"
         )}
         variant="primary"
         size="lg"
       >
+        {loading && (
+          <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-zinc-400 border-t-transparent" />
+        )}
         {loading ? "Analyzing..." : "Analyze Alignment"}
       </Button>
       <div className="mt-3 text-xs text-zinc-500">

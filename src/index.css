@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Smoother text rendering */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 @keyframes shimmer {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.85; }
@@ -65,3 +71,61 @@
 .animate-hero-enter { animation: hero-enter 0.8s ease-out forwards; }
 .animate-card-enter { animation: card-enter 0.6s ease-out forwards; }
 .animate-cta-pulse { animation: cta-pulse 2.5s ease-in-out infinite; }
+
+/* Premium animated gradient text */
+.gradient-text {
+  background: linear-gradient(90deg, rgba(255,255,255,1), rgba(255,255,255,0.7), rgba(255,255,255,1));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradientShift 6s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Shimmer line (for landing) */
+.shimmer-line {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.20), transparent);
+  background-size: 200% 100%;
+  animation: shimmerLine 5s linear infinite;
+}
+
+@keyframes shimmerLine {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* Micro-interactions */
+.btn-press:active {
+  transform: scale(0.98);
+}
+.card-hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+.progress-bar-fill {
+  transition: width 0.6s ease-out;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}

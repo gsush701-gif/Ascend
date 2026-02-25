@@ -3,6 +3,7 @@ import type {
   TrackerItem,
   TrackerStatus,
   SavedReportSnapshot,
+  RolePriority,
 } from "../../../types/tracker";
 import { LS_KEY } from "../../../types/tracker";
 
@@ -31,7 +32,7 @@ export function useTracker(reportAlignment: number | undefined) {
   }, [tracker]);
 
   function addManualTrackerItem(
-    navigateToTracker: () => void,
+    onAdded: (newItemId: string) => void,
     reportSnapshot?: SavedReportSnapshot,
     options?: { company?: string; role?: string }
   ) {
@@ -58,7 +59,7 @@ export function useTracker(reportAlignment: number | undefined) {
     setCompany("");
     setRole("");
     setNextStep("Apply today");
-    navigateToTracker();
+    onAdded(item.id);
   }
 
   function removeItem(id: string) {
@@ -74,6 +75,36 @@ export function useTracker(reportAlignment: number | undefined) {
   function updateNextStep(id: string, next: string) {
     setTracker((prev) =>
       prev.map((x) => (x.id === id ? { ...x, nextStep: next } : x))
+    );
+  }
+
+  function updateNotes(id: string, notes: string) {
+    setTracker((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, notes } : x))
+    );
+  }
+
+  function updateRole(id: string, role: string) {
+    setTracker((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, role: role.trim() || x.role } : x))
+    );
+  }
+
+  function updateCompany(id: string, company: string) {
+    setTracker((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, company: company.trim() || x.company } : x))
+    );
+  }
+
+  function updateDeadline(id: string, deadline: string) {
+    setTracker((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, deadline: deadline.trim() || undefined } : x))
+    );
+  }
+
+  function updatePriority(id: string, priority: RolePriority | "") {
+    setTracker((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, priority: priority || undefined } : x))
     );
   }
 
@@ -93,5 +124,10 @@ export function useTracker(reportAlignment: number | undefined) {
     removeItem,
     updateStatus,
     updateNextStep,
+    updateNotes,
+    updateRole,
+    updateCompany,
+    updateDeadline,
+    updatePriority,
   };
 }

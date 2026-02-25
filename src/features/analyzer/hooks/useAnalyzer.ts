@@ -6,6 +6,7 @@ import type {
   ResumeStrength,
   AlignmentHistoryItem,
 } from "../../../types/analyzer";
+import { setStoredSharePayload } from "../../../lib/shareProfile";
 import { computeResumeStrength } from "../utils";
 
 const API_URL = "http://localhost:5050/analyze";
@@ -19,7 +20,6 @@ export function useAnalyzer() {
   const [report, setReport] = useState<Report | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [recruiterSimMode, setRecruiterSimMode] = useState(false);
-  const [bulletImproveInput, setBulletImproveInput] = useState("");
   const [alignmentHistory, setAlignmentHistory] = useState<AlignmentHistoryItem[]>([]);
   const [shareSlug, setShareSlug] = useState("");
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
@@ -36,6 +36,18 @@ export function useAnalyzer() {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(alignmentHistory));
     } catch {}
   }, [alignmentHistory]);
+
+  useEffect(() => {
+    if (!report) return;
+    setStoredSharePayload({
+      skills: report.skills.slice(0, 12).map((s) => s.name),
+      strength: resumeStrength?.score ?? 0,
+      history: alignmentHistory.slice(0, 10).map((h) => ({
+        alignment: h.alignment,
+        createdAt: h.createdAt,
+      })),
+    });
+  }, [report, resumeStrength?.score, alignmentHistory]);
 
   useEffect(() => {
     if (!resume) {
@@ -138,8 +150,6 @@ export function useAnalyzer() {
     onAnalyze,
     recruiterSimMode,
     setRecruiterSimMode,
-    bulletImproveInput,
-    setBulletImproveInput,
     alignmentHistory,
     shareSlug,
     setShareSlug,

@@ -5,7 +5,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-10 border-b border-zinc-900/60 bg-zinc-950/70 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <NavLink to="/" className="flex items-center gap-3">
+        <NavLink to="/dashboard" className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl border border-zinc-800 bg-zinc-900 grid place-items-center shadow-sm">
             <span className="text-sm font-semibold">IO</span>
           </div>
@@ -17,8 +17,20 @@ export function Navbar() {
 
         <nav className="flex items-center gap-2">
           <NavLink
-            to="/"
-            end
+            to="/dashboard"
+            className={({ isActive }) =>
+              cn(
+                "rounded-2xl px-3 py-2 text-sm border transition",
+                isActive
+                  ? "border-zinc-700 bg-zinc-900/70 text-zinc-100"
+                  : "border-zinc-900 bg-zinc-950/40 text-zinc-400 hover:text-zinc-200"
+              )
+            }
+          >
+            Dashboard
+          </NavLink>
+          <NavLink
+            to="/landing"
             className={({ isActive }) =>
               cn(
                 "rounded-2xl px-3 py-2 text-sm border transition",
