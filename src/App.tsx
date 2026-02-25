@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import type { SharedProfileData } from "./types/analyzer";
 import { ProfileView } from "./components/ProfileView";
 import { Landing } from "./routes/Landing";
+import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
 import { Tracker } from "./routes/Tracker";
+import { Roles } from "./routes/Roles";
+import { RoleDetail } from "./routes/RoleDetail";
+import { Profile } from "./routes/Profile";
+import { ResumeLab } from "./routes/ResumeLab";
+import { Insights } from "./routes/Insights";
+import { Settings } from "./routes/Settings";
+import { Login } from "./routes/Login";
+import { Signup } from "./routes/Signup";
 
 export default function App() {
   const [sharedProfileView, setSharedProfileView] = useState<{
@@ -19,7 +28,10 @@ export default function App() {
     const segment = pathname.slice(1).split("/")[0];
     const params = new URLSearchParams(window.location.search);
     const d = params.get("d");
-    const isReserved = segment === "analyzer" || segment === "tracker";
+    const isReserved =
+      segment === "analyzer" ||
+      segment === "tracker" ||
+      segment === "insights";
     if (segment && d && !isReserved) {
       try {
         const decoded = JSON.parse(atob(d)) as SharedProfileData;
@@ -54,9 +66,20 @@ export default function App() {
 
   return (
     <Routes>
+      {/* Public */}
       <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      {/* Private (app) — add auth guard later */}
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/roles" element={<Roles />} />
+      <Route path="/roles/:id" element={<RoleDetail />} />
       <Route path="/analyzer" element={<Analyzer />} />
-      <Route path="/tracker" element={<Tracker />} />
+      <Route path="/tracker" element={<Navigate to="/roles" replace />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/resume-lab" element={<ResumeLab />} />
+      <Route path="/insights" element={<Insights />} />
+      <Route path="/settings" element={<Settings />} />
     </Routes>
   );
 }
