@@ -24,7 +24,7 @@ export function ProfileView({ username, data, onBack }: ProfileViewProps) {
             }}
             className="text-sm font-semibold text-zinc-400 hover:text-zinc-200"
           >
-            ← InternOS
+            ← Ascend
           </a>
           <span className="text-xs text-zinc-500">{baseUrl}</span>
         </div>

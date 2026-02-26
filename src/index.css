@@ -2,8 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Smoother text rendering */
 html {
+  scroll-behavior: smooth;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -74,7 +74,7 @@ html {
 
 /* Premium animated gradient text */
 .gradient-text {
-  background: linear-gradient(90deg, rgba(255,255,255,1), rgba(255,255,255,0.7), rgba(255,255,255,1));
+  background: linear-gradient(90deg, #22d3ee, #06b6d4, #22d3ee);
   background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -98,6 +98,20 @@ html {
 @keyframes shimmerLine {
   0% { background-position: 0% 0%; }
   100% { background-position: 200% 0%; }
+}
+
+/* Focus visible for accessibility - buttons and links only */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.6);
+  outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid rgba(34, 211, 238, 0.5);
+  outline-offset: 0;
 }
 
 /* Micro-interactions */
@@ -128,4 +142,12 @@ html {
 
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes drawerSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-drawer-slide-in {
+  animation: drawerSlideIn 0.2s ease-out forwards;
 }

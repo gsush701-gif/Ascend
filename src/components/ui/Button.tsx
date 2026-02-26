@@ -1,10 +1,31 @@
 import { cn } from "../../lib/cn";
+import {
+  buttonPrimary,
+  buttonSecondary,
+  buttonGhost,
+  buttonDanger,
+  buttonDangerOutline,
+} from "../../lib/ui";
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "dangerOutline";
   size?: "sm" | "md" | "lg";
   className?: string;
   children: React.ReactNode;
+};
+
+const variantClasses = {
+  primary: buttonPrimary,
+  secondary: buttonSecondary,
+  ghost: buttonGhost,
+  danger: buttonDanger,
+  dangerOutline: buttonDangerOutline,
+};
+
+const sizeClasses = {
+  sm: "h-8 px-3 text-xs",
+  md: "h-10 px-4 text-sm",
+  lg: "h-11 px-6 text-base",
 };
 
 export function Button({
@@ -14,22 +35,9 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const base =
-    "inline-flex items-center justify-center font-semibold transition-colors rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed";
-  const variants = {
-    primary: "bg-zinc-100 text-zinc-900 hover:bg-white border border-zinc-200",
-    secondary: "bg-zinc-800 text-zinc-200 hover:bg-zinc-700 border border-zinc-700",
-    ghost: "bg-transparent text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-600",
-    danger: "bg-red-500/20 text-red-200 hover:bg-red-500/30 border border-red-500/40",
-  };
-  const sizes = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2.5 text-sm",
-    lg: "px-6 py-3 text-base",
-  };
   return (
     <button
-      className={cn(base, variants[variant], sizes[size], className)}
+      className={cn(variantClasses[variant], sizeClasses[size], className)}
       {...props}
     >
       {children}

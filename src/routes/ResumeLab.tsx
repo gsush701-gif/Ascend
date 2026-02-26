@@ -1,10 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Copy, Sparkles } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { ChevronDown, ChevronUp, Copy, Sparkles } from "lucide-react";
+import { cn } from "../lib/cn";
 import { AppShell } from "../components/layout/AppShell";
+import { Textarea } from "../components/ui/Textarea";
+import { Button } from "../components/ui/Button";
+import { pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
 import {
   getBulletImprovementDetails,
   type BulletImprovementResult,
 } from "../features/analyzer/utils";
+import { toast } from "../components/ui/toast";
+import { setResumeLabUsed } from "../lib/onboarding";
 
 const HISTORY_KEY = "internos_resume_lab_history_v1";
 const HISTORY_MAX = 20;
@@ -30,12 +37,22 @@ function saveHistory(entries: HistoryEntry[]) {
   } catch {}
 }
 
+function clearHistory() {
+  try {
+    localStorage.removeItem(HISTORY_KEY);
+  } catch {}
+}
+
 export function ResumeLab() {
+  const location = useLocation();
+  const jobDescription = (location.state as { jobDescription?: string } | null)?.jobDescription ?? "";
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BulletImprovementResult | null>(null);
   const [copyLabel, setCopyLabel] = useState<"Copy" | "Copied!">("Copy");
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
+  const [showEmptyError, setShowEmptyError] = useState(false);
+  const [jobContextExpanded, setJobContextExpanded] = useState(true);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -48,32 +65,47 @@ export function ResumeLab() {
 
   const runImprove = useCallback(() => {
     const trimmed = input.trim();
-    if (!trimmed) return;
-
+    if (!trimmed) {
+      setShowEmptyError(true);
+      toast.error("Paste a bullet to improve");
+      return;
+    }
+    setShowEmptyError(false);
     setLoading(true);
     setResult(null);
 
     const timer = setTimeout(() => {
-      const details = getBulletImprovementDetails(trimmed);
-      if (!mounted.current) return;
-      setResult(details);
-      setLoading(false);
+      try {
+        const details = getBulletImprovementDetails(trimmed);
+        if (!mounted.current) return;
+        setResult(details);
+        setLoading(false);
+        setResumeLabUsed();
 
-      const entry: HistoryEntry = {
-        id: crypto.randomUUID(),
-        input: trimmed,
-        result: details,
-        createdAt: new Date().toISOString(),
-      };
-      setHistory((prev) => {
-        const next = [entry, ...prev];
-        saveHistory(next);
-        return next;
-      });
+        const entry: HistoryEntry = {
+          id: crypto.randomUUID(),
+          input: trimmed,
+          result: details,
+          createdAt: new Date().toISOString(),
+        };
+        setHistory((prev) => {
+          const next = [entry, ...prev];
+          saveHistory(next);
+          return next;
+        });
+      } catch (e) {
+        if (mounted.current) setLoading(false);
+        console.error("[ResumeLab] improve failed:", e);
+      }
     }, 600);
 
     return () => clearTimeout(timer);
   }, [input]);
+
+  const handleClearHistory = useCallback(() => {
+    setHistory([]);
+    clearHistory();
+  }, []);
 
   const handleCopy = useCallback(() => {
     if (!result?.improved) return;
@@ -85,24 +117,57 @@ export function ResumeLab() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-2xl space-y-10 pb-12">
+      <div className="mx-auto max-w-2xl space-y-6 pb-12">
         {/* Hero */}
         <section className="text-center">
-          <h1 className="text-2xl font-semibold text-white">
+          <h1 className={pageTitle}>
             Upgrade your resume impact
           </h1>
-          <p className="mt-2 text-sm text-white/60">
+          <p className={cn(pageSubtitle, "mt-2")}>
             Paste a bullet and we’ll rewrite it with clarity, metrics, and
             technical depth.
           </p>
         </section>
 
+        {/* Job context (prefilled from Analyzer) */}
+        {jobDescription.trim() && (
+          <section className={cn(card, "overflow-hidden")}>
+            <button
+              type="button"
+              onClick={() => setJobContextExpanded((p) => !p)}
+              className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-white/80 hover:bg-white/5 transition"
+            >
+              Job context (use when tailoring bullets)
+              {jobContextExpanded ? (
+                <ChevronUp className="h-4 w-4 text-white/50" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-white/50" />
+              )}
+            </button>
+            {jobContextExpanded && (
+              <div className="border-t border-white/10 px-4 py-3 max-h-40 overflow-y-auto">
+                <p className="text-sm text-white/70 whitespace-pre-wrap">{jobDescription.slice(0, 2000)}{jobDescription.length > 2000 ? "…" : ""}</p>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Large search-style input */}
         <section className="space-y-4">
-          <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 focus-within:border-white/20 focus-within:ring-1 focus-within:ring-white/10">
-            <textarea
+          <div
+            className={cn(
+              "rounded-xl border px-4 py-3 focus-within:ring-1",
+              showEmptyError
+                ? "border-red-400/50 bg-red-500/5 focus-within:border-red-400/50 focus-within:ring-red-400/20"
+                : "border-white/10 bg-white/5 focus-within:border-white/20 focus-within:ring-white/10"
+            )}
+          >
+            <Textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setShowEmptyError(false);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -111,14 +176,30 @@ export function ResumeLab() {
               }}
               placeholder="Paste a resume bullet to improve it..."
               rows={3}
-              className="w-full resize-none bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none"
+              className="min-h-0 resize-none border-0 bg-transparent p-0 focus:ring-0"
             />
           </div>
-          <button
+          {showEmptyError && (
+            <p className="text-sm text-red-400">Paste a bullet to improve.</p>
+          )}
+          {!input.trim() && !showEmptyError && (
+            <div className={cn(cardAlt, "p-4")}>
+              <p className="text-sm text-white/70">
+                We&apos;ll add metrics, clarity, and technical depth.
+              </p>
+              <p className="mt-2 text-xs text-white/50">Example bullets:</p>
+              <ul className="mt-1.5 space-y-1 text-sm text-white/60">
+                <li>• Built REST API for user authentication</li>
+                <li>• Implemented unit tests with Jest</li>
+              </ul>
+            </div>
+          )}
+          <Button
             type="button"
             onClick={runImprove}
-            disabled={!input.trim() || loading}
-            className="btn-press flex w-full items-center justify-center gap-2 rounded-xl bg-white py-3 text-sm font-semibold text-black transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={loading}
+            className="w-full"
+            variant="primary"
           >
             {loading ? (
               <>
@@ -131,12 +212,12 @@ export function ResumeLab() {
                 Improve
               </>
             )}
-          </button>
+          </Button>
         </section>
 
         {/* Output */}
         {result && !loading && (
-          <section className="animate-fade-in rounded-2xl border border-white/10 bg-white/5 p-6 space-y-6">
+          <section className={cn("animate-fade-in space-y-6", card)}>
             <div>
               <div className="text-xs font-medium uppercase tracking-wider text-white/50">
                 Improved version
@@ -180,15 +261,24 @@ export function ResumeLab() {
         {/* History */}
         {history.length > 0 && (
           <section>
-            <h2 className="text-sm font-semibold text-white/80">
-              Recent improvements
-            </h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-white/80">
+                Recent improvements
+              </h2>
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                className="text-xs font-medium text-white/50 hover:text-white/90 transition"
+              >
+                Clear all
+              </button>
+            </div>
             <ul className="mt-3 space-y-2">
               {history.slice(0, 8).map((entry) => (
-                <li
-                  key={entry.id}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
-                >
+              <li
+                key={entry.id}
+                className={cn(cardAlt, "px-4 py-3 text-sm")}
+              >
                   <p className="text-white/60 line-clamp-1">&ldquo;{entry.input}&rdquo;</p>
                   <p className="mt-1.5 text-white/90 line-clamp-1">
                     → {entry.result.improved}

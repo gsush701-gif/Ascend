@@ -59,7 +59,7 @@ export function Tracker() {
         </div>
 
         <footer className="mt-10 text-center text-xs text-zinc-600">
-          InternOS V1 • Next: smarter extraction + saving to database
+          Ascend • Next: smarter extraction + saving to database
         </footer>
       </Container>
     </PageLayout>

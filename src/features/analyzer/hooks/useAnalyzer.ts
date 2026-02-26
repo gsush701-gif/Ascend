@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { extractTextFromPdf } from "../../../lib/pdf";
-import { HISTORY_KEY } from "../../../types/analyzer";
+import { HISTORY_KEY, LAST_RESUME_KEY } from "../../../types/analyzer";
 import type {
   Report,
   ResumeStrength,
@@ -8,8 +8,10 @@ import type {
 } from "../../../types/analyzer";
 import { setStoredSharePayload } from "../../../lib/shareProfile";
 import { computeResumeStrength } from "../utils";
+import { parseJdRequirements, type ParsedJdRequirements } from "../../../lib/parseJd";
 
 const API_URL = "http://localhost:5050/analyze";
+const JD_MIN_LENGTH = 20;
 
 export function useAnalyzer() {
   const [resume, setResume] = useState<File | null>(null);
@@ -18,6 +20,7 @@ export function useAnalyzer() {
   const [jd, setJd] = useState("");
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
+  const [parsedJdData, setParsedJdData] = useState<ParsedJdRequirements | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [recruiterSimMode, setRecruiterSimMode] = useState(false);
   const [alignmentHistory, setAlignmentHistory] = useState<AlignmentHistoryItem[]>([]);
@@ -50,6 +53,14 @@ export function useAnalyzer() {
   }, [report, resumeStrength?.score, alignmentHistory]);
 
   useEffect(() => {
+    if (resume?.name) {
+      try {
+        localStorage.setItem(LAST_RESUME_KEY, resume.name);
+      } catch {}
+    }
+  }, [resume?.name]);
+
+  useEffect(() => {
     if (!resume) {
       setResumeStrength(null);
       setResumeStrengthLoading(false);
@@ -74,16 +85,27 @@ export function useAnalyzer() {
     };
   }, [resume]);
 
+  const hasValidJd = jd.trim().length >= JD_MIN_LENGTH;
+  const canAnalyzeJdOnly = hasValidJd && !loading;
   const canAnalyze = useMemo(
-    () => !!resume && jd.trim().length >= 20 && !loading,
+    () => !!resume && hasValidJd && !loading,
     [resume, jd, loading]
   );
 
+  /** JD-only: parse locally, no backend. */
+  function onAnalyzeJdOnly() {
+    if (!hasValidJd) return;
+    setAnalyzeError(null);
+    setReport(null);
+    setParsedJdData(parseJdRequirements(jd.trim()));
+  }
+
   async function onAnalyze() {
-    if (!resume) return;
+    if (!resume || !hasValidJd) return;
 
     setLoading(true);
     setReport(null);
+    setParsedJdData(null);
     setAnalyzeError(null);
 
     try {
@@ -136,18 +158,28 @@ export function useAnalyzer() {
     });
   }
 
+  const lastResumeFilename =
+    resume?.name ??
+    (typeof window !== "undefined" ? localStorage.getItem(LAST_RESUME_KEY) : null);
+
   return {
     resume,
     setResume,
+    lastResumeFilename,
     resumeStrength,
     resumeStrengthLoading,
     jd,
     setJd,
     loading,
     report,
+    parsedJdData,
+    setParsedJdData,
     analyzeError,
     canAnalyze,
+    canAnalyzeJdOnly,
+    hasValidJd,
     onAnalyze,
+    onAnalyzeJdOnly,
     recruiterSimMode,
     setRecruiterSimMode,
     alignmentHistory,

@@ -1,9 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { alignmentToPreparedness } from "../lib/preparedness";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
 import { useTracker } from "../features/tracker/hooks/useTracker";
-import type { TrackerStatus, RolePriority } from "../types/tracker";
+import type { TrackerStatus } from "../types/tracker";
 import { MissingSignals } from "../features/analyzer/components/MissingSignals";
 import { ActionsList } from "../features/analyzer/components/ActionsList";
 
@@ -24,7 +25,6 @@ export function RoleDetail() {
     updateNextStep,
     updateNotes,
     updateDeadline,
-    updatePriority,
     removeItem,
   } = useTracker(undefined);
 
@@ -78,9 +78,9 @@ export function RoleDetail() {
                 </div>
                 <div className="text-right">
                   <div className="text-3xl font-semibold tracking-tight text-white">
-                    {alignment}%
+                    {alignmentToPreparedness(alignment)}
                   </div>
-                  <div className="text-xs text-white/55">alignment</div>
+                  <div className="text-xs text-white/55">Preparedness</div>
                 </div>
               </div>
             </Panel>
@@ -108,7 +108,15 @@ export function RoleDetail() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => navigate("/analyzer")}
+                  onClick={() =>
+                    navigate("/analyzer", {
+                      state: {
+                        roleId: item.id,
+                        jobDescription: item.jobDescription,
+                        previousReport: undefined,
+                      },
+                    })
+                  }
                   className="btn-press mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
                 >
                   Analyze this role
@@ -152,24 +160,6 @@ export function RoleDetail() {
                   placeholder="e.g. Feb 15"
                 />
               </div>
-              <div className="mt-4">
-                <label className="block text-xs text-white/55">Priority</label>
-                <select
-                  value={item.priority ?? ""}
-                  onChange={(e) =>
-                    updatePriority(
-                      item.id,
-                      (e.target.value || "") as RolePriority | ""
-                    )
-                  }
-                  className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white focus:border-white/20 focus:outline-none"
-                >
-                  <option value="">—</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
             </Panel>
 
             <Panel title="Notes" subtitle="Free-form notes for this role.">
@@ -185,14 +175,22 @@ export function RoleDetail() {
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={() => navigate("/resume-lab")}
+                onClick={() => navigate("/resume-lab", { state: item.jobDescription ? { jobDescription: item.jobDescription } : undefined })}
                 className="btn-press rounded-xl border border-white/10 bg-white/5 py-2.5 px-4 text-sm font-medium text-white/80 transition hover:bg-white/10"
               >
                 Improve bullets for this role
               </button>
               <button
                 type="button"
-                onClick={() => navigate("/analyzer")}
+                onClick={() =>
+                  navigate("/analyzer", {
+                    state: {
+                      roleId: item.id,
+                      jobDescription: item.jobDescription,
+                      previousReport: snap ? { alignment: snap.alignment, coverage: snap.coverage } : undefined,
+                    },
+                  })
+                }
                 className="btn-press flex-1 rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
               >
                 Re-analyze

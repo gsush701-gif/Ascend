@@ -30,6 +30,8 @@ export type TrackerItem = {
   status: TrackerStatus;
   alignment: number;
   createdAt: string;
+  /** Last modification time; equals createdAt on create. */
+  updatedAt: string;
   nextStep: string;
   /** Full report + history at time of save; present when saved from Analyzer. */
   reportSnapshot?: SavedReportSnapshot;
@@ -39,6 +41,8 @@ export type TrackerItem = {
   deadline?: string;
   /** Optional priority for follow-up. */
   priority?: RolePriority;
+  /** Job description used for analysis; saved when adding from Analyzer, used for Re-analyze. */
+  jobDescription?: string;
 };
 
 export const LS_KEY = "internos_tracker_v1";

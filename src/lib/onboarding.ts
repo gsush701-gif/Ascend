@@ -1,5 +1,8 @@
 const ONBOARDING_DONE_KEY = "internos_onboarding_done_v1";
 const ONBOARDING_DATA_KEY = "internos_onboarding_v1";
+const RESUME_LAB_USED_KEY = "internos_resume_lab_used_v1";
+const CHECKLIST_DISMISSED_KEY = "internos_checklist_dismissed_v1";
+const CHECKLIST_COMPLETE_SHOWN_KEY = "internos_checklist_complete_shown_v1";
 
 export type OnboardingData = {
   major: string;
@@ -36,5 +39,47 @@ export function saveOnboardingData(data: OnboardingData): void {
   try {
     localStorage.setItem(ONBOARDING_DATA_KEY, JSON.stringify(data));
     setOnboardingDone();
+  } catch {}
+}
+
+export function setResumeLabUsed(): void {
+  try {
+    localStorage.setItem(RESUME_LAB_USED_KEY, "true");
+  } catch {}
+}
+
+export function isResumeLabUsed(): boolean {
+  try {
+    return localStorage.getItem(RESUME_LAB_USED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function isChecklistDismissed(): boolean {
+  try {
+    return localStorage.getItem(CHECKLIST_DISMISSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setChecklistDismissed(): void {
+  try {
+    localStorage.setItem(CHECKLIST_DISMISSED_KEY, "true");
+  } catch {}
+}
+
+export function isChecklistCompleteShown(): boolean {
+  try {
+    return localStorage.getItem(CHECKLIST_COMPLETE_SHOWN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setChecklistCompleteShown(): void {
+  try {
+    localStorage.setItem(CHECKLIST_COMPLETE_SHOWN_KEY, "true");
   } catch {}
 }

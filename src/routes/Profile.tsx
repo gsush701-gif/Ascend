@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
+import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
+import { pageHeader, pageTitle, pageSubtitle } from "../lib/ui";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { getOnboardingData } from "../lib/onboarding";
 import {
@@ -36,14 +39,22 @@ export function Profile() {
 
   return (
     <AppShell>
-      <div className="space-y-8">
+      <div className="space-y-6">
+        <header className={pageHeader}>
+          <div>
+            <h1 className={pageTitle}>Profile</h1>
+            <p className={pageSubtitle}>
+              Your identity and share link.
+            </p>
+          </div>
+        </header>
         <Panel
-          title="Profile"
-          subtitle="Your identity and share link."
+          title="Identity"
+          subtitle="Shareable profile and onboarding data."
         >
           <div className="space-y-4">
             {onboarding && (
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm">
+              <div className="rounded-xl border border-white/5 bg-dash-surface p-4 text-sm">
                 <div className="text-xs text-white/55">From onboarding</div>
                 <div className="mt-2 text-white/85">
                   {onboarding.major} · {onboarding.targetRole} ·{" "}
@@ -56,23 +67,24 @@ export function Profile() {
               <p className="mt-1 text-sm text-white/70">
                 Share top skills, resume strength, and alignment history with mentors or peers.
               </p>
-              <input
+              <Input
                 type="text"
                 value={shareSlug}
                 onChange={(e) =>
                   setShareSlugState(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""))
                 }
                 placeholder="username (e.g. sushil)"
-                className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-white/20 focus:outline-none"
+                className="mt-3"
               />
-              <button
+              <Button
                 type="button"
                 onClick={handleGenerateShareLink}
                 disabled={!payload}
-                className="btn-press mt-3 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="primary"
+                className="mt-3"
               >
                 {shareLinkCopied ? "Copied!" : "Generate & copy link"}
-              </button>
+              </Button>
               {!payload && (
                 <p className="mt-2 text-xs text-white/50">
                   Run an analysis first to generate your share link.
@@ -96,19 +108,20 @@ export function Profile() {
         </Panel>
 
         <Panel
-          title="Settings"
-          subtitle="Manage account and data."
+          title="Account"
+          subtitle="Manage settings and data."
         >
           <p className="text-sm text-white/70">
             Update profile, export data, or delete account.
           </p>
-          <button
+          <Button
             type="button"
             onClick={() => navigate("/settings")}
-            className="btn-press mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
+            variant="primary"
+            className="mt-4"
           >
             Open Settings
-          </button>
+          </Button>
         </Panel>
       </div>
     </AppShell>

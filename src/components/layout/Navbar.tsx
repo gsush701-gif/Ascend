@@ -10,7 +10,7 @@ export function Navbar() {
             <span className="text-sm font-semibold">IO</span>
           </div>
           <div>
-            <div className="text-lg font-semibold leading-5">InternOS</div>
+            <div className="text-lg font-semibold leading-5">Ascend</div>
             <div className="text-xs text-zinc-400">Job-Alignment Intelligence</div>
           </div>
         </NavLink>

@@ -214,5 +214,5 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
 // IMPORTANT: this keeps the server alive
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
-  console.log(`InternOS API running on http://localhost:${PORT}`);
+  console.log(`Ascend API running on http://localhost:${PORT}`);
 });

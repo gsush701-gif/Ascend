@@ -14,7 +14,7 @@ export function ResumeUploader({ resume, onResumeChange }: ResumeUploaderProps) 
       <div className="mt-2">
         <div className="text-base font-semibold">Your Resume</div>
         <p className="mt-1 text-xs text-zinc-400">
-          Upload a text-based PDF so InternOS can read your projects and skills
+          Upload a text-based PDF so Ascend can read your projects and skills
           accurately.
         </p>
       </div>

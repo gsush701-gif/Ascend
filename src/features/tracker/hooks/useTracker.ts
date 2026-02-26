@@ -10,7 +10,12 @@ import { LS_KEY } from "../../../types/tracker";
 function loadTrackerFromStorage(): TrackerItem[] {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as TrackerItem[];
+    return parsed.map((x) => ({
+      ...x,
+      updatedAt: (x as TrackerItem & { updatedAt?: string }).updatedAt ?? x.createdAt,
+    }));
   } catch {}
   return [];
 }
@@ -34,21 +39,34 @@ export function useTracker(reportAlignment: number | undefined) {
   function addManualTrackerItem(
     onAdded: (newItemId: string) => void,
     reportSnapshot?: SavedReportSnapshot,
-    options?: { company?: string; role?: string }
+    options?: {
+      company?: string;
+      role?: string;
+      status?: TrackerStatus;
+      nextStep?: string;
+      jobDescription?: string;
+      notes?: string;
+    }
   ) {
     const c = (options?.company ?? company).trim() || "Unknown company";
     const r = (options?.role ?? role).trim() || "Unknown role";
+    const status = options?.status ?? "Wishlist";
+    const next = (options?.nextStep ?? (nextStep || "Apply")).trim();
     setTrackerError(null);
 
+    const now = new Date().toISOString();
     const item: TrackerItem = {
       id: crypto.randomUUID(),
       company: c,
       role: r,
-      status: "Wishlist",
+      status,
       alignment: reportAlignment ?? reportSnapshot?.alignment ?? 0,
-      createdAt: new Date().toISOString(),
-      nextStep: (nextStep || "Apply").trim(),
+      createdAt: now,
+      updatedAt: now,
+      nextStep: next,
       reportSnapshot: reportSnapshot ?? undefined,
+      jobDescription: options?.jobDescription?.trim() || undefined,
+      notes: options?.notes?.trim() || undefined,
     };
 
     const newList = [item, ...tracker];
@@ -66,45 +84,78 @@ export function useTracker(reportAlignment: number | undefined) {
     setTracker((prev) => prev.filter((x) => x.id !== id));
   }
 
+  const touchUpdatedAt = (x: TrackerItem) =>
+    ({ ...x, updatedAt: new Date().toISOString() });
+
   function updateStatus(id: string, status: TrackerStatus) {
     setTracker((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, status } : x))
+      prev.map((x) => (x.id === id ? touchUpdatedAt({ ...x, status }) : x))
     );
   }
 
   function updateNextStep(id: string, next: string) {
     setTracker((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, nextStep: next } : x))
+      prev.map((x) => (x.id === id ? touchUpdatedAt({ ...x, nextStep: next }) : x))
     );
   }
 
   function updateNotes(id: string, notes: string) {
     setTracker((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, notes } : x))
+      prev.map((x) => (x.id === id ? touchUpdatedAt({ ...x, notes }) : x))
     );
   }
 
   function updateRole(id: string, role: string) {
     setTracker((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, role: role.trim() || x.role } : x))
+      prev.map((x) =>
+        x.id === id
+          ? touchUpdatedAt({ ...x, role: role.trim() || x.role })
+          : x
+      )
     );
   }
 
   function updateCompany(id: string, company: string) {
     setTracker((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, company: company.trim() || x.company } : x))
+      prev.map((x) =>
+        x.id === id
+          ? touchUpdatedAt({ ...x, company: company.trim() || x.company })
+          : x
+      )
     );
   }
 
   function updateDeadline(id: string, deadline: string) {
     setTracker((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, deadline: deadline.trim() || undefined } : x))
+      prev.map((x) =>
+        x.id === id
+          ? touchUpdatedAt({ ...x, deadline: deadline.trim() || undefined })
+          : x
+      )
     );
   }
 
   function updatePriority(id: string, priority: RolePriority | "") {
     setTracker((prev) =>
-      prev.map((x) => (x.id === id ? { ...x, priority: priority || undefined } : x))
+      prev.map((x) =>
+        x.id === id
+          ? touchUpdatedAt({ ...x, priority: priority || undefined })
+          : x
+      )
+    );
+  }
+
+  function updateReportSnapshot(id: string, snapshot: SavedReportSnapshot) {
+    setTracker((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? touchUpdatedAt({
+              ...x,
+              alignment: snapshot.alignment,
+              reportSnapshot: snapshot,
+            })
+          : x
+      )
     );
   }
 
@@ -129,5 +180,6 @@ export function useTracker(reportAlignment: number | undefined) {
     updateCompany,
     updateDeadline,
     updatePriority,
+    updateReportSnapshot,
   };
 }

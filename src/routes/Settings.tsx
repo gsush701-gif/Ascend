@@ -1,13 +1,13 @@
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
+import { Input } from "../components/ui/Input";
+import { Button } from "../components/ui/Button";
+import { pageHeader, pageTitle, pageSubtitle } from "../lib/ui";
 import { LS_KEY } from "../types/tracker";
-import {
-  getOnboardingData,
-  saveOnboardingData,
-  type OnboardingData,
-} from "../lib/onboarding";
+import { getOnboardingData, saveOnboardingData } from "../lib/onboarding";
 import { useState } from "react";
+import { toast } from "../components/ui/toast";
 
 export function Settings() {
   const navigate = useNavigate();
@@ -28,11 +28,12 @@ export function Settings() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `internos-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `ascend-export-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
+      toast.success({ title: "Data exported", description: "Your data has been downloaded." });
     } catch {
-      // ignore
+      toast.error({ title: "Export failed", description: "Could not export your data." });
     }
   };
 
@@ -55,11 +56,23 @@ export function Settings() {
 
   return (
     <AppShell>
-      <div className="space-y-8">
+      <div className="space-y-6">
+        <header className={pageHeader}>
+          <div>
+            <h1 className={pageTitle}>Settings</h1>
+            <p className={pageSubtitle}>
+              Manage your account and data.
+            </p>
+          </div>
+        </header>
         <Panel
-          title="Settings"
-          subtitle="Manage your account and data."
-        />
+          title="General"
+          subtitle="Export, resume, and account management."
+        >
+          <p className="text-sm text-white/60">
+            Export data, update your resume, or delete your account.
+          </p>
+        </Panel>
 
         <Panel
           title="Update resume"
@@ -69,13 +82,14 @@ export function Settings() {
             Use the Analyzer to upload a new resume. Each analysis uses the
             resume you upload there.
           </p>
-          <button
+          <Button
             type="button"
             onClick={() => navigate("/analyzer")}
-            className="btn-press mt-4 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
+            variant="primary"
+            className="mt-4"
           >
             Go to Analyzer
-          </button>
+          </Button>
         </Panel>
 
         <Panel
@@ -92,13 +106,14 @@ export function Settings() {
           <p className="text-sm text-white/70">
             Includes applications, alignment history, and onboarding answers.
           </p>
-          <button
+          <Button
             type="button"
             onClick={handleExportData}
-            className="btn-press mt-4 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white/90 transition hover:bg-white/10"
+            variant="secondary"
+            className="mt-4"
           >
             Export data
-          </button>
+          </Button>
         </Panel>
 
         <Panel
@@ -111,30 +126,30 @@ export function Settings() {
                 Are you sure? All tracker items and settings will be deleted.
               </p>
               <div className="flex gap-2">
-                <button
+                <Button
                   type="button"
                   onClick={handleDeleteAccount}
-                  className="btn-press rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-500"
+                  variant="danger"
                 >
                   Yes, delete everything
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
-                  className="btn-press rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
+                  variant="secondary"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
-            <button
+            <Button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="btn-press rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20"
+              variant="dangerOutline"
             >
               Delete account & data
-            </button>
+            </Button>
           )}
         </Panel>
       </div>
@@ -158,45 +173,42 @@ function OnboardingForm() {
       graduationYear: graduationYear.trim() || "Not specified",
     });
     setSaved(true);
+    toast.success({ title: "Profile saved", description: "Your preferences have been updated." });
     setTimeout(() => setSaved(false), 2000);
   };
 
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-white/60">Major / Field</label>
-        <input
+        <label className="block text-xs text-white/50">Major / Field</label>
+        <Input
           type="text"
           value={major}
           onChange={(e) => setMajor(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+          className="mt-1"
         />
       </div>
       <div>
-        <label className="block text-xs text-white/60">Target role</label>
-        <input
+        <label className="block text-xs text-white/50">Target role</label>
+        <Input
           type="text"
           value={targetRole}
           onChange={(e) => setTargetRole(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+          className="mt-1"
         />
       </div>
       <div>
-        <label className="block text-xs text-white/60">Graduation year</label>
-        <input
+        <label className="block text-xs text-white/50">Graduation year</label>
+        <Input
           type="text"
           value={graduationYear}
           onChange={(e) => setGraduationYear(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+          className="mt-1"
         />
       </div>
-      <button
-        type="button"
-        onClick={handleSave}
-        className="btn-press rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
-      >
+      <Button type="button" onClick={handleSave} variant="primary">
         {saved ? "Saved" : "Save profile"}
-      </button>
+      </Button>
     </div>
   );
 }

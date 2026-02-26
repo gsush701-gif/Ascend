@@ -1,58 +1,121 @@
-import { useMemo, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { cn } from "../lib/cn";
 import { AppShell } from "../components/layout/AppShell";
+import { QuickAddModal } from "../components/QuickAddModal";
 import { useTracker } from "../features/tracker/hooks/useTracker";
-import type { TrackerItem, TrackerStatus, RolePriority } from "../types/tracker";
+import { getRecentCompanies, getRecentRoles } from "../lib/dashboardStats";
+import type { TrackerStatus } from "../types/tracker";
+import { Toolbar } from "../components/roles/Toolbar";
+import {
+  RolesTable,
+  type SortKey,
+} from "../components/roles/RolesTable";
+import { RolesTableSkeleton } from "../components/roles/RolesTableSkeleton";
+import { EmptyState } from "../components/ui/EmptyState";
+import { RoleDetailDrawer } from "../components/roles/RoleDetailDrawer";
+import { toast } from "../components/ui/toast";
 
-const STATUS_OPTIONS: TrackerStatus[] = [
-  "Wishlist",
-  "Applied",
-  "Interview",
-  "Offer",
-  "Rejected",
-];
-
-const PRIORITY_OPTIONS: (RolePriority | "")[] = ["", "high", "medium", "low"];
-
-type SortKey =
-  | "role"
-  | "company"
-  | "alignment"
-  | "status"
-  | "deadline"
-  | "priority"
-  | "nextStep";
-
-const STATUS_STYLES: Record<TrackerStatus, string> = {
-  Wishlist: "bg-white/15 text-white/90",
-  Applied: "bg-sky-500/25 text-sky-200",
-  Interview: "bg-amber-500/25 text-amber-200",
-  Offer: "bg-emerald-500/25 text-emerald-200",
-  Rejected: "bg-rose-500/20 text-rose-200",
+const CONVERSION_PCT: Record<TrackerStatus, number> = {
+  Wishlist: 0,
+  Applied: 25,
+  Interview: 50,
+  Offer: 100,
+  Rejected: 0,
 };
 
 export function Roles() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     tracker: items,
+    addManualTrackerItem,
     updateStatus,
-    updateNextStep,
     updateNotes,
+    updateNextStep,
     updateRole,
     updateCompany,
     updateDeadline,
-    updatePriority,
+    removeItem,
   } = useTracker(undefined);
 
-  const [sortKey, setSortKey] = useState<SortKey>("role");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
-  const [statusFilter, setStatusFilter] = useState<TrackerStatus | "all">("all");
+  const [sortKey, setSortKey] = useState<SortKey>(() => {
+    try {
+      const v = localStorage.getItem("internos_roles_sort");
+      if (v) {
+        const [k] = v.split(":");
+        if (k && ["updatedAt","createdAt","deadline","alignment","role","company","status"].includes(k))
+          return k as SortKey;
+      }
+    } catch {}
+    return "updatedAt";
+  });
+  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => {
+    try {
+      const v = localStorage.getItem("internos_roles_sort");
+      if (v && v.endsWith(":asc")) return "asc";
+    } catch {}
+    return "desc";
+  });
+  const [statusFilter, setStatusFilter] = useState<TrackerStatus | "all">(() => {
+    try {
+      const v = localStorage.getItem("internos_roles_status_filter");
+      if (v && (v === "all" || ["Wishlist","Applied","Interview","Offer","Rejected"].includes(v)))
+        return v as TrackerStatus | "all";
+    } catch {}
+    return "all";
+  });
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [editingCell, setEditingCell] = useState<{
     id: string;
     field: string;
   } | null>(null);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showExample, setShowExample] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const state = location.state as { openRoleId?: string } | null;
+    if (state?.openRoleId && items.some((i) => i.id === state.openRoleId)) {
+      setSelectedRoleId(state.openRoleId);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, items, navigate]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("internos_roles_status_filter", statusFilter);
+      localStorage.setItem("internos_roles_sort", `${sortKey}:${sortDir}`);
+    } catch {}
+  }, [statusFilter, sortKey, sortDir]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const handleQuickAdd = useCallback(
+    (company: string, role: string) => {
+      addManualTrackerItem(
+        () => {},
+        undefined,
+        { company, role, status: "Applied", nextStep: "Applied" }
+      );
+      setQuickAddOpen(false);
+      toast.success({
+        title: "Role added",
+        description: `${role} at ${company}`,
+      });
+    },
+    [addManualTrackerItem]
+  );
 
   const filteredAndSorted = useMemo(() => {
     let list = items.filter((item) => {
@@ -85,14 +148,23 @@ export function Roles() {
         case "status":
           cmp = a.status.localeCompare(b.status);
           break;
+        case "conversion":
+          cmp =
+            (CONVERSION_PCT[a.status] ?? 0) - (CONVERSION_PCT[b.status] ?? 0);
+          break;
         case "deadline":
           cmp = (a.deadline ?? "").localeCompare(b.deadline ?? "");
           break;
-        case "priority":
-          cmp = (a.priority ?? "").localeCompare(b.priority ?? "");
-          break;
         case "nextStep":
           cmp = a.nextStep.localeCompare(b.nextStep);
+          break;
+        case "updatedAt":
+          cmp =
+            new Date(a.updatedAt ?? a.createdAt).getTime() -
+            new Date(b.updatedAt ?? b.createdAt).getTime();
+          break;
+        case "createdAt":
+          cmp = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
           break;
         default:
           break;
@@ -113,357 +185,177 @@ export function Roles() {
       const target = e.target as HTMLElement;
       if (
         target.closest("input") ||
-        target.closest("select") ||
+        target.closest("button") ||
         target.closest("textarea") ||
-        target.closest("button")
+        target.closest("select")
       )
         return;
-      navigate(`/roles/${id}`);
+      setSelectedRoleId(id);
     },
-    [navigate]
+    []
+  );
+
+  const selectedItem = selectedRoleId
+    ? items.find((i) => i.id === selectedRoleId)
+    : null;
+
+  const wrappedUpdateStatus = useCallback(
+    (id: string, status: TrackerStatus) => {
+      updateStatus(id, status);
+      toast.success({
+        title: "Status updated",
+        groupId: "status-update",
+      });
+    },
+    [updateStatus]
+  );
+
+  const notesToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (notesToastTimeoutRef.current) clearTimeout(notesToastTimeoutRef.current);
+    },
+    []
+  );
+  const wrappedUpdateNotes = useCallback(
+    (id: string, notes: string) => {
+      updateNotes(id, notes);
+      if (notesToastTimeoutRef.current) clearTimeout(notesToastTimeoutRef.current);
+      notesToastTimeoutRef.current = setTimeout(() => {
+        notesToastTimeoutRef.current = null;
+        toast.success({ title: "Note saved", groupId: "notes-update" });
+      }, 600);
+    },
+    [updateNotes]
   );
 
   return (
     <AppShell>
-      <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-semibold text-white">Roles</h1>
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="text"
-              placeholder="Search roles, company, notes..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full min-w-[180px] max-w-xs rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/20 focus:outline-none sm:w-auto"
-            />
-            <select
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(
-                  e.target.value === "all" ? "all" : (e.target.value as TrackerStatus)
-                )
-              }
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-white/20 focus:outline-none"
-            >
-              <option value="all">All statuses</option>
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => navigate("/analyzer")}
-              className="btn-press inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black transition hover:bg-white/90"
-            >
-              <Plus size={18} />
-              Add role
-            </button>
+      {selectedItem && (
+        <RoleDetailDrawer
+          item={selectedItem}
+          onClose={() => setSelectedRoleId(null)}
+          updateStatus={wrappedUpdateStatus}
+          updateNextStep={updateNextStep}
+          updateNotes={wrappedUpdateNotes}
+          updateDeadline={updateDeadline}
+          removeItem={removeItem}
+        />
+      )}
+      <QuickAddModal
+        isOpen={quickAddOpen}
+        onClose={() => setQuickAddOpen(false)}
+        onAdd={handleQuickAdd}
+        recentCompanies={getRecentCompanies(items)}
+        recentRoles={getRecentRoles(items)}
+      />
+      <div
+        className={cn(
+          "space-y-6 transition-[padding] duration-200 ease-out",
+          selectedItem && "pr-[400px]"
+        )}
+      >
+        {!loading && (
+          <Toolbar
+            searchQuery={searchInput}
+            onSearchChange={setSearchInput}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSortChange={(k, d) => {
+              setSortKey(k);
+              setSortDir(d);
+            }}
+            onAddRole={() => setQuickAddOpen(true)}
+            onAnalyze={() => navigate("/analyzer")}
+            isEmpty={items.length === 0}
+          />
+        )}
+        {loading ? (
+          <RolesTableSkeleton />
+        ) : items.length === 0 && !showExample ? (
+          <EmptyState
+            title="Add your first role"
+            subtitle="Track applications, status, and follow-ups in one place."
+            bullets={[
+              "Track status",
+              "See preparedness",
+              "Stay on top of next steps",
+            ]}
+            primaryAction={{
+              label: "Add role",
+              onClick: () => setQuickAddOpen(true),
+            }}
+            secondaryAction={{
+              label: "Analyze a role",
+              onClick: () => navigate("/analyzer"),
+            }}
+            tertiaryAction={{
+              label: "See example",
+              onClick: () => setShowExample(true),
+            }}
+          />
+        ) : items.length === 0 && showExample ? (
+          <div className="rounded-xl border border-white/5 bg-dash-card p-6 shadow-sm">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-white/50">
+              Example row (not saved)
+            </p>
+            <div className="flex flex-wrap items-center gap-6 rounded-lg border border-white/5 bg-dash-surface p-4">
+              <div>
+                <div className="text-[10px] uppercase text-white/50">Role</div>
+                <div className="text-sm font-medium text-white">SWE Intern</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-white/50">Company</div>
+                <div className="text-sm text-white/80">Acme Corp</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-white/50">Preparedness</div>
+                <div className="text-sm text-white/80">High</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-white/50">Status</div>
+                <span className="inline-flex rounded-md border border-cyan-500/50 bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-300">
+                  Interview
+                </span>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setQuickAddOpen(true)}
+                className="btn-press inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-500 px-4 text-sm font-medium text-black transition hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-[#07090D]"
+              >
+                Add role
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowExample(false)}
+                className="btn-press inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 bg-transparent px-4 text-sm font-medium text-white/90 transition hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-[#07090D]"
+              >
+                Close example
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-left text-sm">
-              <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#07090D]/80 backdrop-blur-xl">
-                <tr>
-                  <SortableTh
-                    label="Role"
-                    sortKey="role"
-                    currentSort={sortKey}
-                    sortDir={sortDir}
-                    onSort={() => handleSort("role")}
-                    className="w-[18%] py-4 pl-5 pr-3 font-medium text-white/70"
-                  />
-                  <SortableTh
-                    label="Company"
-                    sortKey="company"
-                    currentSort={sortKey}
-                    sortDir={sortDir}
-                    onSort={() => handleSort("company")}
-                    className="w-[14%] py-4 px-3 font-medium text-white/70"
-                  />
-                  <SortableTh
-                    label="Alignment"
-                    sortKey="alignment"
-                    currentSort={sortKey}
-                    sortDir={sortDir}
-                    onSort={() => handleSort("alignment")}
-                    className="w-[12%] py-4 px-3 font-medium text-white/70"
-                  />
-                  <SortableTh
-                    label="Status"
-                    sortKey="status"
-                    currentSort={sortKey}
-                    sortDir={sortDir}
-                    onSort={() => handleSort("status")}
-                    className="w-[14%] py-4 px-3 font-medium text-white/70"
-                  />
-                  <SortableTh
-                    label="Deadline"
-                    sortKey="deadline"
-                    currentSort={sortKey}
-                    sortDir={sortDir}
-                    onSort={() => handleSort("deadline")}
-                    className="w-[12%] py-4 px-3 font-medium text-white/70"
-                  />
-                  <SortableTh
-                    label="Priority"
-                    sortKey="priority"
-                    currentSort={sortKey}
-                    sortDir={sortDir}
-                    onSort={() => handleSort("priority")}
-                    className="w-[10%] py-4 px-3 font-medium text-white/70"
-                  />
-                  <th className="w-[20%] py-4 px-3 font-medium text-white/70">
-                    Notes
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredAndSorted.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="py-16 text-center text-white/50"
-                    >
-                      {items.length === 0
-                        ? "No roles yet. Add your first role to get started."
-                        : "No roles match your filters."}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAndSorted.map((item, index) => (
-                    <tr
-                      key={item.id}
-                      onClick={(e) => handleRowClick(item.id, e)}
-                      className={`cursor-pointer border-b border-white/5 transition hover:bg-white/[0.06] hover:shadow-[inset_3px_0_0_0_rgba(255,255,255,0.15)] ${
-                        index % 2 === 1 ? "bg-white/[0.02]" : ""
-                      }`}
-                    >
-                      <td
-                        className="py-3 pl-5 pr-3 align-middle"
-                        onDoubleClick={() =>
-                          setEditingCell({ id: item.id, field: "role" })
-                        }
-                      >
-                        {editingCell?.id === item.id &&
-                        editingCell?.field === "role" ? (
-                          <input
-                            autoFocus
-                            value={item.role}
-                            onChange={(e) =>
-                              updateRole(item.id, e.target.value)
-                            }
-                            onBlur={() => setEditingCell(null)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") setEditingCell(null);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-full rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/30"
-                          />
-                        ) : (
-                          <span className="font-medium text-white/90">
-                            {item.role}
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="py-3 px-3 align-middle"
-                        onDoubleClick={() =>
-                          setEditingCell({ id: item.id, field: "company" })
-                        }
-                      >
-                        {editingCell?.id === item.id &&
-                        editingCell?.field === "company" ? (
-                          <input
-                            autoFocus
-                            value={item.company}
-                            onChange={(e) =>
-                              updateCompany(item.id, e.target.value)
-                            }
-                            onBlur={() => setEditingCell(null)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") setEditingCell(null);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="w-full rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/30"
-                          />
-                        ) : (
-                          <span className="text-white/80">{item.company}</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 align-middle">
-                        <AlignmentCell
-                          value={
-                            item.reportSnapshot?.alignment ?? item.alignment
-                          }
-                        />
-                      </td>
-                      <td
-                        className="py-3 px-3 align-middle"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <select
-                          value={item.status}
-                          onChange={(e) =>
-                            updateStatus(
-                              item.id,
-                              e.target.value as TrackerStatus
-                            )
-                          }
-                          className={`rounded-lg border-0 px-2 py-1.5 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-white/30 ${STATUS_STYLES[item.status]}`}
-                        >
-                          {STATUS_OPTIONS.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td
-                        className="py-3 px-3 align-middle"
-                        onDoubleClick={() =>
-                          setEditingCell({ id: item.id, field: "deadline" })
-                        }
-                      >
-                        {editingCell?.id === item.id &&
-                        editingCell?.field === "deadline" ? (
-                          <input
-                            autoFocus
-                            value={item.deadline ?? ""}
-                            onChange={(e) =>
-                              updateDeadline(item.id, e.target.value)
-                            }
-                            onBlur={() => setEditingCell(null)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") setEditingCell(null);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="e.g. Feb 15"
-                            className="w-full rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/30"
-                          />
-                        ) : (
-                          <span className="text-white/70">
-                            {item.deadline || "—"}
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        className="py-3 px-3 align-middle"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <select
-                          value={item.priority ?? ""}
-                          onChange={(e) =>
-                            updatePriority(
-                              item.id,
-                              e.target.value as RolePriority | ""
-                            )
-                          }
-                          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white/80 focus:border-white/20 focus:outline-none"
-                        >
-                          {PRIORITY_OPTIONS.map((p) => (
-                            <option key={p || "none"} value={p}>
-                              {p || "—"}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td
-                        className="py-3 px-3 align-middle"
-                        onDoubleClick={() =>
-                          setEditingCell({ id: item.id, field: "notes" })
-                        }
-                      >
-                        {editingCell?.id === item.id &&
-                        editingCell?.field === "notes" ? (
-                          <textarea
-                            autoFocus
-                            value={item.notes ?? ""}
-                            onChange={(e) =>
-                              updateNotes(item.id, e.target.value)
-                            }
-                            onBlur={() => setEditingCell(null)}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="Notes..."
-                            rows={2}
-                            className="w-full rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-white/30 resize-none"
-                          />
-                        ) : (
-                          <span
-                            className="block max-w-[200px] truncate text-white/60"
-                            title={item.notes ?? ""}
-                          >
-                            {item.notes || "—"}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        ) : (
+        <RolesTable
+          items={items}
+          filteredAndSorted={filteredAndSorted}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          editingCell={editingCell}
+          onEditingCellChange={setEditingCell}
+          onRowClick={handleRowClick}
+          updateStatus={wrappedUpdateStatus}
+          updateNotes={wrappedUpdateNotes}
+          updateRole={updateRole}
+          updateCompany={updateCompany}
+          updateDeadline={updateDeadline}
+        />
+        )}
       </div>
     </AppShell>
-  );
-}
-
-function SortableTh({
-  label,
-  sortKey,
-  currentSort,
-  sortDir,
-  onSort,
-  className,
-}: {
-  label: string;
-  sortKey: SortKey;
-  currentSort: SortKey;
-  sortDir: "asc" | "desc";
-  onSort: () => void;
-  className?: string;
-}) {
-  const isActive = currentSort === sortKey;
-  return (
-    <th className={className}>
-      <button
-        type="button"
-        onClick={onSort}
-        className="flex items-center gap-1.5 transition hover:text-white"
-      >
-        {label}
-        {isActive && (
-          <span className="text-white/50">
-            {sortDir === "asc" ? "↑" : "↓"}
-          </span>
-        )}
-      </button>
-    </th>
-  );
-}
-
-function AlignmentCell({ value }: { value: number }) {
-  const pct = Math.max(0, Math.min(100, value));
-  const color =
-    pct >= 70
-      ? "bg-emerald-500/80"
-      : pct >= 50
-        ? "bg-amber-500/70"
-        : "bg-white/50";
-
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-white/90">{pct}%</span>
-      <div className="h-1.5 w-14 overflow-hidden rounded-full bg-white/10">
-        <div
-          className={`h-full rounded-full transition-[width] duration-300 ${color}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
   );
 }

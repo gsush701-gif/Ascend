@@ -74,28 +74,90 @@ export function getTangibleResumeExample(actionOrSignal: string): string {
   return "Added measurable outcome: e.g. 'Shipped X that led to Y result'";
 }
 
+const BULLET_VARIATIONS: Record<string, string[]> = {
+  rest_api: [
+    "Built REST API using Express and MongoDB, serving 2k+ monthly requests with 99% uptime.",
+    "Developed RESTful API with Express/Node.js; handled 2k+ requests/month, 99% uptime.",
+    "Built REST API (Express, MongoDB) serving 2k+ requests/month with 99% uptime.",
+    "Created REST API using Node/Express; 2k+ monthly requests, JWT auth, error handling.",
+    "Built scalable REST API (Express + MongoDB); 99% uptime, 2k+ requests/month.",
+    "Developed REST API with Express; 2k+ monthly requests, 99% uptime, documented endpoints.",
+    "Built REST API (Node/Express, MongoDB); 2k+ requests/month, rate limiting, 99% uptime.",
+  ],
+  react_frontend: [
+    "Built React frontend with 12+ reusable components and Context state, improving page load by 30%.",
+    "Developed React UI with 12+ components; Context state, 30% faster load, responsive design.",
+    "Built React app with reusable components and hooks; reduced initial load by 30%.",
+    "Created React dashboard with 12+ components; Context + custom hooks, 30% page load improvement.",
+    "Developed React frontend; component library, state management, 30% performance gain.",
+    "Built React SPA with 12+ components; lazy loading, 30% load improvement.",
+    "Developed React UI (hooks, Context); 12+ components, 30% faster load time.",
+  ],
+  deploy: [
+    "Deployed app to Render/Vercel with CI/CD; 99% uptime, 2k+ requests/month.",
+    "Deployed to Vercel/Render with GitHub Actions; 99% uptime, 2k+ monthly requests.",
+    "Set up deployment (Vercel/Render) with CI/CD; 99% uptime, 2k+ requests/month.",
+    "Deployed app via Vercel; CI/CD from main, 99% uptime, 2k+ requests/month.",
+    "Configured deployment (Render/Vercel) with CI/CD pipeline; 99% uptime.",
+    "Deployed to production (Vercel/Render); automated builds, 2k+ requests/month.",
+    "Set up Vercel/Render deployment with CI/CD; 99% uptime, 2k+ requests/month.",
+  ],
+  test: [
+    "Added unit tests with Jest; 85% coverage, caught 4 regressions before production.",
+    "Implemented Jest unit tests; 85% coverage, prevented 4 regressions pre-merge.",
+    "Wrote unit tests (Jest); 85% coverage, caught 4 bugs before release.",
+    "Added Jest tests for critical paths; 85% coverage, 4 regressions caught.",
+    "Built test suite with Jest; 85% coverage, regression prevention.",
+    "Implemented Jest unit tests; 85% coverage, 4 regressions caught pre-deploy.",
+    "Added Jest tests; 85% coverage, 4 regressions prevented before production.",
+  ],
+  database: [
+    "Designed and queried database (PostgreSQL/MongoDB); 5 tables, indexed for main flows.",
+    "Built database layer (PostgreSQL); 5 tables, indexes, optimized main queries.",
+    "Designed PostgreSQL schema and migrations; 5 tables, indexed for core flows.",
+    "Implemented database layer (MongoDB/PostgreSQL); 5 tables, query optimization.",
+    "Designed and maintained DB schema (PostgreSQL); 5 tables, indexes for key queries.",
+    "Built database models and migrations; 5 tables, indexed for performance.",
+    "Designed PostgreSQL schema; 5 tables, indexes for main access patterns.",
+  ],
+  fullstack: [
+    "Built full-stack feature (API + UI + DB); shipped in 2 sprints, used by 500+ users.",
+    "Developed full-stack feature end-to-end; API, UI, DB; 2 sprints, 500+ users.",
+    "Shipped full-stack feature (API + frontend + DB); 2 sprints, 500+ active users.",
+    "Built full-stack feature from DB to UI; shipped in 2 sprints, 500+ users.",
+    "Developed full-stack feature (API, UI, DB); 2 sprints, used by 500+ users.",
+    "Implemented full-stack feature; API + React + DB; 2 sprints, 500+ users.",
+    "Built end-to-end feature (API, UI, DB); 2 sprints, 500+ users.",
+  ],
+  built_generic: [
+    "{base} using modern stack, serving 1k+ users with measurable impact.",
+    "{base}; shipped to 1k+ users, measurable impact.",
+    "{base} with modern stack; 1k+ users, quantified results.",
+    "{base}; scale (1k+ users), measurable outcomes.",
+    "{base} — modern stack, 1k+ users, clear impact.",
+    "{base}; deployed to 1k+ users with measurable impact.",
+  ],
+  implemented: [
+    "{base}; reduced latency by 25% and improved reliability.",
+    "{base}; 25% latency reduction, improved reliability.",
+    "{base}; improved performance (25% faster) and reliability.",
+    "{base}; 25% latency improvement, reliability gains.",
+    "{base}; performance and reliability improvements.",
+    "{base}; 25% faster, more reliable.",
+  ],
+  fallback: [
+    "{base} — add tech stack, scale (e.g. 2k+ requests), and outcome (e.g. 99% uptime).",
+    "{base}; consider adding tech stack, scale (2k+ requests), and measurable outcome.",
+    "{base} — strengthen with: stack, scale (2k+ requests), impact (99% uptime).",
+    "{base}; add: technology, scale metrics, outcome (e.g. 99% uptime).",
+    "{base} — enhance with tech details, numbers, and impact.",
+    "{base}; add quantified impact and tech stack.",
+  ],
+};
+
 export function improveResumeBullet(bullet: string): string {
-  const t = bullet.trim().toLowerCase();
-  if (!t) return "Add a bullet to improve (e.g. \"Built REST API\").";
-  if (t.includes("rest") && t.includes("api"))
-    return "Built REST API using Express and MongoDB, serving 2k+ monthly requests with 99% uptime.";
-  if (t.includes("api") && (t.includes("built") || t.includes("created") || t.length < 30))
-    return "Built REST API using Express and MongoDB, serving 2k+ monthly requests with 99% uptime.";
-  if (t.includes("react") || t.includes("frontend"))
-    return "Built React frontend with 12+ reusable components and Context state, improving page load by 30%.";
-  if (t.includes("deploy") || t.includes("host"))
-    return "Deployed app to Render/Vercel with CI/CD; 99% uptime, 2k+ requests/month.";
-  if (t.includes("test") || t.includes("jest") || t.includes("unit"))
-    return "Added unit tests with Jest; 85% coverage, caught 4 regressions before production.";
-  if (t.includes("database") || t.includes("sql") || t.includes("mongodb") || t.includes("postgres"))
-    return "Designed and queried database (PostgreSQL/MongoDB); 5 tables, indexed for main flows.";
-  if (t.includes("full-stack") || t.includes("full stack"))
-    return "Built full-stack feature (API + UI + DB); shipped in 2 sprints, used by 500+ users.";
-  if (t.includes("built") && t.length < 40)
-    return `${bullet.trim()} using modern stack, serving 1k+ users with measurable impact.`;
-  if (t.includes("implemented") || t.includes("developed"))
-    return `${bullet.trim()}; reduced latency by 25% and improved reliability.`;
-  return `${bullet.trim()} — add tech stack, scale (e.g. 2k+ requests), and outcome (e.g. 99% uptime).`;
+  const variations = getBulletImprovementVariations(bullet);
+  return variations[0] ?? bullet;
 }
 
 export type BulletImprovementResult = {
@@ -105,9 +167,32 @@ export type BulletImprovementResult = {
   impact: string;
 };
 
+function getBulletImprovementVariations(bullet: string): string[] {
+  const t = bullet.trim().toLowerCase();
+  const base = bullet.trim();
+  if (!t) return ["Add a bullet to improve (e.g. \"Built REST API\")."];
+
+  if (t.includes("rest") || t.includes("api")) return BULLET_VARIATIONS.rest_api;
+  if (t.includes("react") || t.includes("frontend")) return BULLET_VARIATIONS.react_frontend;
+  if (t.includes("deploy") || t.includes("host")) return BULLET_VARIATIONS.deploy;
+  if (t.includes("test") || t.includes("jest") || t.includes("unit")) return BULLET_VARIATIONS.test;
+  if (t.includes("database") || t.includes("sql") || t.includes("mongodb") || t.includes("postgres"))
+    return BULLET_VARIATIONS.database;
+  if (t.includes("full-stack") || t.includes("full stack")) return BULLET_VARIATIONS.fullstack;
+
+  if (t.includes("built") && t.length < 40)
+    return BULLET_VARIATIONS.built_generic.map((s) => s.replace("{base}", base));
+  if (t.includes("implemented") || t.includes("developed"))
+    return BULLET_VARIATIONS.implemented.map((s) => s.replace("{base}", base));
+
+  return BULLET_VARIATIONS.fallback.map((s) => s.replace("{base}", base));
+}
+
 export function getBulletImprovementDetails(bullet: string): BulletImprovementResult {
   const t = bullet.trim().toLowerCase();
-  const improved = improveResumeBullet(bullet);
+  const all = getBulletImprovementVariations(bullet);
+  const idx = Math.floor(Math.random() * all.length);
+  const improved = all[idx] ?? bullet.trim();
 
   let stack = "—";
   let impact = "—";
@@ -129,7 +214,7 @@ export function getBulletImprovementDetails(bullet: string): BulletImprovementRe
   } else if (t.includes("full-stack") || t.includes("full stack")) {
     stack = "API + UI + DB";
     impact = "500+ users, 2 sprints";
-  } else if (improved !== bullet.trim()) {
+  } else if (all[0] !== bullet.trim()) {
     stack = "Tech stack suggested";
     impact = "Scale + outcome suggested";
   }

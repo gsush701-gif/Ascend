@@ -1,0 +1,443 @@
+import { DarkSelect } from "../ui/DarkSelect";
+import { Tooltip } from "../ui/Tooltip";
+import { ProgressCell } from "./ProgressCell";
+import { cn } from "../../lib/cn";
+import type { TrackerItem, TrackerStatus } from "../../types/tracker";
+
+const STATUS_OPTIONS: TrackerStatus[] = [
+  "Wishlist",
+  "Applied",
+  "Interview",
+  "Offer",
+  "Rejected",
+];
+
+const CONVERSION_PCT: Record<TrackerStatus, number> = {
+  Wishlist: 0,
+  Applied: 25,
+  Interview: 50,
+  Offer: 100,
+  Rejected: 0,
+};
+
+/** Muted pill styles for status dropdown - matches StatusPill */
+const STATUS_SELECT_STYLES: Record<TrackerStatus, string> = {
+  Wishlist: "border-white/15 bg-white/5 text-white/70",
+  Applied: "border-slate-500/40 bg-slate-500/20 text-slate-300",
+  Interview: "border-slate-400/40 bg-slate-400/20 text-slate-300",
+  Offer: "border-cyan-500/50 bg-cyan-500/20 text-cyan-300",
+  Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-400",
+};
+
+export type SortKey =
+  | "role"
+  | "company"
+  | "alignment"
+  | "status"
+  | "conversion"
+  | "deadline"
+  | "nextStep"
+  | "updatedAt"
+  | "createdAt";
+
+type RolesTableProps = {
+  items: TrackerItem[];
+  filteredAndSorted: TrackerItem[];
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+  editingCell: { id: string; field: string } | null;
+  onEditingCellChange: (cell: { id: string; field: string } | null) => void;
+  onRowClick: (id: string, e: React.MouseEvent) => void;
+  updateStatus: (id: string, status: TrackerStatus) => void;
+  updateNotes: (id: string, notes: string) => void;
+  updateRole: (id: string, role: string) => void;
+  updateCompany: (id: string, company: string) => void;
+  updateDeadline: (id: string, deadline: string) => void;
+};
+
+export function RolesTable({
+  items,
+  filteredAndSorted,
+  sortKey,
+  sortDir,
+  onSort,
+  editingCell,
+  onEditingCellChange,
+  onRowClick,
+  updateStatus,
+  updateNotes,
+  updateRole,
+  updateCompany,
+  updateDeadline,
+}: RolesTableProps) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/5 bg-dash-card shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[600px] text-left text-sm">
+          <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#07090D]/95 backdrop-blur-sm">
+            <tr>
+              <SortableTh
+                label="Role"
+                sortKey="role"
+                currentSort={sortKey}
+                sortDir={sortDir}
+                onSort={() => onSort("role")}
+                className="min-w-[140px] py-3 pl-4 pr-3"
+              />
+              <SortableTh
+                label="Company"
+                sortKey="company"
+                currentSort={sortKey}
+                sortDir={sortDir}
+                onSort={() => onSort("company")}
+                className="min-w-[110px] py-3 px-3"
+              />
+              <SortableTh
+                label="Preparedness"
+                sortKey="alignment"
+                currentSort={sortKey}
+                sortDir={sortDir}
+                onSort={() => onSort("alignment")}
+                className="hidden min-w-[90px] py-3 px-3 md:table-cell"
+              />
+              <SortableTh
+                label="Status"
+                sortKey="status"
+                currentSort={sortKey}
+                sortDir={sortDir}
+                onSort={() => onSort("status")}
+                className="min-w-[100px] py-3 px-3"
+              />
+              <SortableTh
+                label="Conversion"
+                sortKey="conversion"
+                currentSort={sortKey}
+                sortDir={sortDir}
+                onSort={() => onSort("conversion")}
+                className="hidden min-w-[90px] py-3 px-3 md:table-cell"
+              />
+              <SortableTh
+                label="Deadline"
+                sortKey="deadline"
+                currentSort={sortKey}
+                sortDir={sortDir}
+                onSort={() => onSort("deadline")}
+                className="hidden min-w-[80px] py-3 px-3 lg:table-cell"
+              />
+              <th className="hidden min-w-[120px] py-3 px-3 font-medium text-white/50 xl:table-cell">
+                Notes
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredAndSorted.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  className="py-12 text-center text-sm text-white/50"
+                >
+                  {items.length === 0
+                    ? "No roles yet. Add your first role to get started."
+                    : "No roles match your filters."}
+                </td>
+              </tr>
+            ) : (
+              filteredAndSorted.map((item, index) => (
+                <tr
+                  key={item.id}
+                  onClick={(e) => onRowClick(item.id, e)}
+                  className={`group cursor-pointer border-b border-white/5 transition-colors duration-150 hover:bg-white/5 ${
+                    index % 2 === 1 ? "bg-white/[0.02]" : ""
+                  }`}
+                >
+                  <RoleCell
+                    item={item}
+                    editingCell={editingCell}
+                    onEditingChange={onEditingCellChange}
+                    updateRole={updateRole}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <CompanyCell
+                    item={item}
+                    editingCell={editingCell}
+                    onEditingChange={onEditingCellChange}
+                    updateCompany={updateCompany}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <td className="hidden py-2.5 px-3 align-middle md:table-cell">
+                    <ProgressCell
+                      value={
+                        item.reportSnapshot?.alignment ?? item.alignment ?? 0
+                      }
+                      variant="alignment"
+                    />
+                  </td>
+                  <td
+                    className="py-2.5 px-3 align-middle"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex">
+                      <DarkSelect
+                        value={item.status}
+                        onChange={(v) =>
+                          updateStatus(item.id, v as TrackerStatus)
+                        }
+                        options={STATUS_OPTIONS.map((s) => ({
+                          value: s,
+                          label: s,
+                        }))}
+                        buttonClassName={`h-8 rounded-md border px-2 py-1 text-xs font-medium ${STATUS_SELECT_STYLES[item.status]}`}
+                      />
+                    </div>
+                  </td>
+                  <td className="hidden py-2.5 px-3 align-middle md:table-cell">
+                    <ProgressCell
+                      value={CONVERSION_PCT[item.status]}
+                      variant="conversion"
+                    />
+                  </td>
+                  <DeadlineCell
+                    item={item}
+                    editingCell={editingCell}
+                    onEditingChange={onEditingCellChange}
+                    updateDeadline={updateDeadline}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <NotesCell
+                    item={item}
+                    editingCell={editingCell}
+                    onEditingChange={onEditingCellChange}
+                    updateNotes={updateNotes}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SortableTh({
+  label,
+  sortKey,
+  currentSort,
+  sortDir,
+  onSort,
+  className,
+}: {
+  label: string;
+  sortKey: SortKey;
+  currentSort: SortKey;
+  sortDir: "asc" | "desc";
+  onSort: () => void;
+  className?: string;
+}) {
+  const isActive = currentSort === sortKey;
+  return (
+    <th className={className}>
+      <button
+        type="button"
+        onClick={onSort}
+        className="flex items-center gap-1.5 font-medium text-white/50 transition hover:text-white/80 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#07090D]"
+      >
+        {label}
+        {isActive && (
+          <span className="text-white/40">{sortDir === "asc" ? "↑" : "↓"}</span>
+        )}
+      </button>
+    </th>
+  );
+}
+
+const INPUT_CLASS =
+  "w-full rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/30";
+
+function RoleCell({
+  item,
+  editingCell,
+  onEditingChange,
+  updateRole,
+  onClick,
+}: {
+  item: TrackerItem;
+  editingCell: { id: string; field: string } | null;
+  onEditingChange: (c: { id: string; field: string } | null) => void;
+  updateRole: (id: string, role: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const editing = editingCell?.id === item.id && editingCell?.field === "role";
+  return (
+    <td
+      className="py-2.5 pl-4 pr-3 align-middle"
+      onDoubleClick={() => onEditingChange({ id: item.id, field: "role" })}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          value={item.role}
+          onChange={(e) => updateRole(item.id, e.target.value)}
+          onBlur={() => onEditingChange(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onEditingChange(null);
+          }}
+          onClick={onClick}
+          className={INPUT_CLASS}
+        />
+      ) : (
+        <span
+          className="block max-w-[160px] truncate font-medium text-white/90"
+          title={item.role}
+        >
+          {item.role}
+        </span>
+      )}
+    </td>
+  );
+}
+
+function CompanyCell({
+  item,
+  editingCell,
+  onEditingChange,
+  updateCompany,
+  onClick,
+}: {
+  item: TrackerItem;
+  editingCell: { id: string; field: string } | null;
+  onEditingChange: (c: { id: string; field: string } | null) => void;
+  updateCompany: (id: string, company: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const editing =
+    editingCell?.id === item.id && editingCell?.field === "company";
+  return (
+    <td
+      className="py-2.5 px-3 align-middle"
+      onDoubleClick={() => onEditingChange({ id: item.id, field: "company" })}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          value={item.company}
+          onChange={(e) => updateCompany(item.id, e.target.value)}
+          onBlur={() => onEditingChange(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onEditingChange(null);
+          }}
+          onClick={onClick}
+          className={INPUT_CLASS}
+        />
+      ) : (
+        <span
+          className="block max-w-[120px] truncate text-white/80"
+          title={item.company}
+        >
+          {item.company}
+        </span>
+      )}
+    </td>
+  );
+}
+
+function DeadlineCell({
+  item,
+  editingCell,
+  onEditingChange,
+  updateDeadline,
+  onClick,
+}: {
+  item: TrackerItem;
+  editingCell: { id: string; field: string } | null;
+  onEditingChange: (c: { id: string; field: string } | null) => void;
+  updateDeadline: (id: string, deadline: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const editing =
+    editingCell?.id === item.id && editingCell?.field === "deadline";
+  return (
+    <td
+      className="hidden py-2.5 px-3 align-middle lg:table-cell"
+      onDoubleClick={() => onEditingChange({ id: item.id, field: "deadline" })}
+    >
+      {editing ? (
+        <input
+          autoFocus
+          value={item.deadline ?? ""}
+          onChange={(e) => updateDeadline(item.id, e.target.value)}
+          onBlur={() => onEditingChange(null)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onEditingChange(null);
+          }}
+          onClick={onClick}
+          placeholder="e.g. Feb 15"
+          className={`${INPUT_CLASS} placeholder:text-white/40`}
+        />
+      ) : (
+        <span
+          title={!item.deadline ? "Double-click to add" : undefined}
+          className={cn(
+            "transition-colors duration-150",
+            item.deadline ? "text-white/50" : "italic text-white/40 group-hover:text-white/55"
+          )}
+        >
+          {item.deadline || "Set deadline"}
+        </span>
+      )}
+    </td>
+  );
+}
+
+function NotesCell({
+  item,
+  editingCell,
+  onEditingChange,
+  updateNotes,
+  onClick,
+}: {
+  item: TrackerItem;
+  editingCell: { id: string; field: string } | null;
+  onEditingChange: (c: { id: string; field: string } | null) => void;
+  updateNotes: (id: string, notes: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+}) {
+  const editing =
+    editingCell?.id === item.id && editingCell?.field === "notes";
+  const notes = item.notes ?? "";
+  const display = notes || "Add note";
+  const isEmpty = !notes;
+
+  return (
+    <td
+      className="hidden py-2.5 px-3 align-middle xl:table-cell"
+      onDoubleClick={() => onEditingChange({ id: item.id, field: "notes" })}
+    >
+      {editing ? (
+        <textarea
+          autoFocus
+          value={notes}
+          onChange={(e) => updateNotes(item.id, e.target.value)}
+          onBlur={() => onEditingChange(null)}
+          onClick={onClick}
+          placeholder="Notes..."
+          rows={2}
+          className={`${INPUT_CLASS} max-w-[180px] resize-none placeholder:text-white/40`}
+        />
+      ) : (
+        <Tooltip content={isEmpty ? "Double-click to add" : notes} disabled={false}>
+          <span
+            className={cn(
+              "block max-w-[160px] truncate transition-colors duration-150",
+              isEmpty ? "italic text-white/40 group-hover:text-white/55" : "text-white/50"
+            )}
+          >
+            {display}
+          </span>
+        </Tooltip>
+      )}
+    </td>
+  );
+}

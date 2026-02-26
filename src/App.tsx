@@ -1,16 +1,15 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import type { SharedProfileData } from "./types/analyzer";
+
 import { ProfileView } from "./components/ProfileView";
 import { Landing } from "./routes/Landing";
 import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
-import { Tracker } from "./routes/Tracker";
 import { Roles } from "./routes/Roles";
 import { RoleDetail } from "./routes/RoleDetail";
 import { Profile } from "./routes/Profile";
 import { ResumeLab } from "./routes/ResumeLab";
-import { Insights } from "./routes/Insights";
 import { Settings } from "./routes/Settings";
 import { Login } from "./routes/Login";
 import { Signup } from "./routes/Signup";
@@ -51,20 +50,16 @@ export default function App() {
     setSharedProfileView(null);
   }, [location.pathname, location.search]);
 
-  if (sharedProfileView) {
-    return (
-      <ProfileView
-        username={sharedProfileView.username}
-        data={sharedProfileView.data}
-        onBack={() => {
-          setSharedProfileView(null);
-          window.history.replaceState(null, "", "/");
-        }}
-      />
-    );
-  }
-
-  return (
+  const mainContent = sharedProfileView ? (
+    <ProfileView
+      username={sharedProfileView.username}
+      data={sharedProfileView.data}
+      onBack={() => {
+        setSharedProfileView(null);
+        window.history.replaceState(null, "", "/");
+      }}
+    />
+  ) : (
     <Routes>
       {/* Public */}
       <Route path="/" element={<Landing />} />
@@ -78,8 +73,10 @@ export default function App() {
       <Route path="/tracker" element={<Navigate to="/roles" replace />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/resume-lab" element={<ResumeLab />} />
-      <Route path="/insights" element={<Insights />} />
+      <Route path="/insights" element={<Navigate to="/dashboard" replace />} />
       <Route path="/settings" element={<Settings />} />
     </Routes>
   );
+
+  return <>{mainContent}</>;
 }

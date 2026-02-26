@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   saveOnboardingData,
@@ -14,6 +14,22 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const [major, setMajor] = useState("");
   const [targetRole, setTargetRole] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
+
+  const handleSkip = () => {
+    saveOnboardingData({ major: "Skipped", targetRole: "Skipped", graduationYear: "Skipped" });
+    onComplete();
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        saveOnboardingData({ major: "Skipped", targetRole: "Skipped", graduationYear: "Skipped" });
+        onComplete();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onComplete]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +47,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-3xl border border-white/10 bg-[#0c0e12] p-8 shadow-2xl">
         <h2 className="text-2xl font-semibold text-white">
-          Welcome to InternOS
+          Welcome to Ascend
         </h2>
         <p className="mt-2 text-sm text-white/60">
           A few details help us personalize your experience.
@@ -73,12 +89,21 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/20"
             />
           </div>
-          <button
-            type="submit"
-            className="btn-press w-full rounded-xl bg-white py-3 text-sm font-semibold text-black transition hover:bg-white/90"
-          >
-            Get started
-          </button>
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              className="btn-press flex-1 rounded-xl bg-white py-3 text-sm font-semibold text-black transition hover:bg-white/90"
+            >
+              Get started
+            </button>
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="btn-press rounded-xl border border-white/20 bg-white/5 py-3 px-4 text-sm font-medium text-white/70 transition hover:bg-white/10"
+            >
+              Skip
+            </button>
+          </div>
         </form>
       </div>
     </div>
