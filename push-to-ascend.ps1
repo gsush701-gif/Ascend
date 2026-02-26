@@ -15,7 +15,7 @@ if (-not $branchExists) {
 } else {
   git checkout AscendV1
 }
-
+#git changes
 Write-Host "`n=== 3. Staging all changes ===" -ForegroundColor Cyan
 git add -A
 
