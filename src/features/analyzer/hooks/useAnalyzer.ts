@@ -8,22 +8,32 @@ import type {
 } from "../../../types/analyzer";
 import { setStoredSharePayload } from "../../../lib/shareProfile";
 import { computeResumeStrength } from "../utils";
-import { parseJdRequirements, type ParsedJdRequirements } from "../../../lib/parseJd";
+import {
+  parseJdRequirements,
+  type ParsedJdRequirements,
+} from "../../../lib/parseJd";
+import { API_BASE } from "../../../config/api";
 
-const API_URL = "http://localhost:5050/analyze";
+const API_URL = `${API_BASE}/analyze`;
 const JD_MIN_LENGTH = 20;
 
 export function useAnalyzer() {
   const [resume, setResume] = useState<File | null>(null);
-  const [resumeStrength, setResumeStrength] = useState<ResumeStrength | null>(null);
+  const [resumeStrength, setResumeStrength] = useState<ResumeStrength | null>(
+    null,
+  );
   const [resumeStrengthLoading, setResumeStrengthLoading] = useState(false);
   const [jd, setJd] = useState("");
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
-  const [parsedJdData, setParsedJdData] = useState<ParsedJdRequirements | null>(null);
+  const [parsedJdData, setParsedJdData] = useState<ParsedJdRequirements | null>(
+    null,
+  );
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [recruiterSimMode, setRecruiterSimMode] = useState(false);
-  const [alignmentHistory, setAlignmentHistory] = useState<AlignmentHistoryItem[]>([]);
+  const [alignmentHistory, setAlignmentHistory] = useState<
+    AlignmentHistoryItem[]
+  >([]);
   const [shareSlug, setShareSlug] = useState("");
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
 
@@ -89,7 +99,7 @@ export function useAnalyzer() {
   const canAnalyzeJdOnly = hasValidJd && !loading;
   const canAnalyze = useMemo(
     () => !!resume && hasValidJd && !loading,
-    [resume, jd, loading]
+    [resume, jd, loading],
   );
 
   /** JD-only: parse locally, no backend. */
@@ -134,7 +144,7 @@ export function useAnalyzer() {
       });
     } catch {
       setAnalyzeError(
-        "Could not reach backend. Is server running on http://localhost:5050 ?"
+        `Could not reach backend. Is server running on ${API_BASE}?`,
       );
     } finally {
       setLoading(false);
@@ -160,7 +170,9 @@ export function useAnalyzer() {
 
   const lastResumeFilename =
     resume?.name ??
-    (typeof window !== "undefined" ? localStorage.getItem(LAST_RESUME_KEY) : null);
+    (typeof window !== "undefined"
+      ? localStorage.getItem(LAST_RESUME_KEY)
+      : null);
 
   return {
     resume,

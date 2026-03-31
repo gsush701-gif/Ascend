@@ -5,7 +5,12 @@ const pdfParse = require("pdf-parse");
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST"],
+  }),
+);
 app.use(express.json({ limit: "5mb" }));
 
 // Multer: keep uploaded PDF in memory + limit file size
@@ -36,7 +41,10 @@ const SKILL_ENTRIES = [
   { canonical: "kubernetes", patterns: ["kubernetes", "k8s"] },
   { canonical: "git", patterns: ["git"] },
   { canonical: "linux", patterns: ["linux"] },
-  { canonical: "data structures", patterns: ["data structures", "data structure"] },
+  {
+    canonical: "data structures",
+    patterns: ["data structures", "data structure"],
+  },
   { canonical: "algorithms", patterns: ["algorithms", "algorithm"] },
   { canonical: "testing", patterns: ["testing", "tests"] },
   { canonical: "pytest", patterns: ["pytest"] },
@@ -211,8 +219,22 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
   }
 });
 
-// IMPORTANT: this keeps the server alive
+app.get("/", (req, res) => {
+  res.json({ status: "Ascend API running", version: "1.0" });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
-  console.log(`Ascend API running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
