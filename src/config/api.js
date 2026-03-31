@@ -1,1 +1,3 @@
-export const API_BASE = import.meta.env.VITE_API_URL;
+const API_BASE = "https://ascend-qmw8.onrender.com";
+
+export { API_BASE };
