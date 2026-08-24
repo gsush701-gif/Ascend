@@ -45,7 +45,7 @@ export function OnboardingChecklist({
     if (showCompleteBanner) {
       return (
         <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3">
-          <p className="text-sm font-medium text-cyan-300">
+          <p className="text-sm font-medium text-cyan-700">
             Onboarding complete.
           </p>
         </div>
@@ -55,19 +55,19 @@ export function OnboardingChecklist({
   }
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-slate-900/[0.04] p-4 shadow-sm">
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         className="flex w-full items-center justify-between text-left"
       >
-        <span className="text-sm font-semibold text-white">
+        <span className="text-sm font-semibold text-slate-900">
           Get started
         </span>
         {collapsed ? (
-          <ChevronDown className="h-4 w-4 text-white/50" />
+          <ChevronDown className="h-4 w-4 text-slate-500" />
         ) : (
-          <ChevronUp className="h-4 w-4 text-white/50" />
+          <ChevronUp className="h-4 w-4 text-slate-500" />
         )}
       </button>
       {!collapsed && (
@@ -93,7 +93,7 @@ export function OnboardingChecklist({
               setChecklistDismissed();
               setDismissed(true);
             }}
-            className="mt-2 text-xs text-white/50 hover:text-white/70"
+            className="mt-2 text-xs text-slate-500 hover:text-slate-600"
           >
             Dismiss
           </button>
@@ -115,17 +115,17 @@ function Step({
   return (
     <div className="flex items-center gap-2">
       {done ? (
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500/30 text-cyan-400">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500/30 text-cyan-600">
           <Check className="h-3 w-3" />
         </span>
       ) : (
-        <span className="h-5 w-5 rounded-full border border-white/30" />
+        <span className="h-5 w-5 rounded-full border border-slate-300" />
       )}
       <button
         type="button"
         onClick={onClick}
         disabled={done}
-        className={`text-sm ${done ? "text-white/60" : "text-white/90 hover:text-white"}`}
+        className={`text-sm ${done ? "text-slate-500" : "text-slate-800 hover:text-slate-900"}`}
       >
         {label}
       </button>

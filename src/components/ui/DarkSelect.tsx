@@ -70,7 +70,7 @@ export function DarkSelect({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`inline-flex items-center justify-between gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#07090D] ${buttonClassName}`}
+        className={`inline-flex items-center justify-between gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] ${buttonClassName}`}
       >
         <span className="truncate">{displayLabel}</span>
         <ChevronDown
@@ -84,7 +84,7 @@ export function DarkSelect({
             ref={(el) => {
               dropdownRef.current = el;
             }}
-            className="fixed z-[200] min-w-[140px] overflow-hidden rounded-lg border border-white/10 bg-[#0d1117] shadow-lg"
+            className="fixed z-[200] min-w-[140px] overflow-hidden rounded-lg border border-slate-200 bg-[#FFFFFF] shadow-lg"
             role="listbox"
             style={{ top: dropdownStyle.top, left: dropdownStyle.left }}
           >
@@ -100,8 +100,8 @@ export function DarkSelect({
                 }}
                 className={`block w-full px-3 py-2 text-left text-sm transition ${
                   opt.value === value
-                    ? "bg-white/10 text-white"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
+                    ? "bg-slate-900/[0.06] text-slate-900"
+                    : "text-slate-700 hover:bg-slate-900/[0.06] hover:text-slate-900"
                 }`}
               >
                 {opt.label}

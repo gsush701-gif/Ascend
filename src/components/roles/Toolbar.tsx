@@ -62,7 +62,7 @@ export function Toolbar({
       <div className={pageHeaderActions}>
         <div className="relative">
           <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40"
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
             strokeWidth={2}
           />
           <Input
@@ -78,7 +78,7 @@ export function Toolbar({
             <button
               type="button"
               onClick={() => onSearchChange("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-white/50 hover:bg-white/10 hover:text-white"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-500 hover:bg-slate-900/[0.06] hover:text-slate-900"
               aria-label="Clear search"
             >
               <X className="h-4 w-4" />

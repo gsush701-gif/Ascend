@@ -1,12 +1,12 @@
 import type { TrackerStatus } from "../../types/tracker";
 
-/** Muted status colors - consistent with dashboard */
-const PILL_STYLES: Record<TrackerStatus, string> = {
-  Wishlist: "border-white/15 bg-white/5 text-white/70",
-  Applied: "border-slate-500/40 bg-slate-500/20 text-slate-300",
-  Interview: "border-slate-400/40 bg-slate-400/20 text-slate-300",
-  Offer: "border-cyan-500/50 bg-cyan-500/20 text-cyan-300",
-  Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-400",
+/** Pipeline-stage colors — shared with the dashboard's status bars (STATUS_COLORS). */
+export const PILL_STYLES: Record<TrackerStatus, string> = {
+  Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-600",
+  Applied: "border-cyan-500/40 bg-cyan-500/15 text-cyan-700",
+  Interview: "border-violet-500/40 bg-violet-500/15 text-violet-700",
+  Offer: "border-emerald-500/40 bg-emerald-500/15 text-emerald-700",
+  Rejected: "border-rose-500/30 bg-rose-500/10 text-rose-700/90",
 };
 
 type StatusPillProps = {

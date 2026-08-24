@@ -14,10 +14,10 @@ export function Panel({ title, subtitle, right, children }: PanelProps) {
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
             {title != null && (
-              <div className="text-sm font-semibold text-white">{title}</div>
+              <div className="text-sm font-semibold text-slate-900">{title}</div>
             )}
             {subtitle != null && (
-              <div className="mt-1 text-xs text-white/50">{subtitle}</div>
+              <div className="mt-1 text-xs text-slate-500">{subtitle}</div>
             )}
           </div>
           {right}

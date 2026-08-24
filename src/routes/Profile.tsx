@@ -6,7 +6,7 @@ import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { pageHeader, pageTitle, pageSubtitle } from "../lib/ui";
 import { useTracker } from "../features/tracker/hooks/useTracker";
-import { getOnboardingData } from "../lib/onboarding";
+import { useProfile } from "../lib/profile";
 import {
   getStoredSharePayload,
   getStoredShareSlug,
@@ -18,7 +18,9 @@ export function Profile() {
   const navigate = useNavigate();
   const tracker = useTracker(undefined);
   const items = tracker.tracker;
-  const onboarding = getOnboardingData();
+  const { profile } = useProfile();
+  const hasOnboardingData =
+    profile && (profile.major || profile.targetRole || profile.graduationYear);
   const [shareSlug, setShareSlugState] = useState(() => getStoredShareSlug());
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
 
@@ -53,18 +55,18 @@ export function Profile() {
           subtitle="Shareable profile and onboarding data."
         >
           <div className="space-y-4">
-            {onboarding && (
-              <div className="rounded-xl border border-white/5 bg-dash-surface p-4 text-sm">
-                <div className="text-xs text-white/55">From onboarding</div>
-                <div className="mt-2 text-white/85">
-                  {onboarding.major} · {onboarding.targetRole} ·{" "}
-                  {onboarding.graduationYear}
+            {hasOnboardingData && (
+              <div className="rounded-xl border border-slate-200 bg-dash-surface p-4 text-sm">
+                <div className="text-xs text-slate-500">From onboarding</div>
+                <div className="mt-2 text-slate-700">
+                  {profile!.major || "—"} · {profile!.targetRole || "—"} ·{" "}
+                  {profile!.graduationYear || "—"}
                 </div>
               </div>
             )}
             <div>
-              <div className="text-xs text-white/55">Shareable profile</div>
-              <p className="mt-1 text-sm text-white/70">
+              <div className="text-xs text-slate-500">Shareable profile</div>
+              <p className="mt-1 text-sm text-slate-600">
                 Share top skills, resume strength, and alignment history with mentors or peers.
               </p>
               <Input
@@ -86,7 +88,7 @@ export function Profile() {
                 {shareLinkCopied ? "Copied!" : "Generate & copy link"}
               </Button>
               {!payload && (
-                <p className="mt-2 text-xs text-white/50">
+                <p className="mt-2 text-xs text-slate-500">
                   Run an analysis first to generate your share link.
                 </p>
               )}
@@ -97,12 +99,12 @@ export function Profile() {
         <Panel title="Your stats" subtitle="Usage so far.">
           <div className="flex flex-wrap gap-6 text-sm">
             <div>
-              <span className="text-white/55">Applications tracked </span>
-              <span className="font-semibold text-white">{applicationsTracked}</span>
+              <span className="text-slate-500">Applications tracked </span>
+              <span className="font-semibold text-slate-900">{applicationsTracked}</span>
             </div>
             <div>
-              <span className="text-white/55">Roles analyzed </span>
-              <span className="font-semibold text-white">{rolesAnalyzed}</span>
+              <span className="text-slate-500">Roles analyzed </span>
+              <span className="font-semibold text-slate-900">{rolesAnalyzed}</span>
             </div>
           </div>
         </Panel>
@@ -111,7 +113,7 @@ export function Profile() {
           title="Account"
           subtitle="Manage settings and data."
         >
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-slate-600">
             Update profile, export data, or delete account.
           </p>
           <Button

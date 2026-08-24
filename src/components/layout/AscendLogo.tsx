@@ -1,5 +1,6 @@
 /**
- * Ascend logo - Tailwind/SVG replica. Upward arrow, cyan-to-navy gradient.
+ * Ascend logo — an ascending trend line with a cyan-to-violet gradient.
+ * Literal "career, elevated" mark: a growth line that lifts off into an arrowhead.
  */
 export function AscendLogo({ className = "h-8 w-8" }: { className?: string }) {
   return (
@@ -9,21 +10,33 @@ export function AscendLogo({ className = "h-8 w-8" }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      {/* Dark navy back shape */}
       <path
-        d="M8 28h6v8h-6l-2-4 2-4z"
-        className="fill-slate-800"
+        d="M5 31 L15.5 18.5 L21.5 23.5 L33 9"
+        stroke="url(#ascend-grad)"
+        strokeWidth="4.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
       />
-      {/* Main arrow - cyan gradient */}
       <path
-        d="M20 2l14 26h-8v10h-12V28H6L20 2z"
-        fill="url(#ascend-grad)"
+        d="M33 9 L23.5 9 M33 9 L33 18.5"
+        stroke="url(#ascend-grad)"
+        strokeWidth="4.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
       />
       <defs>
-        <linearGradient id="ascend-grad" x1="20" y1="2" x2="20" y2="38" gradientUnits="userSpaceOnUse">
+        <linearGradient
+          id="ascend-grad"
+          x1="5"
+          y1="31"
+          x2="33"
+          y2="9"
+          gradientUnits="userSpaceOnUse"
+        >
           <stop stopColor="#22d3ee" />
-          <stop offset="0.6" stopColor="#06b6d4" />
-          <stop offset="1" stopColor="#0e7490" />
+          <stop offset="1" stopColor="#a78bfa" />
         </linearGradient>
       </defs>
     </svg>

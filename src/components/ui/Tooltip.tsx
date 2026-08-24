@@ -49,7 +49,7 @@ export function Tooltip({ content, children, disabled = false }: TooltipProps) {
       {visible &&
         createPortal(
           <div
-            className="fixed z-[100] -translate-x-1/2 rounded-lg border border-white/10 bg-[#0d1117] px-2.5 py-1.5 text-xs text-white/90 shadow-lg"
+            className="fixed z-[100] -translate-x-1/2 rounded-lg border border-slate-200 bg-[#FFFFFF] px-2.5 py-1.5 text-xs text-slate-800 shadow-lg"
             style={{ top: position.top, left: position.left }}
           >
             {content}

@@ -13,6 +13,9 @@ import { ResumeLab } from "./routes/ResumeLab";
 import { Settings } from "./routes/Settings";
 import { Login } from "./routes/Login";
 import { Signup } from "./routes/Signup";
+import { ForgotPassword } from "./routes/ForgotPassword";
+import { ResetPassword } from "./routes/ResetPassword";
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 export default function App() {
   const [sharedProfileView, setSharedProfileView] = useState<{
@@ -65,16 +68,18 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      {/* Private (app) — add auth guard later */}
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/roles" element={<Roles />} />
-      <Route path="/roles/:id" element={<RoleDetail />} />
-      <Route path="/analyzer" element={<Analyzer />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Private (app) — requires login */}
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
+      <Route path="/roles/:id" element={<ProtectedRoute><RoleDetail /></ProtectedRoute>} />
+      <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
       <Route path="/tracker" element={<Navigate to="/roles" replace />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/resume-lab" element={<ResumeLab />} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/resume-lab" element={<ProtectedRoute><ResumeLab /></ProtectedRoute>} />
       <Route path="/insights" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/settings" element={<Settings />} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
     </Routes>
   );
 

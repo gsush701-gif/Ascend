@@ -3,24 +3,34 @@ import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-import { pageHeader, pageTitle, pageSubtitle } from "../lib/ui";
-import { LS_KEY } from "../types/tracker";
-import { getOnboardingData, saveOnboardingData } from "../lib/onboarding";
-import { useState } from "react";
+import { pageHeader, pageTitle, pageSubtitle, badgePrimary } from "../lib/ui";
+import { useEffect, useState } from "react";
 import { toast } from "../components/ui/toast";
+import { useAuth } from "../context/AuthContext";
+import { useProfile } from "../lib/profile";
+import { useTracker } from "../features/tracker/hooks/useTracker";
+import { supabase } from "../lib/supabaseClient";
+import { API_BASE } from "../config/api";
 
 export function Settings() {
   const navigate = useNavigate();
+  const { session, signOut } = useAuth();
+  const tracker = useTracker(undefined);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-  const handleExportData = () => {
+  const handleExportData = async () => {
     try {
-      const trackerRaw = localStorage.getItem(LS_KEY);
-      const onboarding = getOnboardingData();
+      const { data: resumeImprovements, error } = await supabase
+        .from("resume_improvements")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
       const data = {
         exportedAt: new Date().toISOString(),
-        tracker: trackerRaw ? JSON.parse(trackerRaw) : [],
-        onboarding: onboarding ?? undefined,
+        roles: tracker.tracker,
+        resumeImprovements: resumeImprovements ?? [],
       };
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
@@ -37,20 +47,31 @@ export function Settings() {
     }
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
     }
+    if (!session?.access_token) return;
+    setDeleting(true);
     try {
-      localStorage.removeItem(LS_KEY);
-      localStorage.removeItem("internos_onboarding_done_v1");
-      localStorage.removeItem("internos_onboarding_v1");
-      localStorage.removeItem("internos_alignment_history_v1");
+      const res = await fetch(`${API_BASE}/api/account/delete`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to delete account");
+      }
+      await signOut();
+      navigate("/login", { replace: true });
+    } catch (e) {
+      toast.error({
+        title: "Delete failed",
+        description: e instanceof Error ? e.message : "Could not delete your account.",
+      });
+      setDeleting(false);
       setConfirmDelete(false);
-      navigate("/", { replace: true });
-    } catch {
-      // ignore
     }
   };
 
@@ -65,20 +86,24 @@ export function Settings() {
             </p>
           </div>
         </header>
-        <Panel
-          title="General"
-          subtitle="Export, resume, and account management."
-        >
-          <p className="text-sm text-white/60">
-            Export data, update your resume, or delete your account.
-          </p>
+
+        <Panel title="Plan" subtitle="Your current plan.">
+          <div className="flex items-center gap-3">
+            <span className={badgePrimary}>Free plan</span>
+            <span className="text-sm text-slate-500">All features included — no paid tiers yet.</span>
+          </div>
+          <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
+            <li>• Unlimited role tracking</li>
+            <li>• AI-powered resume analysis and rewriting</li>
+            <li>• Data synced across devices</li>
+          </ul>
         </Panel>
 
         <Panel
           title="Update resume"
           subtitle="Re-upload or replace your resume for analysis."
         >
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-slate-600">
             Use the Analyzer to upload a new resume. Each analysis uses the
             resume you upload there.
           </p>
@@ -100,11 +125,18 @@ export function Settings() {
         </Panel>
 
         <Panel
-          title="Export data"
-          subtitle="Download all your tracker and profile data as JSON."
+          title="Change password"
+          subtitle="Update the password for your account."
         >
-          <p className="text-sm text-white/70">
-            Includes applications, alignment history, and onboarding answers.
+          <ChangePasswordForm />
+        </Panel>
+
+        <Panel
+          title="Export data"
+          subtitle="Download all your tracked roles and resume improvements as JSON."
+        >
+          <p className="text-sm text-slate-600">
+            Includes applications, alignment history, and resume improvement history.
           </p>
           <Button
             type="button"
@@ -118,25 +150,27 @@ export function Settings() {
 
         <Panel
           title="Delete account"
-          subtitle="Permanently remove all local data. This cannot be undone."
+          subtitle="Permanently remove your account and all your data. This cannot be undone."
         >
           {confirmDelete ? (
             <div className="space-y-3">
-              <p className="text-sm text-rose-200/90">
-                Are you sure? All tracker items and settings will be deleted.
+              <p className="text-sm text-rose-700/90">
+                Are you sure? Your account, tracked roles, and resume history will be permanently deleted.
               </p>
               <div className="flex gap-2">
                 <Button
                   type="button"
                   onClick={handleDeleteAccount}
                   variant="danger"
+                  disabled={deleting}
                 >
-                  Yes, delete everything
+                  {deleting ? "Deleting…" : "Yes, delete everything"}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
                   variant="secondary"
+                  disabled={deleting}
                 >
                   Cancel
                 </Button>
@@ -145,7 +179,7 @@ export function Settings() {
           ) : (
             <Button
               type="button"
-              onClick={() => setConfirmDelete(true)}
+              onClick={handleDeleteAccount}
               variant="dangerOutline"
             >
               Delete account & data
@@ -157,17 +191,79 @@ export function Settings() {
   );
 }
 
-function OnboardingForm() {
-  const existing = getOnboardingData();
-  const [major, setMajor] = useState(existing?.major ?? "");
-  const [targetRole, setTargetRole] = useState(existing?.targetRole ?? "");
-  const [graduationYear, setGraduationYear] = useState(
-    existing?.graduationYear ?? ""
-  );
-  const [saved, setSaved] = useState(false);
+function ChangePasswordForm() {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSave = () => {
-    saveOnboardingData({
+  const handleSave = async () => {
+    if (password.length < 6) {
+      toast.error({ title: "Password too short", description: "Use at least 6 characters." });
+      return;
+    }
+    if (password !== confirmPassword) {
+      toast.error({ title: "Passwords don't match" });
+      return;
+    }
+    setSubmitting(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setSubmitting(false);
+    if (error) {
+      toast.error({ title: "Could not update password", description: error.message });
+      return;
+    }
+    setPassword("");
+    setConfirmPassword("");
+    toast.success({ title: "Password updated" });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-xs text-slate-500">New password</label>
+        <Input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="At least 6 characters"
+          className="mt-1"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-500">Confirm new password</label>
+        <Input
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="mt-1"
+        />
+      </div>
+      <Button type="button" onClick={handleSave} variant="primary" disabled={submitting}>
+        {submitting ? "Saving…" : "Update password"}
+      </Button>
+    </div>
+  );
+}
+
+function OnboardingForm() {
+  const { profile, loading, updateProfile } = useProfile();
+  const [major, setMajor] = useState("");
+  const [targetRole, setTargetRole] = useState("");
+  const [graduationYear, setGraduationYear] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!loading && profile && !initialized) {
+      setMajor(profile.major);
+      setTargetRole(profile.targetRole);
+      setGraduationYear(profile.graduationYear);
+      setInitialized(true);
+    }
+  }, [loading, profile, initialized]);
+
+  const handleSave = async () => {
+    await updateProfile({
       major: major.trim() || "Not specified",
       targetRole: targetRole.trim() || "Not specified",
       graduationYear: graduationYear.trim() || "Not specified",
@@ -180,7 +276,7 @@ function OnboardingForm() {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-xs text-white/50">Major / Field</label>
+        <label className="block text-xs text-slate-500">Major / Field</label>
         <Input
           type="text"
           value={major}
@@ -189,7 +285,7 @@ function OnboardingForm() {
         />
       </div>
       <div>
-        <label className="block text-xs text-white/50">Target role</label>
+        <label className="block text-xs text-slate-500">Target role</label>
         <Input
           type="text"
           value={targetRole}
@@ -198,7 +294,7 @@ function OnboardingForm() {
         />
       </div>
       <div>
-        <label className="block text-xs text-white/50">Graduation year</label>
+        <label className="block text-xs text-slate-500">Graduation year</label>
         <Input
           type="text"
           value={graduationYear}

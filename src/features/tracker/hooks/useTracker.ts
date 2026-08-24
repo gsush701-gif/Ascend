@@ -5,23 +5,50 @@ import type {
   SavedReportSnapshot,
   RolePriority,
 } from "../../../types/tracker";
-import { LS_KEY } from "../../../types/tracker";
+import { supabase } from "../../../lib/supabaseClient";
+import { useAuth } from "../../../context/AuthContext";
 
-function loadTrackerFromStorage(): TrackerItem[] {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as TrackerItem[];
-    return parsed.map((x) => ({
-      ...x,
-      updatedAt: (x as TrackerItem & { updatedAt?: string }).updatedAt ?? x.createdAt,
-    }));
-  } catch {}
-  return [];
+type RoleRow = {
+  id: string;
+  company: string;
+  role: string;
+  status: TrackerStatus;
+  alignment: number;
+  next_step: string | null;
+  job_description: string | null;
+  notes: string | null;
+  deadline: string | null;
+  priority: RolePriority | null;
+  report_snapshot: SavedReportSnapshot | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function rowToItem(row: RoleRow): TrackerItem {
+  return {
+    id: row.id,
+    company: row.company,
+    role: row.role,
+    status: row.status,
+    alignment: row.alignment,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    nextStep: row.next_step ?? "",
+    reportSnapshot: row.report_snapshot ?? undefined,
+    notes: row.notes ?? undefined,
+    deadline: row.deadline ?? undefined,
+    priority: row.priority ?? undefined,
+    jobDescription: row.job_description ?? undefined,
+  };
+}
+
+function touchUpdatedAt(x: TrackerItem): TrackerItem {
+  return { ...x, updatedAt: new Date().toISOString() };
 }
 
 export function useTracker(reportAlignment: number | undefined) {
-  const [tracker, setTracker] = useState<TrackerItem[]>(loadTrackerFromStorage);
+  const { user } = useAuth();
+  const [tracker, setTracker] = useState<TrackerItem[]>([]);
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [nextStep, setNextStep] = useState("Apply today");
@@ -31,10 +58,50 @@ export function useTracker(reportAlignment: number | undefined) {
   >("All");
 
   useEffect(() => {
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(tracker));
-    } catch {}
-  }, [tracker]);
+    if (!user) {
+      setTracker([]);
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("roles")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("[useTracker] load failed:", error);
+          setTrackerError(error.message);
+          return;
+        }
+        setTracker(((data as RoleRow[] | null) ?? []).map(rowToItem));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  /** Optimistically apply a local patch, then persist to Supabase in the background. */
+  function applyUpdate(
+    id: string,
+    patch: Partial<TrackerItem>,
+    dbPatch: Record<string, unknown>,
+  ) {
+    setTracker((prev) =>
+      prev.map((x) => (x.id === id ? touchUpdatedAt({ ...x, ...patch }) : x)),
+    );
+    if (!user) return;
+    supabase
+      .from("roles")
+      .update({ ...dbPatch, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          console.error("[useTracker] update failed:", error);
+          setTrackerError(error.message);
+        }
+      });
+  }
 
   function addManualTrackerItem(
     onAdded: (newItemId: string) => void,
@@ -46,116 +113,130 @@ export function useTracker(reportAlignment: number | undefined) {
       nextStep?: string;
       jobDescription?: string;
       notes?: string;
-    }
+    },
   ) {
+    if (!user) {
+      setTrackerError("You must be logged in to add a role.");
+      return;
+    }
+
     const c = (options?.company ?? company).trim() || "Unknown company";
     const r = (options?.role ?? role).trim() || "Unknown role";
     const status = options?.status ?? "Wishlist";
     const next = (options?.nextStep ?? (nextStep || "Apply")).trim();
     setTrackerError(null);
 
+    const id = crypto.randomUUID();
     const now = new Date().toISOString();
+    const alignment = reportAlignment ?? reportSnapshot?.alignment ?? 0;
+    const jobDescription = options?.jobDescription?.trim() || undefined;
+    const notes = options?.notes?.trim() || undefined;
+
     const item: TrackerItem = {
-      id: crypto.randomUUID(),
+      id,
       company: c,
       role: r,
       status,
-      alignment: reportAlignment ?? reportSnapshot?.alignment ?? 0,
+      alignment,
       createdAt: now,
       updatedAt: now,
       nextStep: next,
       reportSnapshot: reportSnapshot ?? undefined,
-      jobDescription: options?.jobDescription?.trim() || undefined,
-      notes: options?.notes?.trim() || undefined,
+      jobDescription,
+      notes,
     };
 
-    const newList = [item, ...tracker];
-    setTracker(newList);
-    try {
-      localStorage.setItem(LS_KEY, JSON.stringify(newList));
-    } catch {}
+    setTracker((prev) => [item, ...prev]);
     setCompany("");
     setRole("");
     setNextStep("Apply today");
-    onAdded(item.id);
+    onAdded(id);
+
+    supabase
+      .from("roles")
+      .insert({
+        id,
+        user_id: user.id,
+        company: c,
+        role: r,
+        status,
+        alignment,
+        next_step: next,
+        job_description: jobDescription ?? null,
+        notes: notes ?? null,
+        report_snapshot: reportSnapshot ?? null,
+        created_at: now,
+        updated_at: now,
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.error("[useTracker] insert failed:", error);
+          setTrackerError(error.message);
+        }
+      });
   }
 
   function removeItem(id: string) {
     setTracker((prev) => prev.filter((x) => x.id !== id));
+    if (!user) return;
+    supabase
+      .from("roles")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) {
+          console.error("[useTracker] delete failed:", error);
+          setTrackerError(error.message);
+        }
+      });
   }
 
-  const touchUpdatedAt = (x: TrackerItem) =>
-    ({ ...x, updatedAt: new Date().toISOString() });
-
   function updateStatus(id: string, status: TrackerStatus) {
-    setTracker((prev) =>
-      prev.map((x) => (x.id === id ? touchUpdatedAt({ ...x, status }) : x))
-    );
+    applyUpdate(id, { status }, { status });
   }
 
   function updateNextStep(id: string, next: string) {
-    setTracker((prev) =>
-      prev.map((x) => (x.id === id ? touchUpdatedAt({ ...x, nextStep: next }) : x))
-    );
+    applyUpdate(id, { nextStep: next }, { next_step: next });
   }
 
   function updateNotes(id: string, notes: string) {
-    setTracker((prev) =>
-      prev.map((x) => (x.id === id ? touchUpdatedAt({ ...x, notes }) : x))
-    );
+    applyUpdate(id, { notes }, { notes });
   }
 
-  function updateRole(id: string, role: string) {
-    setTracker((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? touchUpdatedAt({ ...x, role: role.trim() || x.role })
-          : x
-      )
-    );
+  function updateRole(id: string, roleValue: string) {
+    const trimmed = roleValue.trim();
+    if (!trimmed) return;
+    applyUpdate(id, { role: trimmed }, { role: trimmed });
   }
 
-  function updateCompany(id: string, company: string) {
-    setTracker((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? touchUpdatedAt({ ...x, company: company.trim() || x.company })
-          : x
-      )
-    );
+  function updateCompany(id: string, companyValue: string) {
+    const trimmed = companyValue.trim();
+    if (!trimmed) return;
+    applyUpdate(id, { company: trimmed }, { company: trimmed });
   }
 
   function updateDeadline(id: string, deadline: string) {
-    setTracker((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? touchUpdatedAt({ ...x, deadline: deadline.trim() || undefined })
-          : x
-      )
+    const trimmed = deadline.trim();
+    applyUpdate(
+      id,
+      { deadline: trimmed || undefined },
+      { deadline: trimmed || null },
     );
   }
 
   function updatePriority(id: string, priority: RolePriority | "") {
-    setTracker((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? touchUpdatedAt({ ...x, priority: priority || undefined })
-          : x
-      )
+    applyUpdate(
+      id,
+      { priority: priority || undefined },
+      { priority: priority || null },
     );
   }
 
   function updateReportSnapshot(id: string, snapshot: SavedReportSnapshot) {
-    setTracker((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? touchUpdatedAt({
-              ...x,
-              alignment: snapshot.alignment,
-              reportSnapshot: snapshot,
-            })
-          : x
-      )
+    applyUpdate(
+      id,
+      { alignment: snapshot.alignment, reportSnapshot: snapshot },
+      { alignment: snapshot.alignment, report_snapshot: snapshot },
     );
   }
 

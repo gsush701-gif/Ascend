@@ -22,6 +22,8 @@ export type Report = {
   skills: SkillRow[];
   missingSignals: string[];
   actions: string[];
+  /** AI-generated recruiter-style read on the resume/JD fit. Absent if the AI call wasn't configured or failed. */
+  aiSummary?: string;
   meta?: {
     jdSkillsCount?: number;
     resumeSkillsFound?: number;

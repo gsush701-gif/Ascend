@@ -19,17 +19,17 @@ const ICONS = {
 
 const STYLES = {
   success:
-    "border-cyan-500/40 bg-[#0d1117]/95 backdrop-blur-md text-cyan-300 shadow-lg shadow-cyan-500/5 hover:shadow-cyan-500/10",
+    "border-cyan-500/40 bg-[#FFFFFF]/95 backdrop-blur-md text-cyan-700 shadow-lg shadow-cyan-500/5 hover:shadow-cyan-500/10",
   error:
-    "border-rose-500/40 bg-[#0d1117]/95 backdrop-blur-md text-rose-300 shadow-lg shadow-rose-500/5 hover:shadow-rose-500/10",
+    "border-rose-500/40 bg-[#FFFFFF]/95 backdrop-blur-md text-rose-700 shadow-lg shadow-rose-500/5 hover:shadow-rose-500/10",
   info:
-    "border-white/15 bg-[#0d1117]/95 backdrop-blur-md text-white/90 shadow-lg shadow-black/20 hover:shadow-white/5",
+    "border-slate-300 bg-[#FFFFFF]/95 backdrop-blur-md text-slate-800 shadow-lg shadow-black/10 hover:shadow-black/[0.08]",
 };
 
 const ICON_COLORS = {
-  success: "text-cyan-400",
-  error: "text-rose-400",
-  info: "text-white/70",
+  success: "text-cyan-600",
+  error: "text-rose-600",
+  info: "text-slate-600",
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -99,7 +99,7 @@ function ToastItem({ toast: t }: { toast: ToastEntry }) {
       onKeyDown={(e) => {
         if (e.key === "Escape") toast.dismiss(t.id);
       }}
-      className={`group flex min-w-[300px] max-w-sm cursor-default flex-col overflow-hidden rounded-xl border transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#07090D] ${STYLES[t.type]}`}
+      className={`group flex min-w-[300px] max-w-sm cursor-default flex-col overflow-hidden rounded-xl border transition-all duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] ${STYLES[t.type]}`}
     >
       <div className="flex items-start gap-3 px-4 py-3">
         <span
@@ -109,29 +109,29 @@ function ToastItem({ toast: t }: { toast: ToastEntry }) {
           <Icon className="h-5 w-5" strokeWidth={2} />
         </span>
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-white/95">{t.title}</div>
+          <div className="font-semibold text-slate-900/95">{t.title}</div>
           {t.description && (
-            <div className="mt-0.5 text-sm text-white/60">{t.description}</div>
+            <div className="mt-0.5 text-sm text-slate-500">{t.description}</div>
           )}
         </div>
         <button
           type="button"
           onClick={() => toast.dismiss(t.id)}
           aria-label="Dismiss"
-          className="shrink-0 rounded-lg p-1.5 text-white/40 opacity-0 transition hover:bg-white/10 hover:text-white/80 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/30"
+          className="shrink-0 rounded-lg p-1.5 text-slate-400 opacity-0 transition hover:bg-slate-900/[0.06] hover:text-slate-700 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-300"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
       {/* Progress bar */}
-      <div className="h-0.5 w-full bg-white/5">
+      <div className="h-0.5 w-full bg-slate-900/[0.04]">
         <motion.div
           className={`h-full ${
             t.type === "success"
               ? "bg-cyan-500"
               : t.type === "error"
                 ? "bg-rose-500"
-                : "bg-white/40"
+                : "bg-slate-400"
           }`}
           initial={{ width: "100%" }}
           animate={{ width: `${barWidth}%` }}

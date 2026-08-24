@@ -31,13 +31,13 @@ export function ProgressCell({
 
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-white/10">
+      <div className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-slate-900/[0.06]">
         <div
           className={`h-full rounded-full transition-[width] duration-200 ${barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-medium tabular-nums text-white/80">
+      <span className="text-xs font-medium tabular-nums text-slate-700">
         {label}
       </span>
     </div>

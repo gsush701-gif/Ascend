@@ -9,8 +9,6 @@ import {
 import type { ApplicationsByWeekPoint } from "../../lib/dashboardStats";
 import { EmptyChartState } from "../ui/EmptyChartState";
 
-const ACCENT = "#2dd4bf";
-
 type OutlookMetrics = {
   expectedLow: number;
   expectedHigh: number;
@@ -37,10 +35,10 @@ export function OutlookCard({
   );
 
   return (
-    <div className="rounded-xl border border-white/5 bg-dash-card p-5 shadow-sm">
+    <div className="rounded-xl border border-slate-200 bg-dash-card p-5 shadow-sm">
       <div className="mb-4">
-        <h2 className="text-sm font-semibold text-white">Interview outlook</h2>
-        <p className="mt-0.5 text-xs text-gray-400">
+        <h2 className="text-sm font-semibold text-slate-900">Interview outlook</h2>
+        <p className="mt-0.5 text-xs text-slate-500">
           Projection based on your data — no manual input.
         </p>
       </div>
@@ -88,9 +86,15 @@ export function OutlookCard({
                   data={applicationsByWeek}
                   margin={{ top: 4, right: 4, left: 4, bottom: 4 }}
                 >
+                  <defs>
+                    <linearGradient id="outlookBar" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#22d3ee" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#22d3ee" stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
                   <XAxis
                     dataKey="weekLabel"
-                    tick={{ fontSize: 10, fill: "rgba(255,255,255,0.5)" }}
+                    tick={{ fontSize: 10, fill: "#64748b" }}
                     tickLine={false}
                     axisLine={false}
                   />
@@ -99,11 +103,15 @@ export function OutlookCard({
                     hide
                   />
                   <Tooltip
+                    cursor={{ fill: "rgba(15,23,42,0.04)" }}
                     contentStyle={{
-                      background: "rgba(13,17,23,0.95)",
-                      border: "1px solid rgba(255,255,255,0.1)",
+                      background: "#FFFFFF",
+                      border: "1px solid #E2E8F0",
                       borderRadius: "8px",
+                      fontSize: "12px",
+                      boxShadow: "0 4px 12px rgba(15,23,42,0.08)",
                     }}
+                    labelStyle={{ color: "#0f172a", fontWeight: 600 }}
                     formatter={(value: number | undefined) => [
                       value ?? 0,
                       "Applications",
@@ -112,8 +120,10 @@ export function OutlookCard({
                   />
                   <Bar
                     dataKey="applications"
-                    fill={ACCENT}
+                    fill="url(#outlookBar)"
                     radius={[4, 4, 0, 0]}
+                    animationDuration={700}
+                    animationEasing="ease-out"
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -138,12 +148,12 @@ function MetricBlock({
 }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wide text-gray-400">
+      <div className="text-[10px] uppercase tracking-wide text-slate-500">
         {label}
       </div>
       <div
         className={`mt-0.5 text-lg font-semibold ${
-          highlight ? "text-cyan-400" : "text-white"
+          highlight ? "text-cyan-600" : "text-slate-900"
         }`}
       >
         {value}

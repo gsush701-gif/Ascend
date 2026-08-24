@@ -19,7 +19,7 @@ export function DashboardSkeleton() {
       <div className="grid gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-7">
           {/* Fit score */}
-          <section className="rounded-xl border border-white/5 bg-dash-card p-6">
+          <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
             <Skeleton className="h-3 w-20" />
             <div className="mt-3 flex items-end gap-4">
               <Skeleton className="h-14 w-16" />
@@ -37,7 +37,7 @@ export function DashboardSkeleton() {
           </div>
 
           {/* Upcoming deadlines */}
-          <section className="rounded-xl border border-white/5 bg-dash-card p-6">
+          <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
             <Skeleton className="h-4 w-36" />
             <div className="mt-4 space-y-3">
               <Skeleton className="h-12 w-full rounded-xl" />
@@ -49,7 +49,7 @@ export function DashboardSkeleton() {
 
         <div className="space-y-6 lg:col-span-5">
           {/* By status */}
-          <section className="rounded-xl border border-white/5 bg-dash-card p-6">
+          <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
             <Skeleton className="h-4 w-20" />
             <div className="mt-4 space-y-3">
               <Skeleton className="h-8 w-full" />
@@ -59,7 +59,7 @@ export function DashboardSkeleton() {
           </section>
 
           {/* Next actions */}
-          <section className="rounded-xl border border-white/5 bg-dash-card p-6">
+          <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
             <Skeleton className="h-4 w-24" />
             <div className="mt-4 space-y-3">
               <Skeleton className="h-16 w-full rounded-xl" />
@@ -70,19 +70,19 @@ export function DashboardSkeleton() {
       </div>
 
       {/* Status bar */}
-      <section className="rounded-xl border border-white/5 bg-dash-card p-5">
+      <section className="rounded-xl border border-slate-200 bg-dash-card p-5">
         <Skeleton className="mb-2 h-3 w-20" />
         <Skeleton className="h-10 w-full rounded-lg" />
       </section>
 
       {/* Performance insight */}
-      <section className="rounded-xl border border-white/5 bg-dash-card p-5">
+      <section className="rounded-xl border border-slate-200 bg-dash-card p-5">
         <Skeleton className="mb-2 h-3 w-24" />
         <Skeleton className="h-12 w-full" />
       </section>
 
       {/* Outlook card */}
-      <section className="rounded-xl border border-white/5 bg-dash-card p-5">
+      <section className="rounded-xl border border-slate-200 bg-dash-card p-5">
         <Skeleton className="mb-2 h-4 w-28" />
         <Skeleton className="mb-4 h-3 w-64" />
         <div className="grid gap-6 lg:grid-cols-2">

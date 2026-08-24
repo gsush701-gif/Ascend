@@ -9,10 +9,10 @@ function pill(status: TrackerStatus) {
   if (status === "Applied")
     return cn(base, "border-sky-900/60 bg-sky-950/40 text-sky-200");
   if (status === "Interview")
-    return cn(base, "border-amber-900/60 bg-amber-950/40 text-amber-200");
+    return cn(base, "border-amber-900/60 bg-amber-950/40 text-amber-700");
   if (status === "Offer")
-    return cn(base, "border-emerald-900/60 bg-emerald-950/40 text-emerald-200");
-  return cn(base, "border-rose-900/60 bg-rose-950/40 text-rose-200");
+    return cn(base, "border-emerald-900/60 bg-emerald-950/40 text-emerald-700");
+  return cn(base, "border-rose-900/60 bg-rose-950/40 text-rose-700");
 }
 
 type TrackerSummaryCardsProps = {

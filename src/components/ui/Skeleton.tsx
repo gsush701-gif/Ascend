@@ -9,7 +9,7 @@ export function Skeleton({ className = "" }: SkeletonProps) {
     <div
       role="status"
       aria-label="Loading"
-      className={cn("animate-pulse rounded-lg bg-white/10", className)}
+      className={cn("animate-pulse rounded-lg bg-slate-900/[0.06]", className)}
     />
   );
 }

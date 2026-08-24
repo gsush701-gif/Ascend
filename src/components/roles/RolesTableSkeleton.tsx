@@ -18,10 +18,10 @@ export function RolesTableSkeleton() {
       </div>
 
       {/* Table skeleton */}
-      <div className="overflow-hidden rounded-xl border border-white/5 bg-dash-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-dash-card shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px] text-left text-sm">
-            <thead className="border-b border-white/10 bg-[#07090D]/95">
+            <thead className="border-b border-slate-200 bg-[#F4F5FA]/95">
               <tr>
                 <th className="py-3 pl-4 pr-3">
                   <Skeleton className="h-4 w-12" />
@@ -50,7 +50,7 @@ export function RolesTableSkeleton() {
               {Array.from({ length: 6 }).map((_, i) => (
                 <tr
                   key={i}
-                  className={`border-b border-white/5 ${
+                  className={`border-b border-slate-200 ${
                     i % 2 === 1 ? "bg-white/[0.02]" : ""
                   }`}
                 >

@@ -112,11 +112,11 @@ export function TrackerTable({
                         x.status === "Wishlist" && "border-zinc-800 text-zinc-200",
                         x.status === "Applied" && "border-sky-900/60 text-sky-200",
                         x.status === "Interview" &&
-                          "border-amber-900/60 text-amber-200",
+                          "border-amber-900/60 text-amber-700",
                         x.status === "Offer" &&
-                          "border-emerald-900/60 text-emerald-200",
+                          "border-emerald-900/60 text-emerald-700",
                         x.status === "Rejected" &&
-                          "border-rose-900/60 text-rose-200"
+                          "border-rose-900/60 text-rose-700"
                       )}
                     >
                       <option>Wishlist</option>
@@ -141,7 +141,7 @@ export function TrackerTable({
                         <button
                           type="button"
                           onClick={() => onSeeReport(x)}
-                          className="inline-flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300 hover:text-white"
+                          className="inline-flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-300 hover:text-slate-900"
                         >
                           <FileText size={16} />
                           See report
@@ -149,7 +149,7 @@ export function TrackerTable({
                       )}
                       <button
                         onClick={() => onRemove(x.id)}
-                        className="inline-flex items-center gap-2 rounded-2xl border border-zinc-900 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-300 hover:text-white"
+                        className="inline-flex items-center gap-2 rounded-2xl border border-zinc-900 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-300 hover:text-slate-900"
                       >
                         <Trash2 size={16} />
                         Remove

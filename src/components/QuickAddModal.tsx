@@ -78,24 +78,24 @@ export function QuickAddModal({
       />
       <div className={cn("relative w-full max-w-md p-6 shadow-xl", card)}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 id="quick-add-title" className="text-lg font-semibold text-white">
+          <h2 id="quick-add-title" className="text-lg font-semibold text-slate-900">
             Quick add
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
+            className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-900/[0.06] hover:text-slate-900"
             aria-label="Close"
           >
             <X size={20} />
           </button>
         </div>
-        <p className="mb-4 text-sm text-white/60">
+        <p className="mb-4 text-sm text-slate-500">
           Log an application in seconds. Status = Applied.
         </p>
         <form onSubmit={handleSubmit} className="space-y-3">
           {error && (
-            <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+            <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
               {error}
             </div>
           )}

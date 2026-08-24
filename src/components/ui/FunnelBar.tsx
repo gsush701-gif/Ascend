@@ -10,7 +10,7 @@ const STATUS_ORDER: TrackerStatus[] = [
 ];
 
 const STATUS_COLORS: Record<TrackerStatus, string> = {
-  Wishlist: "bg-white/20",
+  Wishlist: "bg-slate-900/10",
   Applied: "bg-sky-500/70",
   Interview: "bg-amber-500/70",
   Offer: "bg-emerald-500/70",
@@ -35,7 +35,7 @@ export function FunnelBar({ counts, className = "" }: FunnelBarProps) {
   if (total === 0) {
     return (
       <div
-        className={`rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-sm text-white/50 ${className}`}
+        className={`rounded-2xl border border-slate-200 bg-slate-900/[0.04] p-4 text-center text-sm text-slate-500 ${className}`}
       >
         No applications yet. Add one from the Analyzer.
       </div>
@@ -44,7 +44,7 @@ export function FunnelBar({ counts, className = "" }: FunnelBarProps) {
 
   return (
     <div className={`space-y-3 ${className}`}>
-      <div className="flex h-8 w-full overflow-hidden rounded-xl bg-white/10">
+      <div className="flex h-8 w-full overflow-hidden rounded-xl bg-slate-900/[0.06]">
         {STATUS_ORDER.map((status) => {
           const n = counts[status] ?? 0;
           const pct = total ? (n / total) * 100 : 0;
@@ -52,7 +52,7 @@ export function FunnelBar({ counts, className = "" }: FunnelBarProps) {
           return (
             <div
               key={status}
-              className={`${STATUS_COLORS[status]} progress-bar-fill flex items-center justify-center text-xs font-medium text-white/90`}
+              className={`${STATUS_COLORS[status]} progress-bar-fill flex items-center justify-center text-xs font-medium text-slate-800`}
               style={{ width: `${pct}%`, minWidth: pct > 0 ? "24px" : 0 }}
               title={`${STATUS_LABELS[status]}: ${n}`}
             >
@@ -61,13 +61,13 @@ export function FunnelBar({ counts, className = "" }: FunnelBarProps) {
           );
         })}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/60">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
         {STATUS_ORDER.map((status) => {
           const n = counts[status] ?? 0;
           if (n === 0) return null;
           return (
             <span key={status}>
-              <span className="font-medium text-white/80">
+              <span className="font-medium text-slate-700">
                 {STATUS_LABELS[status]}: {n}
               </span>
             </span>

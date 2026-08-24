@@ -22,10 +22,10 @@ const CONVERSION_PCT: Record<TrackerStatus, number> = {
 
 /** Muted pill styles for status dropdown - matches StatusPill */
 const STATUS_SELECT_STYLES: Record<TrackerStatus, string> = {
-  Wishlist: "border-white/15 bg-white/5 text-white/70",
+  Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-600",
   Applied: "border-slate-500/40 bg-slate-500/20 text-slate-300",
   Interview: "border-slate-400/40 bg-slate-400/20 text-slate-300",
-  Offer: "border-cyan-500/50 bg-cyan-500/20 text-cyan-300",
+  Offer: "border-cyan-500/50 bg-cyan-500/20 text-cyan-700",
   Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-400",
 };
 
@@ -72,10 +72,10 @@ export function RolesTable({
   updateDeadline,
 }: RolesTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/5 bg-dash-card shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-dash-card shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] text-left text-sm">
-          <thead className="sticky top-0 z-10 border-b border-white/10 bg-[#07090D]/95 backdrop-blur-sm">
+          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-[#F4F5FA]/95 backdrop-blur-sm">
             <tr>
               <SortableTh
                 label="Role"
@@ -125,7 +125,7 @@ export function RolesTable({
                 onSort={() => onSort("deadline")}
                 className="hidden min-w-[80px] py-3 px-3 lg:table-cell"
               />
-              <th className="hidden min-w-[120px] py-3 px-3 font-medium text-white/50 xl:table-cell">
+              <th className="hidden min-w-[120px] py-3 px-3 font-medium text-slate-500 xl:table-cell">
                 Notes
               </th>
             </tr>
@@ -135,7 +135,7 @@ export function RolesTable({
               <tr>
                 <td
                   colSpan={7}
-                  className="py-12 text-center text-sm text-white/50"
+                  className="py-12 text-center text-sm text-slate-500"
                 >
                   {items.length === 0
                     ? "No roles yet. Add your first role to get started."
@@ -147,7 +147,7 @@ export function RolesTable({
                 <tr
                   key={item.id}
                   onClick={(e) => onRowClick(item.id, e)}
-                  className={`group cursor-pointer border-b border-white/5 transition-colors duration-150 hover:bg-white/5 ${
+                  className={`group cursor-pointer border-b border-slate-200 transition-colors duration-150 hover:bg-slate-900/[0.04] ${
                     index % 2 === 1 ? "bg-white/[0.02]" : ""
                   }`}
                 >
@@ -242,11 +242,11 @@ function SortableTh({
       <button
         type="button"
         onClick={onSort}
-        className="flex items-center gap-1.5 font-medium text-white/50 transition hover:text-white/80 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#07090D]"
+        className="flex items-center gap-1.5 font-medium text-slate-500 transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#F4F5FA]"
       >
         {label}
         {isActive && (
-          <span className="text-white/40">{sortDir === "asc" ? "↑" : "↓"}</span>
+          <span className="text-slate-400">{sortDir === "asc" ? "↑" : "↓"}</span>
         )}
       </button>
     </th>
@@ -254,7 +254,7 @@ function SortableTh({
 }
 
 const INPUT_CLASS =
-  "w-full rounded-lg border border-white/20 bg-white/10 px-2 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-white/30";
+  "w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-1 focus:ring-cyan-400";
 
 function RoleCell({
   item,
@@ -289,7 +289,7 @@ function RoleCell({
         />
       ) : (
         <span
-          className="block max-w-[160px] truncate font-medium text-white/90"
+          className="block max-w-[160px] truncate font-medium text-slate-800"
           title={item.role}
         >
           {item.role}
@@ -333,7 +333,7 @@ function CompanyCell({
         />
       ) : (
         <span
-          className="block max-w-[120px] truncate text-white/80"
+          className="block max-w-[120px] truncate text-slate-700"
           title={item.company}
         >
           {item.company}
@@ -374,14 +374,14 @@ function DeadlineCell({
           }}
           onClick={onClick}
           placeholder="e.g. Feb 15"
-          className={`${INPUT_CLASS} placeholder:text-white/40`}
+          className={`${INPUT_CLASS} placeholder:text-slate-400`}
         />
       ) : (
         <span
           title={!item.deadline ? "Double-click to add" : undefined}
           className={cn(
             "transition-colors duration-150",
-            item.deadline ? "text-white/50" : "italic text-white/40 group-hover:text-white/55"
+            item.deadline ? "text-slate-500" : "italic text-slate-400 group-hover:text-slate-500"
           )}
         >
           {item.deadline || "Set deadline"}
@@ -424,14 +424,14 @@ function NotesCell({
           onClick={onClick}
           placeholder="Notes..."
           rows={2}
-          className={`${INPUT_CLASS} max-w-[180px] resize-none placeholder:text-white/40`}
+          className={`${INPUT_CLASS} max-w-[180px] resize-none placeholder:text-slate-400`}
         />
       ) : (
         <Tooltip content={isEmpty ? "Double-click to add" : notes} disabled={false}>
           <span
             className={cn(
               "block max-w-[160px] truncate transition-colors duration-150",
-              isEmpty ? "italic text-white/40 group-hover:text-white/55" : "text-white/50"
+              isEmpty ? "italic text-slate-400 group-hover:text-slate-500" : "text-slate-500"
             )}
           >
             {display}

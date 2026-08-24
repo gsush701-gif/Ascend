@@ -5,9 +5,13 @@ export default {
     extend: {
       colors: {
         dash: {
-          card: "#1A1B1E",
-          surface: "#2C2D30",
+          card: "#FFFFFF",
+          surface: "#F1F3F8",
         },
+      },
+      fontFamily: {
+        sans: ['"Inter"', "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ['"Space Grotesk"', '"Inter"', "ui-sans-serif", "sans-serif"],
       },
     },
   },

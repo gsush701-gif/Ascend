@@ -63,7 +63,7 @@ export function StatusStackBar({
             title={`${status}: ${count} (${Math.round(pct)}%)`}
           >
             {pct >= 12 && (
-              <span className="truncate px-1.5 text-[10px] font-medium text-white/90">
+              <span className="truncate px-1.5 text-[10px] font-medium text-slate-800">
                 {count}
               </span>
             )}
@@ -74,13 +74,13 @@ export function StatusStackBar({
         {segments.map(({ status, count }) => (
           <span
             key={status}
-            className="flex items-center gap-1 text-white/50"
+            className="flex items-center gap-1 text-slate-500"
             title={`${status}: ${count}`}
           >
             <span
               className={`inline-block h-1.5 w-2.5 shrink-0 rounded-sm ${SEGMENT_BG_LEGEND[status]}`}
             />
-            <span className="font-medium text-white/60">{status}</span>
+            <span className="font-medium text-slate-500">{status}</span>
             <span>{count}</span>
           </span>
         ))}

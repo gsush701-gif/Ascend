@@ -12,7 +12,7 @@ export function ActionsList({ actions }: ActionsListProps) {
             key={i}
             className="flex items-start gap-3 rounded-xl border border-emerald-900/40 bg-emerald-950/20 pl-3 pr-3 py-2.5 text-sm"
           >
-            <span className="text-emerald-400 shrink-0 mt-0.5">✅</span>
+            <span className="text-emerald-600 shrink-0 mt-0.5">✅</span>
             <div className="min-w-0">
               <span className="text-zinc-400">Add: </span>
               <span className="text-zinc-100 font-medium">

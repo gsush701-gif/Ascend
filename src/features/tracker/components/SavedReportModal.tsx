@@ -76,9 +76,9 @@ export function SavedReportModal({ item, onClose }: SavedReportModalProps) {
                 >
                   <div className="flex items-center gap-2">
                     {s.status === "hit" ? (
-                      <span className="text-emerald-400">✓</span>
+                      <span className="text-emerald-600">✓</span>
                     ) : (
-                      <span className="text-rose-400">✕</span>
+                      <span className="text-rose-600">✕</span>
                     )}
                     <span className="text-sm text-zinc-200">{s.name}</span>
                   </div>

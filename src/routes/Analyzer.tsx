@@ -234,7 +234,7 @@ export function Analyzer() {
           </div>
           <Link
             to="/roles"
-            className="text-sm font-medium text-white/80 hover:text-white transition-colors shrink-0"
+            className="text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors shrink-0"
           >
             View roles →
           </Link>
@@ -246,19 +246,19 @@ export function Analyzer() {
           <section
             className={cn(
               card,
-              "focus-within:border-white/20 transition-colors"
+              "focus-within:border-slate-300 transition-colors"
             )}
           >
             <div className="space-y-5">
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-2">
-                  Upload resume <span className="text-white/40">(optional for parse-only)</span>
+                <label className="block text-xs font-medium text-slate-500 mb-2">
+                  Upload resume <span className="text-slate-400">(optional for parse-only)</span>
                 </label>
-                <label className="flex h-10 cursor-pointer items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-4 text-sm transition-colors hover:bg-white/10">
-                  <span className="text-white/80">
+                <label className="flex h-10 cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-900/[0.04] px-4 text-sm transition-colors hover:bg-slate-900/[0.06]">
+                  <span className="text-slate-700">
                     {resume ? resume.name : "Choose PDF"}
                   </span>
-                  <span className="text-[10px] uppercase tracking-wide text-white/40">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-400">
                     Max 5MB
                   </span>
                   <input
@@ -271,14 +271,14 @@ export function Analyzer() {
                   />
                 </label>
                 {lastResumeFilename && !resume && (
-                  <p className="mt-1.5 text-[11px] text-white/45">
+                  <p className="mt-1.5 text-[11px] text-slate-400">
                     Last used: {lastResumeFilename}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-white/50 mb-2">
+                <label className="block text-xs font-medium text-slate-500 mb-2">
                   Job description
                 </label>
                 <Textarea
@@ -306,13 +306,13 @@ export function Analyzer() {
               </Button>
 
               {analyzeError && (
-                <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-sm text-red-200">
+                <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-sm text-red-700">
                   {analyzeError}
                   <button
                     type="button"
                     onClick={onAnalyze}
                     disabled={!canAnalyze || loading}
-                    className="mt-2 block text-red-300 hover:text-red-100 underline"
+                    className="mt-2 block text-red-700 hover:text-red-100 underline"
                   >
                     Try again
                   </button>
@@ -324,7 +324,7 @@ export function Analyzer() {
           {/* Right: Results panel */}
           <section className={cn(card, "flex min-h-[280px] flex-col justify-center")}>
             {!hasResults ? (
-              <p className="text-sm text-white/50 text-center">
+              <p className="text-sm text-slate-500 text-center">
                 Paste a job description above and click Analyze to see role requirements.
               </p>
             ) : (
@@ -332,31 +332,31 @@ export function Analyzer() {
                 {/* A vs B comparison (Re-analyze flow) */}
                 {showComparison && (
                   <div className={cn(cardAlt, "p-4")}>
-                    <div className="text-xs font-medium uppercase tracking-wide text-white/50 mb-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">
                       A vs B comparison
                     </div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                        <div className="text-[10px] uppercase text-white/50">A — Previous</div>
-                        <div className="mt-1 text-lg font-semibold text-white">
+                      <div className="rounded-lg border border-slate-200 bg-slate-900/[0.04] p-3">
+                        <div className="text-[10px] uppercase text-slate-500">A — Previous</div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900">
                           {alignmentToPreparedness(previousReport.alignment)}
                         </div>
-                        <div className="text-xs text-white/60">Preparedness</div>
+                        <div className="text-xs text-slate-500">Preparedness</div>
                       </div>
                       <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-3">
-                        <div className="text-[10px] uppercase text-cyan-400/80">B — New</div>
-                        <div className="mt-1 text-lg font-semibold text-white">
+                        <div className="text-[10px] uppercase text-cyan-600/80">B — New</div>
+                        <div className="mt-1 text-lg font-semibold text-slate-900">
                           {alignmentToPreparedness(report!.alignment)}
                         </div>
-                        <div className="text-xs text-white/60">Preparedness</div>
+                        <div className="text-xs text-slate-500">Preparedness</div>
                       </div>
                     </div>
                     {verdict && (
                       <p className={cn(
                         "mt-3 text-sm font-medium",
-                        verdict.better === "B" && "text-cyan-400",
-                        verdict.better === "A" && "text-amber-400",
-                        !verdict.better && "text-white/70"
+                        verdict.better === "B" && "text-cyan-600",
+                        verdict.better === "A" && "text-amber-600",
+                        !verdict.better && "text-slate-600"
                       )}>
                         {verdict.text}
                       </p>
@@ -366,14 +366,27 @@ export function Analyzer() {
 
                 {/* Last analyzed */}
                 {lastAnalyzedAt && (
-                  <p className="text-[11px] text-white/45">
+                  <p className="text-[11px] text-slate-400">
                     Last analyzed {new Date(lastAnalyzedAt).toLocaleString()}
                   </p>
                 )}
 
+                {/* AI take */}
+                {report?.aiSummary && (
+                  <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                    <div className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-cyan-600">
+                      <Sparkles className="h-3.5 w-3.5" />
+                      AI take
+                    </div>
+                    <p className="text-sm leading-relaxed text-slate-700">
+                      {report.aiSummary}
+                    </p>
+                  </div>
+                )}
+
                 {/* A) Role Requirements Overview */}
                 <div>
-                  <h3 className="text-sm font-semibold text-white/90 mb-3">
+                  <h3 className="text-sm font-semibold text-slate-800 mb-3">
                     Role Requirements Overview
                   </h3>
 
@@ -382,7 +395,7 @@ export function Analyzer() {
                       <button
                         type="button"
                         onClick={() => toggleSection("core")}
-                        className="flex items-center gap-2 text-xs font-medium text-white/60 mb-2 w-full text-left"
+                        className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2 w-full text-left"
                       >
                         <Zap className="h-3.5 w-3.5" />
                         Core Skills (must-have)
@@ -396,7 +409,7 @@ export function Analyzer() {
                       </button>
                       <ul className="space-y-1.5">
                         {coreSkills.slice(0, coreVisible).map((s) => (
-                          <li key={s} className="flex items-center gap-2 text-sm text-white/90">
+                          <li key={s} className="flex items-center gap-2 text-sm text-slate-800">
                             <CheckCircle2 className="h-4 w-4 text-cyan-500/80 shrink-0" />
                             {s}
                           </li>
@@ -406,7 +419,7 @@ export function Analyzer() {
                             <button
                               type="button"
                               onClick={() => setCollapsedSections((p) => ({ ...p, core: true }))}
-                              className="text-xs text-white/50 hover:text-white/80"
+                              className="text-xs text-slate-500 hover:text-slate-700"
                             >
                               +{coreSkills.length - MAX_VISIBLE} more
                             </button>
@@ -421,7 +434,7 @@ export function Analyzer() {
                       <button
                         type="button"
                         onClick={() => toggleSection("preferred")}
-                        className="flex items-center gap-2 text-xs font-medium text-white/60 mb-2 w-full text-left"
+                        className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2 w-full text-left"
                       >
                         <Sparkles className="h-3.5 w-3.5" />
                         Preferred Skills
@@ -435,8 +448,8 @@ export function Analyzer() {
                       </button>
                       <ul className="space-y-1.5">
                         {preferredSkills.slice(0, preferredVisible).map((s) => (
-                          <li key={s} className="flex items-center gap-2 text-sm text-white/80">
-                            <span className="h-1.5 w-1.5 rounded-full bg-white/50 shrink-0" />
+                          <li key={s} className="flex items-center gap-2 text-sm text-slate-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                             {s}
                           </li>
                         ))}
@@ -445,7 +458,7 @@ export function Analyzer() {
                             <button
                               type="button"
                               onClick={() => setCollapsedSections((p) => ({ ...p, preferred: true }))}
-                              className="text-xs text-white/50 hover:text-white/80"
+                              className="text-xs text-slate-500 hover:text-slate-700"
                             >
                               +{preferredSkills.length - MAX_VISIBLE} more
                             </button>
@@ -457,11 +470,11 @@ export function Analyzer() {
 
                   {experienceLevel && (
                     <div>
-                      <div className="flex items-center gap-2 text-xs font-medium text-white/60 mb-1">
+                      <div className="flex items-center gap-2 text-xs font-medium text-slate-500 mb-1">
                         <ListChecks className="h-3.5 w-3.5" />
                         Experience Level
                       </div>
-                      <p className="text-sm text-white/80">{experienceLevel}</p>
+                      <p className="text-sm text-slate-700">{experienceLevel}</p>
                     </div>
                   )}
                 </div>
@@ -469,22 +482,22 @@ export function Analyzer() {
                 {/* B) Preparation Signals */}
                 {(preparedness || preparationSignals.length > 0) && (
                   <div className={cn(cardAlt, "p-4")}>
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-white/50 mb-3">
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">
                       Preparation signals
                     </h3>
                     <div className="space-y-2">
                       {preparedness && (
                         <p className={cn(
                           "text-sm font-medium",
-                          preparedness === "High" && "text-cyan-400",
-                          preparedness === "Medium" && "text-amber-400/90",
-                          preparedness === "Low" && "text-white/70"
+                          preparedness === "High" && "text-cyan-600",
+                          preparedness === "Medium" && "text-amber-600/90",
+                          preparedness === "Low" && "text-slate-600"
                         )}>
                           {preparedness} preparedness
                         </p>
                       )}
                       {preparationSignals.slice(0, 6).map((s) => (
-                        <p key={s} className="text-sm text-white/70">
+                        <p key={s} className="text-sm text-slate-600">
                           • {s}
                         </p>
                       ))}
@@ -493,8 +506,8 @@ export function Analyzer() {
                 )}
 
                 {/* C) Action Panel */}
-                <div className="space-y-2 pt-2 border-t border-white/10">
-                  <h3 className="text-xs font-medium text-white/50 mb-2">Actions</h3>
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <h3 className="text-xs font-medium text-slate-500 mb-2">Actions</h3>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -508,7 +521,7 @@ export function Analyzer() {
                       <button
                         type="button"
                         onClick={() => handleAddMissingSkillNote(preferredSkills[0])}
-                        className="btn-press inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
+                        className="btn-press inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-900/[0.04] px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
                       >
                         <Sparkles className="h-4 w-4" />
                         Add missing skill note
@@ -518,20 +531,20 @@ export function Analyzer() {
                       <button
                         type="button"
                         onClick={() => setShowMarkNextStep((p) => !p)}
-                        className="btn-press inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-white/10"
+                        className="btn-press inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-900/[0.04] px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
                       >
                         <ListChecks className="h-4 w-4" />
                         Mark next step
                         <ChevronDown className={cn("h-4 w-4 transition", showMarkNextStep && "rotate-180")} />
                       </button>
                       {showMarkNextStep && (
-                        <div className="absolute left-0 top-full mt-1 z-10 rounded-xl border border-white/10 bg-[#0d1117] py-2 shadow-xl min-w-[180px]">
+                        <div className="absolute left-0 top-full mt-1 z-10 rounded-xl border border-slate-200 bg-[#FFFFFF] py-2 shadow-xl min-w-[180px]">
                           {QUICK_NEXT_STEPS.map((step) => (
                             <button
                               key={step}
                               type="button"
                               onClick={() => handleMarkNextStep(step)}
-                              className="block w-full px-4 py-2 text-left text-sm text-white/80 hover:bg-white/10"
+                              className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-900/[0.06]"
                             >
                               {step}
                             </button>
@@ -543,10 +556,10 @@ export function Analyzer() {
                 </div>
 
                 {/* Add to Roles (or Re-analyze choices) */}
-                <div className="pt-2 border-t border-white/10">
+                <div className="pt-2 border-t border-slate-200">
                   {showComparison ? (
                     <div className="space-y-3">
-                      <p className="text-sm text-white/60">
+                      <p className="text-sm text-slate-500">
                         Choose which version to save as the role&apos;s fit score.
                       </p>
                       <div className="flex gap-2">
@@ -559,7 +572,7 @@ export function Analyzer() {
                               navigate("/roles");
                             }
                           }}
-                          className="btn-press flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/10"
+                          className="btn-press flex-1 rounded-xl border border-slate-300 bg-slate-900/[0.04] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
                         >
                           Keep A (Previous)
                         </button>
@@ -599,13 +612,13 @@ export function Analyzer() {
                         <button
                           type="button"
                           onClick={() => navigate("/roles")}
-                          className="btn-press flex-1 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/60 transition hover:bg-white/5"
+                          className="btn-press flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-900/[0.04]"
                         >
                           Back to Roles
                         </button>
                         <Link
                           to="/dashboard"
-                          className="btn-press flex-1 rounded-xl border border-white/10 px-4 py-2 text-center text-sm text-white/60 transition hover:bg-white/5"
+                          className="btn-press flex-1 rounded-xl border border-slate-200 px-4 py-2 text-center text-sm text-slate-500 transition hover:bg-slate-900/[0.04]"
                         >
                           Dashboard
                         </Link>
@@ -614,7 +627,7 @@ export function Analyzer() {
                   ) : (
                     <>
                       <div className="flex items-center justify-between gap-2 mb-3">
-                        <span className="text-xs font-medium text-white/50">Add to Roles</span>
+                        <span className="text-xs font-medium text-slate-500">Add to Roles</span>
                         {hasResults && (
                           <button
                             type="button"
@@ -622,7 +635,7 @@ export function Analyzer() {
                               if (resume && hasValidJd) onAnalyze();
                               else onAnalyzeJdOnly();
                             }}
-                            className="text-xs text-white/45 hover:text-white/80 inline-flex items-center gap-1"
+                            className="text-xs text-slate-400 hover:text-slate-700 inline-flex items-center gap-1"
                           >
                             <RefreshCw className="h-3 w-3" />
                             Re-analyze
@@ -662,7 +675,7 @@ export function Analyzer() {
                           placeholder="Next step (e.g. Follow up)"
                         />
                         {tracker.trackerError && (
-                          <p className="text-xs text-red-400">
+                          <p className="text-xs text-red-600">
                             {tracker.trackerError}
                           </p>
                         )}

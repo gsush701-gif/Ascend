@@ -55,9 +55,9 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
                 : "border-zinc-500/50";
           const priorityBadge =
             priority === "high"
-              ? "bg-rose-500/20 text-rose-200"
+              ? "bg-rose-500/20 text-rose-700"
               : priority === "medium"
-                ? "bg-amber-500/20 text-amber-200"
+                ? "bg-amber-500/20 text-amber-700"
                 : "bg-zinc-500/20 text-zinc-400";
 
           return (
@@ -84,21 +84,21 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
                   <>
                     <span className="font-medium text-zinc-100">{sig}</span>
                     <span className="text-zinc-500 mx-2">→</span>
-                    <span className="text-amber-200/90">{plan.action}</span>
+                    <span className="text-amber-700/90">{plan.action}</span>
                     <span className="ml-2 text-xs text-zinc-500">
                       ({plan.days} day{plan.days !== 1 ? "s" : ""})
                     </span>
                   </>
                 )}
                 <div className="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 hidden rounded-lg border border-rose-900/60 bg-rose-950/95 px-3 py-2 text-xs text-rose-100 shadow-xl group-hover:block">
-                  <span className="font-medium text-rose-200">
+                  <span className="font-medium text-rose-700">
                     Why it matters:
                   </span>{" "}
                   {why}
                 </div>
               </div>
               <div className="flex items-start gap-2 rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-2.5 py-1.5 text-xs">
-                <span className="text-emerald-400 shrink-0">✅</span>
+                <span className="text-emerald-600 shrink-0">✅</span>
                 <span className="text-zinc-300">
                   Add: &ldquo;{example}&rdquo;
                 </span>

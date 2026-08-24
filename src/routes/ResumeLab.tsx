@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { ChevronDown, ChevronUp, Copy, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, FileText, Sparkles } from "lucide-react";
 import { cn } from "../lib/cn";
 import { AppShell } from "../components/layout/AppShell";
 import { Textarea } from "../components/ui/Textarea";
@@ -12,6 +12,9 @@ import {
 } from "../features/analyzer/utils";
 import { toast } from "../components/ui/toast";
 import { setResumeLabUsed } from "../lib/onboarding";
+import { API_BASE } from "../config/api";
+import { useAuth } from "../context/AuthContext";
+import { extractTextFromPdf } from "../lib/pdf";
 
 const HISTORY_KEY = "internos_resume_lab_history_v1";
 const HISTORY_MAX = 20;
@@ -43,9 +46,19 @@ function clearHistory() {
   } catch {}
 }
 
+type ResumeImproveResult = {
+  summary: string;
+  topFixes: string[];
+  rewrittenBullets: { original: string; improved: string }[];
+};
+
 export function ResumeLab() {
   const location = useLocation();
+  const { session } = useAuth();
   const jobDescription = (location.state as { jobDescription?: string } | null)?.jobDescription ?? "";
+  const [mode, setMode] = useState<"bullet" | "resume">("bullet");
+
+  // Single-bullet mode
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BulletImprovementResult | null>(null);
@@ -55,6 +68,12 @@ export function ResumeLab() {
   const [jobContextExpanded, setJobContextExpanded] = useState(true);
   const mounted = useRef(true);
 
+  // Full-resume mode
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeResult, setResumeResult] = useState<ResumeImproveResult | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+
   useEffect(() => {
     setHistory(loadHistory());
     mounted.current = true;
@@ -63,7 +82,7 @@ export function ResumeLab() {
     };
   }, []);
 
-  const runImprove = useCallback(() => {
+  const runImprove = useCallback(async () => {
     const trimmed = input.trim();
     if (!trimmed) {
       setShowEmptyError(true);
@@ -74,33 +93,79 @@ export function ResumeLab() {
     setLoading(true);
     setResult(null);
 
-    const timer = setTimeout(() => {
-      try {
-        const details = getBulletImprovementDetails(trimmed);
-        if (!mounted.current) return;
-        setResult(details);
-        setLoading(false);
-        setResumeLabUsed();
+    let details: BulletImprovementResult;
+    try {
+      const res = await fetch(`${API_BASE}/api/improve-bullet`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({ bullet: trimmed }),
+      });
+      if (!res.ok) throw new Error("AI request failed");
+      details = await res.json();
+    } catch (e) {
+      console.warn("[ResumeLab] AI improve failed, using offline fallback:", e);
+      details = getBulletImprovementDetails(trimmed);
+    }
 
-        const entry: HistoryEntry = {
-          id: crypto.randomUUID(),
-          input: trimmed,
-          result: details,
-          createdAt: new Date().toISOString(),
-        };
-        setHistory((prev) => {
-          const next = [entry, ...prev];
-          saveHistory(next);
-          return next;
-        });
-      } catch (e) {
-        if (mounted.current) setLoading(false);
-        console.error("[ResumeLab] improve failed:", e);
+    if (!mounted.current) return;
+    setResult(details);
+    setLoading(false);
+    setResumeLabUsed();
+
+    const entry: HistoryEntry = {
+      id: crypto.randomUUID(),
+      input: trimmed,
+      result: details,
+      createdAt: new Date().toISOString(),
+    };
+    setHistory((prev) => {
+      const next = [entry, ...prev];
+      saveHistory(next);
+      return next;
+    });
+  }, [input, session]);
+
+  const runImproveResume = useCallback(async () => {
+    if (!resumeFile) {
+      toast.error("Choose a PDF resume first");
+      return;
+    }
+    setResumeError(null);
+    setResumeResult(null);
+    setResumeLoading(true);
+    try {
+      const text = await extractTextFromPdf(resumeFile);
+      if (text.trim().length < 30) {
+        throw new Error("Could not extract enough text from this PDF. Try a text-based (not scanned) PDF.");
       }
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [input]);
+      const res = await fetch(`${API_BASE}/api/improve-resume`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          resumeText: text,
+          jobDescription: jobDescription || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "AI request failed");
+      setResumeResult(data);
+      setResumeLabUsed();
+    } catch (e) {
+      setResumeError(e instanceof Error ? e.message : "Failed to improve resume");
+    } finally {
+      if (mounted.current) setResumeLoading(false);
+    }
+  }, [resumeFile, jobDescription, session]);
 
   const handleClearHistory = useCallback(() => {
     setHistory([]);
@@ -124,169 +189,303 @@ export function ResumeLab() {
             Upgrade your resume impact
           </h1>
           <p className={cn(pageSubtitle, "mt-2")}>
-            Paste a bullet and we’ll rewrite it with clarity, metrics, and
-            technical depth.
+            AI-powered rewriting — improve one bullet or get a full critique of
+            an uploaded resume.
           </p>
         </section>
 
-        {/* Job context (prefilled from Analyzer) */}
-        {jobDescription.trim() && (
-          <section className={cn(card, "overflow-hidden")}>
+        {/* Mode toggle */}
+        <section className="flex justify-center">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-900/[0.04] p-1">
             <button
               type="button"
-              onClick={() => setJobContextExpanded((p) => !p)}
-              className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-white/80 hover:bg-white/5 transition"
-            >
-              Job context (use when tailoring bullets)
-              {jobContextExpanded ? (
-                <ChevronUp className="h-4 w-4 text-white/50" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-white/50" />
+              onClick={() => setMode("bullet")}
+              className={cn(
+                "rounded-md px-4 py-1.5 text-sm font-medium transition",
+                mode === "bullet" ? "bg-white text-black shadow-sm" : "text-slate-500 hover:text-slate-900"
               )}
+            >
+              Single bullet
             </button>
-            {jobContextExpanded && (
-              <div className="border-t border-white/10 px-4 py-3 max-h-40 overflow-y-auto">
-                <p className="text-sm text-white/70 whitespace-pre-wrap">{jobDescription.slice(0, 2000)}{jobDescription.length > 2000 ? "…" : ""}</p>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Large search-style input */}
-        <section className="space-y-4">
-          <div
-            className={cn(
-              "rounded-xl border px-4 py-3 focus-within:ring-1",
-              showEmptyError
-                ? "border-red-400/50 bg-red-500/5 focus-within:border-red-400/50 focus-within:ring-red-400/20"
-                : "border-white/10 bg-white/5 focus-within:border-white/20 focus-within:ring-white/10"
-            )}
-          >
-            <Textarea
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                setShowEmptyError(false);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  runImprove();
-                }
-              }}
-              placeholder="Paste a resume bullet to improve it..."
-              rows={3}
-              className="min-h-0 resize-none border-0 bg-transparent p-0 focus:ring-0"
-            />
+            <button
+              type="button"
+              onClick={() => setMode("resume")}
+              className={cn(
+                "rounded-md px-4 py-1.5 text-sm font-medium transition",
+                mode === "resume" ? "bg-white text-black shadow-sm" : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              Full resume (PDF)
+            </button>
           </div>
-          {showEmptyError && (
-            <p className="text-sm text-red-400">Paste a bullet to improve.</p>
-          )}
-          {!input.trim() && !showEmptyError && (
-            <div className={cn(cardAlt, "p-4")}>
-              <p className="text-sm text-white/70">
-                We&apos;ll add metrics, clarity, and technical depth.
-              </p>
-              <p className="mt-2 text-xs text-white/50">Example bullets:</p>
-              <ul className="mt-1.5 space-y-1 text-sm text-white/60">
-                <li>• Built REST API for user authentication</li>
-                <li>• Implemented unit tests with Jest</li>
-              </ul>
-            </div>
-          )}
-          <Button
-            type="button"
-            onClick={runImprove}
-            disabled={loading}
-            className="w-full"
-            variant="primary"
-          >
-            {loading ? (
-              <>
-                <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-zinc-400 border-t-transparent" />
-                Optimizing…
-              </>
-            ) : (
-              <>
-                <Sparkles size={18} />
-                Improve
-              </>
-            )}
-          </Button>
         </section>
 
-        {/* Output */}
-        {result && !loading && (
-          <section className={cn("animate-fade-in space-y-6", card)}>
-            <div>
-              <div className="text-xs font-medium uppercase tracking-wider text-white/50">
-                Improved version
-              </div>
-              <p className="mt-2 text-sm leading-relaxed text-white/90">
-                &ldquo;{result.improved}&rdquo;
-              </p>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/10"
-              >
-                <Copy size={14} />
-                {copyLabel}
-              </button>
-            </div>
+        {mode === "bullet" ? (
+          <>
+            {/* Job context (prefilled from Analyzer) */}
+            {jobDescription.trim() && (
+              <section className={cn(card, "overflow-hidden")}>
+                <button
+                  type="button"
+                  onClick={() => setJobContextExpanded((p) => !p)}
+                  className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-900/[0.04] transition"
+                >
+                  Job context (use when tailoring bullets)
+                  {jobContextExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-slate-500" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-slate-500" />
+                  )}
+                </button>
+                {jobContextExpanded && (
+                  <div className="border-t border-slate-200 px-4 py-3 max-h-40 overflow-y-auto">
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap">{jobDescription.slice(0, 2000)}{jobDescription.length > 2000 ? "…" : ""}</p>
+                  </div>
+                )}
+              </section>
+            )}
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wider text-white/50">
-                  Why it’s better
-                </div>
-                <p className="mt-1.5 text-sm text-white/70">{result.why}</p>
-              </div>
-              <div>
-                <div className="text-xs font-medium uppercase tracking-wider text-white/50">
-                  Stack detected
-                </div>
-                <p className="mt-1.5 text-sm text-white/70">{result.stack}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <div className="text-xs font-medium uppercase tracking-wider text-white/50">
-                  Impact metric suggestion
-                </div>
-                <p className="mt-1.5 text-sm text-white/70">{result.impact}</p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* History */}
-        {history.length > 0 && (
-          <section>
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-sm font-semibold text-white/80">
-                Recent improvements
-              </h2>
-              <button
-                type="button"
-                onClick={handleClearHistory}
-                className="text-xs font-medium text-white/50 hover:text-white/90 transition"
+            {/* Large search-style input */}
+            <section className="space-y-4">
+              <div
+                className={cn(
+                  "rounded-xl border px-4 py-3 focus-within:ring-1",
+                  showEmptyError
+                    ? "border-red-400/50 bg-red-500/5 focus-within:border-red-400/50 focus-within:ring-red-400/20"
+                    : "border-slate-200 bg-slate-900/[0.04] focus-within:border-slate-300 focus-within:ring-slate-200"
+                )}
               >
-                Clear all
-              </button>
-            </div>
-            <ul className="mt-3 space-y-2">
-              {history.slice(0, 8).map((entry) => (
-              <li
-                key={entry.id}
-                className={cn(cardAlt, "px-4 py-3 text-sm")}
-              >
-                  <p className="text-white/60 line-clamp-1">&ldquo;{entry.input}&rdquo;</p>
-                  <p className="mt-1.5 text-white/90 line-clamp-1">
-                    → {entry.result.improved}
+                <Textarea
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    setShowEmptyError(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      runImprove();
+                    }
+                  }}
+                  placeholder="Paste a resume bullet to improve it..."
+                  rows={3}
+                  className="min-h-0 resize-none border-0 bg-transparent p-0 focus:ring-0"
+                />
+              </div>
+              {showEmptyError && (
+                <p className="text-sm text-red-600">Paste a bullet to improve.</p>
+              )}
+              {!input.trim() && !showEmptyError && (
+                <div className={cn(cardAlt, "p-4")}>
+                  <p className="text-sm text-slate-600">
+                    We&apos;ll add metrics, clarity, and technical depth.
                   </p>
-                </li>
-              ))}
-            </ul>
-          </section>
+                  <p className="mt-2 text-xs text-slate-500">Example bullets:</p>
+                  <ul className="mt-1.5 space-y-1 text-sm text-slate-500">
+                    <li>• Built REST API for user authentication</li>
+                    <li>• Implemented unit tests with Jest</li>
+                  </ul>
+                </div>
+              )}
+              <Button
+                type="button"
+                onClick={runImprove}
+                disabled={loading}
+                className="w-full"
+                variant="primary"
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-zinc-400 border-t-transparent" />
+                    Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    Improve
+                  </>
+                )}
+              </Button>
+            </section>
+
+            {/* Output */}
+            {result && !loading && (
+              <section className={cn("animate-fade-in space-y-6", card)}>
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Improved version
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-800">
+                    &ldquo;{result.improved}&rdquo;
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                  >
+                    <Copy size={14} />
+                    {copyLabel}
+                  </button>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Why it’s better
+                    </div>
+                    <p className="mt-1.5 text-sm text-slate-600">{result.why}</p>
+                  </div>
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Stack detected
+                    </div>
+                    <p className="mt-1.5 text-sm text-slate-600">{result.stack}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Impact metric suggestion
+                    </div>
+                    <p className="mt-1.5 text-sm text-slate-600">{result.impact}</p>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* History */}
+            {history.length > 0 && (
+              <section>
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-sm font-semibold text-slate-700">
+                    Recent improvements
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={handleClearHistory}
+                    className="text-xs font-medium text-slate-500 hover:text-slate-800 transition"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {history.slice(0, 8).map((entry) => (
+                  <li
+                    key={entry.id}
+                    className={cn(cardAlt, "px-4 py-3 text-sm")}
+                  >
+                      <p className="text-slate-500 line-clamp-1">&ldquo;{entry.input}&rdquo;</p>
+                      <p className="mt-1.5 text-slate-800 line-clamp-1">
+                        → {entry.result.improved}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Full resume upload */}
+            <section className={cn(card, "space-y-4")}>
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Upload resume PDF
+                </div>
+                <p className="mt-1 text-sm text-slate-500">
+                  We&apos;ll extract the text in your browser and send it to the AI for a
+                  full critique — nothing is uploaded until you click Improve.
+                </p>
+              </div>
+              <label className="block cursor-pointer">
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm hover:bg-slate-900/[0.06] transition">
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <FileText size={16} />
+                    <span>{resumeFile ? resumeFile.name : "Choose PDF"}</span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wide text-slate-400">Max 5MB</span>
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      setResumeFile(e.target.files?.[0] || null);
+                      setResumeResult(null);
+                      setResumeError(null);
+                    }}
+                  />
+                </div>
+              </label>
+              {jobDescription.trim() && (
+                <p className="text-xs text-slate-500">
+                  Job context from Analyzer will be used to tailor suggestions.
+                </p>
+              )}
+              {resumeError && (
+                <p className="text-sm text-red-600">{resumeError}</p>
+              )}
+              <Button
+                type="button"
+                onClick={runImproveResume}
+                disabled={resumeLoading || !resumeFile}
+                className="w-full"
+                variant="primary"
+              >
+                {resumeLoading ? (
+                  <>
+                    <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-zinc-400 border-t-transparent" />
+                    Analyzing resume…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    Improve full resume
+                  </>
+                )}
+              </Button>
+            </section>
+
+            {resumeResult && !resumeLoading && (
+              <section className={cn("animate-fade-in space-y-6", card)}>
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Summary
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-800">{resumeResult.summary}</p>
+                </div>
+
+                {resumeResult.topFixes?.length > 0 && (
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Top fixes
+                    </div>
+                    <ul className="mt-2 space-y-1.5 text-sm text-slate-700">
+                      {resumeResult.topFixes.map((fix, i) => (
+                        <li key={i} className="flex gap-2">
+                          <span className="text-slate-400">{i + 1}.</span>
+                          <span>{fix}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {resumeResult.rewrittenBullets?.length > 0 && (
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                      Rewritten bullets
+                    </div>
+                    <ul className="mt-2 space-y-3">
+                      {resumeResult.rewrittenBullets.map((b, i) => (
+                        <li key={i} className={cn(cardAlt, "p-3")}>
+                          <p className="text-xs text-slate-500 line-clamp-2">&ldquo;{b.original}&rdquo;</p>
+                          <p className="mt-1.5 text-sm text-slate-800">→ {b.improved}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            )}
+          </>
         )}
       </div>
     </AppShell>

@@ -4,7 +4,7 @@ import { card, cardAlt, cardHeader, cardCompact } from "../../lib/ui";
 type CardProps = {
   children: React.ReactNode;
   className?: string;
-  /** Use translucent bg (bg-white/5) instead of solid dash-card */
+  /** Use translucent bg (bg-slate-900/[0.04]) instead of solid dash-card */
   variant?: "default" | "alt";
   compact?: boolean;
 };

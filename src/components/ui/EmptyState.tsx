@@ -26,19 +26,19 @@ export function EmptyState({
         compact ? "py-8" : "py-12"
       }`}
     >
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
+      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
       <p
-        className={`mt-1.5 text-white/60 ${
+        className={`mt-1.5 text-slate-500 ${
           compact ? "text-sm" : "text-sm max-w-md"
         }`}
       >
         {subtitle}
       </p>
       {bullets.length > 0 && (
-        <ul className="mt-4 space-y-1.5 text-left text-sm text-white/70">
+        <ul className="mt-4 space-y-1.5 text-left text-sm text-slate-600">
           {bullets.slice(0, 3).map((b, i) => (
             <li key={i} className="flex items-center gap-2">
-              <span className="text-cyan-400">•</span>
+              <span className="text-cyan-600">•</span>
               {b}
             </li>
           ))}

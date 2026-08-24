@@ -1,17 +1,53 @@
+require("dotenv").config();
+
+// Node < 18 has no global fetch/Headers/Request/Response/ReadableStream, and
+// Node < 22 has no global WebSocket — all required by @supabase/supabase-js
+// (including its realtime sub-client, constructed even though this server
+// never uses realtime) and groq-sdk. Polyfill unconditionally so the server
+// behaves the same on older Node runtimes as on the latest.
+if (typeof fetch === "undefined") {
+  if (typeof ReadableStream === "undefined") {
+    const { ReadableStream, WritableStream, TransformStream } = require("stream/web");
+    Object.assign(globalThis, { ReadableStream, WritableStream, TransformStream });
+  }
+  const { fetch, Headers, Request, Response } = require("undici");
+  Object.assign(globalThis, { fetch, Headers, Request, Response });
+}
+if (typeof WebSocket === "undefined") {
+  globalThis.WebSocket = require("ws");
+}
+
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
-const pdfParse = require("pdf-parse");
+const rateLimit = require("express-rate-limit");
+const { extractPdfText } = require("./lib/pdfText");
+
+const { optionalAuth } = require("./middleware/auth");
+const { supabaseAdmin } = require("./lib/supabaseAdmin");
+const groq = require("./lib/groq");
 
 const app = express();
 
+const corsOrigin = process.env.CORS_ORIGIN || "*";
 app.use(
   cors({
-    origin: "*",
+    origin: corsOrigin === "*" ? "*" : corsOrigin.split(",").map((s) => s.trim()),
     methods: ["GET", "POST"],
   }),
 );
 app.use(express.json({ limit: "5mb" }));
+
+// AI-backed routes each cost a real Groq API call — cap abuse/runaway cost
+// per IP. Deliberately in-memory (fine for a single instance); move to a
+// shared store (e.g. redis) if this ever runs multi-instance.
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again in a few minutes." },
+});
 
 // Multer: keep uploaded PDF in memory + limit file size
 const upload = multer({
@@ -126,7 +162,7 @@ function missingSignals(resumeText) {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-app.post("/analyze", upload.single("resume"), async (req, res) => {
+app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
   try {
     console.log("POST /analyze received");
     console.log("file?", !!req.file, "jdLength:", (req.body.jd || "").length);
@@ -156,11 +192,11 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
     let numPages = 0;
 
     try {
-      const data = await pdfParse(req.file.buffer);
+      const data = await extractPdfText(req.file.buffer);
       resumeText = data.text || "";
-      numPages = data.numpages || 0;
+      numPages = data.numPages || 0;
     } catch (e) {
-      console.error("pdf-parse failed:", e);
+      console.error("PDF text extraction failed:", e);
       return res
         .status(400)
         .json({ error: "Could not extract text from this PDF." });
@@ -199,7 +235,7 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
       .map((x) => x.name);
     const actions = makeActions(missingSkillNames);
 
-    return res.json({
+    const report = {
       alignment,
       coverage,
       roleTitle: "Job Alignment",
@@ -212,10 +248,92 @@ app.post("/analyze", upload.single("resume"), async (req, res) => {
         pdfTextLength: resumeText.length,
         pdfPages: numPages,
       },
-    });
+    };
+
+    // Best-effort AI summary layered on top of the deterministic score above.
+    // Never fails the request — /analyze keeps working without a Groq key.
+    if (groq.isGroqConfigured) {
+      try {
+        const aiSummary = await groq.summarizeAlignment(resumeText, jd, report);
+        if (aiSummary) report.aiSummary = aiSummary;
+      } catch (e) {
+        console.warn("[analyze] AI summary skipped:", e.message);
+      }
+    }
+
+    return res.json(report);
   } catch (err) {
     console.error("Analyze crashed:", err);
     return res.status(500).json({ error: "Failed to analyze resume" });
+  }
+});
+
+app.post("/api/improve-bullet", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    const bullet = (req.body?.bullet || "").trim();
+    if (!bullet) {
+      return res.status(400).json({ error: "Field 'bullet' is required" });
+    }
+    if (bullet.length > 600) {
+      return res.status(400).json({ error: "Bullet is too long (max 600 characters)" });
+    }
+
+    const result = await groq.improveBullet(bullet);
+
+    if (req.user && supabaseAdmin) {
+      supabaseAdmin
+        .from("resume_improvements")
+        .insert({
+          user_id: req.user.id,
+          input: bullet,
+          improved: result.improved,
+          why: result.why,
+          stack: result.stack,
+          impact: result.impact,
+        })
+        .then(({ error }) => {
+          if (error) console.warn("[improve-bullet] save failed:", error.message);
+        });
+    }
+
+    return res.json(result);
+  } catch (err) {
+    console.error("improve-bullet failed:", err);
+    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to improve bullet" });
+  }
+});
+
+app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    const resumeText = (req.body?.resumeText || "").trim();
+    const jobDescription = (req.body?.jobDescription || "").trim() || undefined;
+
+    if (resumeText.length < 30) {
+      return res.status(400).json({ error: "Field 'resumeText' is required and must have real content" });
+    }
+
+    const result = await groq.improveResume(resumeText, jobDescription);
+    return res.json(result);
+  } catch (err) {
+    console.error("improve-resume failed:", err);
+    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to improve resume" });
+  }
+});
+
+app.post("/api/account/delete", optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ error: "Login required" });
+  }
+  if (!supabaseAdmin) {
+    return res.status(503).json({ error: "Account deletion is not configured on the server" });
+  }
+  try {
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(req.user.id);
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("account delete failed:", err);
+    return res.status(500).json({ error: "Failed to delete account" });
   }
 });
 

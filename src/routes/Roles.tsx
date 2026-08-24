@@ -297,26 +297,26 @@ export function Roles() {
             }}
           />
         ) : items.length === 0 && showExample ? (
-          <div className="rounded-xl border border-white/5 bg-dash-card p-6 shadow-sm">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-white/50">
+          <div className="rounded-xl border border-slate-200 bg-dash-card p-6 shadow-sm">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">
               Example row (not saved)
             </p>
-            <div className="flex flex-wrap items-center gap-6 rounded-lg border border-white/5 bg-dash-surface p-4">
+            <div className="flex flex-wrap items-center gap-6 rounded-lg border border-slate-200 bg-dash-surface p-4">
               <div>
-                <div className="text-[10px] uppercase text-white/50">Role</div>
-                <div className="text-sm font-medium text-white">SWE Intern</div>
+                <div className="text-[10px] uppercase text-slate-500">Role</div>
+                <div className="text-sm font-medium text-slate-900">SWE Intern</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase text-white/50">Company</div>
-                <div className="text-sm text-white/80">Acme Corp</div>
+                <div className="text-[10px] uppercase text-slate-500">Company</div>
+                <div className="text-sm text-slate-700">Acme Corp</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase text-white/50">Preparedness</div>
-                <div className="text-sm text-white/80">High</div>
+                <div className="text-[10px] uppercase text-slate-500">Preparedness</div>
+                <div className="text-sm text-slate-700">High</div>
               </div>
               <div>
-                <div className="text-[10px] uppercase text-white/50">Status</div>
-                <span className="inline-flex rounded-md border border-cyan-500/50 bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-300">
+                <div className="text-[10px] uppercase text-slate-500">Status</div>
+                <span className="inline-flex rounded-md border border-cyan-500/50 bg-cyan-500/20 px-2 py-0.5 text-xs text-cyan-700">
                   Interview
                 </span>
               </div>
@@ -325,14 +325,14 @@ export function Roles() {
               <button
                 type="button"
                 onClick={() => setQuickAddOpen(true)}
-                className="btn-press inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-500 px-4 text-sm font-medium text-black transition hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-[#07090D]"
+                className="btn-press inline-flex h-10 items-center gap-2 rounded-lg bg-cyan-500 px-4 text-sm font-medium text-black transition hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-[#F4F5FA]"
               >
                 Add role
               </button>
               <button
                 type="button"
                 onClick={() => setShowExample(false)}
-                className="btn-press inline-flex h-10 items-center gap-2 rounded-lg border border-white/20 bg-transparent px-4 text-sm font-medium text-white/90 transition hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-[#07090D]"
+                className="btn-press inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 bg-transparent px-4 text-sm font-medium text-slate-800 transition hover:bg-slate-900/[0.04] focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 focus:ring-offset-[#F4F5FA]"
               >
                 Close example
               </button>

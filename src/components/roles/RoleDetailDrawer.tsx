@@ -57,19 +57,19 @@ export function RoleDetailDrawer({
 
   return (
     <aside
-      className="fixed right-0 top-0 z-40 flex h-full w-[400px] shrink-0 flex-col border-l border-white/10 bg-[#0d1117] shadow-xl animate-drawer-slide-in"
+      className="fixed right-0 top-0 z-40 flex h-full w-[400px] shrink-0 flex-col border-l border-slate-200 bg-[#FFFFFF] shadow-xl animate-drawer-slide-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="drawer-title"
     >
-      <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-white/10 bg-[#0d1117] px-4 py-3 pt-16">
-        <h2 id="drawer-title" className="truncate text-base font-semibold text-white">
+      <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-slate-200 bg-[#FFFFFF] px-4 py-3 pt-16">
+        <h2 id="drawer-title" className="truncate text-base font-semibold text-slate-900">
           {item.role} at {item.company}
         </h2>
         <button
           type="button"
           onClick={onClose}
-          className="shrink-0 rounded-lg p-2 text-white/50 transition hover:bg-white/10 hover:text-white"
+          className="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-slate-900/[0.06] hover:text-slate-900"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
@@ -79,14 +79,14 @@ export function RoleDetailDrawer({
           <Panel>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-white">{item.role}</h3>
-                <p className="mt-1 text-sm text-white/60">{item.company}</p>
+                <h3 className="text-lg font-semibold text-slate-900">{item.role}</h3>
+                <p className="mt-1 text-sm text-slate-500">{item.company}</p>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-semibold text-white">
+                <div className="text-2xl font-semibold text-slate-900">
                   {alignmentToPreparedness(alignment)}
                 </div>
-                <div className="text-xs text-white/55">Preparedness</div>
+                <div className="text-xs text-slate-500">Preparedness</div>
               </div>
             </div>
           </Panel>
@@ -97,7 +97,7 @@ export function RoleDetailDrawer({
               onChange={(e) =>
                 updateStatus(item.id, e.target.value as TrackerStatus)
               }
-              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white focus:border-white/20 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm text-slate-900 focus:border-slate-300 focus:outline-none"
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -106,22 +106,22 @@ export function RoleDetailDrawer({
               ))}
             </select>
             <div className="mt-4">
-              <label className="block text-xs text-white/55">Next step</label>
+              <label className="block text-xs text-slate-500">Next step</label>
               <input
                 type="text"
                 value={item.nextStep}
                 onChange={(e) => updateNextStep(item.id, e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-white/20 focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
                 placeholder="e.g. Apply by Friday"
               />
             </div>
             <div className="mt-4">
-              <label className="block text-xs text-white/55">Deadline</label>
+              <label className="block text-xs text-slate-500">Deadline</label>
               <input
                 type="text"
                 value={item.deadline ?? ""}
                 onChange={(e) => updateDeadline(item.id, e.target.value)}
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-white/40 focus:border-white/20 focus:outline-none"
+                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
                 placeholder="e.g. Feb 15"
               />
             </div>
@@ -133,7 +133,7 @@ export function RoleDetailDrawer({
               onChange={(e) => updateNotes(item.id, e.target.value)}
               placeholder="Deadlines, contact, follow-ups..."
               rows={3}
-              className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 focus:border-white/20 focus:outline-none"
+              className="w-full resize-none rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
             />
           </Panel>
 
@@ -154,7 +154,7 @@ export function RoleDetailDrawer({
 
           {!snap && (
             <Panel>
-              <p className="text-sm text-white/60">
+              <p className="text-sm text-slate-500">
                 No analysis yet. Run the Analyzer for this role to see skill gaps
                 and improvements.
               </p>
@@ -185,7 +185,7 @@ export function RoleDetailDrawer({
                   onClose();
                   navigate("/resume-lab", { state: item.jobDescription ? { jobDescription: item.jobDescription } : undefined });
                 }}
-                className="btn-press rounded-xl border border-white/20 bg-white/5 py-2.5 px-4 text-sm font-medium text-white/80 transition hover:bg-white/10"
+                className="btn-press rounded-xl border border-slate-300 bg-slate-900/[0.04] py-2.5 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
               >
                 Improve bullets
               </button>
@@ -193,7 +193,7 @@ export function RoleDetailDrawer({
             <button
               type="button"
               onClick={handleRemove}
-              className="btn-press rounded-xl py-2.5 px-4 text-sm font-medium text-white/60 transition hover:bg-rose-500/10 hover:text-rose-400"
+              className="btn-press rounded-xl py-2.5 px-4 text-sm font-medium text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-600"
             >
               Remove role
             </button>

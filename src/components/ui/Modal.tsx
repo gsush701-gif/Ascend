@@ -31,18 +31,18 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-[#0d1117] p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-[#FFFFFF] p-6 shadow-xl">
         <h2
           id="modal-title"
-          className="text-lg font-semibold text-white"
+          className="text-lg font-semibold text-slate-900"
         >
           {title}
         </h2>
-        <div className="mt-4 text-sm text-white/80">{children}</div>
+        <div className="mt-4 text-sm text-slate-700">{children}</div>
         <button
           type="button"
           onClick={onClose}
-          className="btn-press mt-6 w-full rounded-lg border border-white/20 bg-white/5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
+          className="btn-press mt-6 w-full rounded-lg border border-slate-300 bg-slate-900/[0.04] py-2.5 text-sm font-medium text-slate-900 transition hover:bg-slate-900/[0.06]"
         >
           Got it
         </button>

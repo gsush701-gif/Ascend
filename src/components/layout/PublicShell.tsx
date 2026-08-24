@@ -8,7 +8,7 @@ type PublicShellProps = {
 
 export function PublicShell({ children }: PublicShellProps) {
   return (
-    <div className="min-h-screen bg-[#07090D] text-white">
+    <div className="min-h-screen bg-[#F4F5FA] text-slate-900">
       <BackgroundFX />
       <PublicNav />
       <main className={`relative pb-20 pt-16 ${pageContainer}`}>

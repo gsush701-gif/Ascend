@@ -55,10 +55,10 @@ export function JobDescriptionBox({
         <div className="mt-4 rounded-2xl border border-red-900 bg-red-950/60 p-3 text-sm text-red-100">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="font-medium text-red-200">
+              <div className="font-medium text-red-700">
                 Could not analyze resume
               </div>
-              <div className="mt-1 text-xs text-red-200/80">{analyzeError}</div>
+              <div className="mt-1 text-xs text-red-700/80">{analyzeError}</div>
             </div>
             <Button
               type="button"
