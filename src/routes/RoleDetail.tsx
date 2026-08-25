@@ -130,7 +130,6 @@ export function RoleDetail() {
   function startRegenerate() {
     setClResult(null);
     setClError(null);
-    setClFile(null);
     setClShowForm(true);
   }
 
@@ -215,7 +214,7 @@ export function RoleDetail() {
               )}
 
               {!clFormVisible ? (
-                <div className="space-y-4">
+                <div key="result" className="animate-fade-in space-y-4">
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
                     {clDisplayText}
                   </p>
@@ -250,12 +249,12 @@ export function RoleDetail() {
                   </div>
                 </div>
               ) : !item.jobDescription ? (
-                <p className="text-sm text-slate-500">
+                <p key="no-jd" className="animate-fade-in text-sm text-slate-500">
                   This role needs a job description before a cover letter can
                   be generated. Add one via Analyze or Re-analyze this role.
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div key="form" className="animate-fade-in space-y-3">
                   <p className="text-sm text-slate-500">
                     Upload your resume PDF and we&apos;ll draft a cover letter
                     tailored to this role.
