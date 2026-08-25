@@ -36,6 +36,7 @@ export function Roles() {
     updateRole,
     updateCompany,
     updateDeadline,
+    updateCoverLetter,
     removeItem,
   } = useTracker(undefined);
 
@@ -239,6 +240,7 @@ export function Roles() {
           updateNextStep={updateNextStep}
           updateNotes={wrappedUpdateNotes}
           updateDeadline={updateDeadline}
+          updateCoverLetter={updateCoverLetter}
           removeItem={removeItem}
         />
       )}
