@@ -61,6 +61,11 @@ export function ResumeLab() {
   // Single-bullet mode
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  // Render's free/starter tier spins the backend down after idle time, so
+  // the first request after a while can take up to ~50s to wake it back
+  // up. Surface a hint after a few seconds so that looks like "waking up",
+  // not "broken".
+  const [slowRequest, setSlowRequest] = useState(false);
   const [result, setResult] = useState<BulletImprovementResult | null>(null);
   const [copyLabel, setCopyLabel] = useState<"Copy" | "Copied!">("Copy");
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
@@ -71,6 +76,7 @@ export function ResumeLab() {
   // Full-resume mode
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeLoading, setResumeLoading] = useState(false);
+  const [resumeSlowRequest, setResumeSlowRequest] = useState(false);
   const [resumeResult, setResumeResult] = useState<ResumeImproveResult | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
 
@@ -91,7 +97,9 @@ export function ResumeLab() {
     }
     setShowEmptyError(false);
     setLoading(true);
+    setSlowRequest(false);
     setResult(null);
+    const slowTimer = setTimeout(() => setSlowRequest(true), 6000);
 
     let details: BulletImprovementResult;
     try {
@@ -110,11 +118,14 @@ export function ResumeLab() {
     } catch (e) {
       console.warn("[ResumeLab] AI improve failed, using offline fallback:", e);
       details = getBulletImprovementDetails(trimmed);
+    } finally {
+      clearTimeout(slowTimer);
     }
 
     if (!mounted.current) return;
     setResult(details);
     setLoading(false);
+    setSlowRequest(false);
     setResumeLabUsed();
 
     const entry: HistoryEntry = {
@@ -138,6 +149,8 @@ export function ResumeLab() {
     setResumeError(null);
     setResumeResult(null);
     setResumeLoading(true);
+    setResumeSlowRequest(false);
+    const slowTimer = setTimeout(() => setResumeSlowRequest(true), 6000);
     try {
       const text = await extractTextFromPdf(resumeFile);
       if (text.trim().length < 30) {
@@ -163,7 +176,11 @@ export function ResumeLab() {
     } catch (e) {
       setResumeError(e instanceof Error ? e.message : "Failed to improve resume");
     } finally {
-      if (mounted.current) setResumeLoading(false);
+      clearTimeout(slowTimer);
+      if (mounted.current) {
+        setResumeLoading(false);
+        setResumeSlowRequest(false);
+      }
     }
   }, [resumeFile, jobDescription, session]);
 
@@ -306,6 +323,11 @@ export function ResumeLab() {
                   </>
                 )}
               </Button>
+              {loading && slowRequest && (
+                <p className="text-xs text-slate-500">
+                  Still working — the server may be waking up from idle, this can take up to a minute.
+                </p>
+              )}
             </section>
 
             {/* Output */}
@@ -441,6 +463,11 @@ export function ResumeLab() {
                   </>
                 )}
               </Button>
+              {resumeLoading && resumeSlowRequest && (
+                <p className="text-xs text-slate-500">
+                  Still working — the server may be waking up from idle, this can take up to a minute.
+                </p>
+              )}
             </section>
 
             {resumeResult && !resumeLoading && (

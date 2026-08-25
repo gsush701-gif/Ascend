@@ -38,6 +38,7 @@ export function Analyzer() {
     jd,
     setJd,
     loading,
+    slowRequest,
     report,
     parsedJdData,
     analyzeError,
@@ -304,6 +305,12 @@ export function Analyzer() {
                 )}
                 {loading ? "Analyzing…" : "Analyze"}
               </Button>
+
+              {loading && slowRequest && (
+                <p className="text-xs text-slate-500">
+                  Still working — the server may be waking up from idle, this can take up to a minute.
+                </p>
+              )}
 
               {analyzeError && (
                 <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-sm text-red-700">

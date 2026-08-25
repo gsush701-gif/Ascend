@@ -25,6 +25,11 @@ export function useAnalyzer() {
   const [resumeStrengthLoading, setResumeStrengthLoading] = useState(false);
   const [jd, setJd] = useState("");
   const [loading, setLoading] = useState(false);
+  // Render's free/starter tier spins the backend down after idle time, so
+  // the first request after a while can take up to ~50s to wake it back
+  // up. Surface a hint after a few seconds so that looks like "waking up",
+  // not "broken".
+  const [slowRequest, setSlowRequest] = useState(false);
   const [report, setReport] = useState<Report | null>(null);
   const [parsedJdData, setParsedJdData] = useState<ParsedJdRequirements | null>(
     null,
@@ -114,9 +119,12 @@ export function useAnalyzer() {
     if (!resume || !hasValidJd) return;
 
     setLoading(true);
+    setSlowRequest(false);
     setReport(null);
     setParsedJdData(null);
     setAnalyzeError(null);
+
+    const slowTimer = setTimeout(() => setSlowRequest(true), 6000);
 
     try {
       const fd = new FormData();
@@ -147,6 +155,8 @@ export function useAnalyzer() {
         `Could not reach backend. Is server running on ${API_BASE}?`,
       );
     } finally {
+      clearTimeout(slowTimer);
+      setSlowRequest(false);
       setLoading(false);
     }
   }
@@ -183,6 +193,7 @@ export function useAnalyzer() {
     jd,
     setJd,
     loading,
+    slowRequest,
     report,
     parsedJdData,
     setParsedJdData,
