@@ -407,7 +407,7 @@ function StepCard({
   desc: string;
 }) {
   return (
-    <div className={cn("p-8 transition hover:bg-white/[0.07]", card)}>
+    <div className={cn("p-8 transition hover:border-slate-300 hover:shadow-md", card)}>
       <div className="text-lg font-semibold">{title}</div>
       <div className="mt-4 text-sm text-slate-600">{desc}</div>
     </div>
@@ -424,7 +424,7 @@ function FeatureCard({
   desc: string;
 }) {
   return (
-    <div className={cn("h-full p-6 text-left transition hover:bg-white/[0.07]", card)}>
+    <div className={cn("h-full p-6 text-left transition hover:border-slate-300 hover:shadow-md", card)}>
       <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-600">
         <Icon className="h-4 w-4" strokeWidth={2.25} />
       </span>
@@ -607,7 +607,7 @@ function ActionItem({
   desc: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm transition hover:bg-white/[0.04]">
+    <div className="rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm transition hover:bg-slate-900/[0.03]">
       <div className="text-sm font-semibold text-slate-900">{title}</div>
       <div className="mt-1 text-xs text-slate-500">{desc}</div>
     </div>
