@@ -149,4 +149,22 @@ function extractDescriptionHeuristic() {
   }
 }
 
-module.exports = { firstMatchText, extractFromJsonLd, extractDescriptionHeuristic, extractJob };
+/**
+ * Strips a trailing "show more" / "see more" toggle button's own label off
+ * the end of extracted description text. These sites keep the full text in
+ * the DOM at all times and only CSS-clip it visually, so textContent
+ * already has everything — the toggle button itself just gets swept up as
+ * the last "word" (e.g. "...Confluence… more"), since it's a sibling/child
+ * of the description container rather than separately excludable text.
+ */
+function stripTrailingMoreToggle(text) {
+  return text.replace(/[….]{1,3}\s*(show|see)?\s*more\s*$/i, "").trim();
+}
+
+module.exports = {
+  firstMatchText,
+  extractFromJsonLd,
+  extractDescriptionHeuristic,
+  stripTrailingMoreToggle,
+  extractJob,
+};

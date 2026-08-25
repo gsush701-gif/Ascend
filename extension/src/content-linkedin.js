@@ -21,7 +21,7 @@
 //     matters less than it did before.
 //
 // Selectors are tried in order per field; first non-empty match wins.
-const { extractJob, extractDescriptionHeuristic } = require("./extract");
+const { extractJob, extractDescriptionHeuristic, stripTrailingMoreToggle } = require("./extract");
 const { JOB_DETECTED, REQUEST_JOB } = require("./messages");
 
 const SELECTORS = {
@@ -86,6 +86,7 @@ function runExtraction() {
   if (heuristicDescription.length > result.description.length) {
     result.description = heuristicDescription;
   }
+  result.description = stripTrailingMoreToggle(result.description);
 
   result.detected = Boolean(result.title || result.company || result.description);
   return result;
