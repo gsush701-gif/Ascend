@@ -5,13 +5,16 @@
 // so extraction must degrade gracefully on non-job pages: detected: false
 // with empty fields rather than guessing at wrong content.
 //
-// NOTE: live selector verification against indeed.com was blocked in this
-// environment by Cloudflare's automated-traffic challenge ("Just a
-// moment..." interstitial) when fetched — that check targets scripted/
-// headless-style requests and should not affect a real signed-in user's
-// browser session, but it does mean these selectors are sourced from
+// Primary extraction is via JSON-LD (schema.org JobPosting) — see
+// extract.js's extractFromJsonLd — the same mechanism confirmed working on
+// LinkedIn. Indeed is widely documented as also embedding this for Google
+// for Jobs, but live verification here was blocked by Cloudflare's
+// automated-traffic challenge ("Just a moment..." interstitial), which
+// targets scripted/headless-style requests and should not affect a real
+// signed-in user's browser session. The CSS selectors below are the
+// fallback if JSON-LD isn't present on a given page; they're sourced from
 // Indeed's widely-documented current markup rather than independently
-// re-confirmed live here. Flagged in the delivery report as unverified.
+// re-confirmed live.
 const { extractJob } = require("./extract");
 const { JOB_DETECTED, REQUEST_JOB } = require("./messages");
 

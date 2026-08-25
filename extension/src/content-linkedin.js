@@ -1,20 +1,24 @@
 // Content script for LinkedIn job posting pages (*://*.linkedin.com/jobs/*).
 //
-// LinkedIn renders two meaningfully different DOM shapes for the same job
-// depending on whether the viewer is signed in:
-//   - Signed OUT (public "guest" view, /jobs/view/<slug>-<id>): confirmed
-//     live against https://www.linkedin.com/jobs/view/... on 2026-08-25 —
+// Primary extraction is via JSON-LD (schema.org JobPosting), which LinkedIn
+// server-renders into every job page's <head> for Google for Jobs — same
+// data whether the viewer is signed in or not. Confirmed live against
+// https://www.linkedin.com/jobs/view/... on 2026-08-25 (title,
+// hiringOrganization.name, and description all populated). See
+// extract.js's extractFromJsonLd.
+//
+// CSS selectors below are the fallback for if LinkedIn ever drops the
+// JSON-LD block. They cover two meaningfully different DOM shapes:
+//   - Signed OUT (public "guest" view): confirmed live the same day —
 //     title in <h1 class="top-card-layout__title ... topcard__title">,
 //     company in <a class="topcard__org-name-link">, description in
 //     <div class="show-more-less-html__markup"> (also mirrored by the
 //     older .description__text class).
 //   - Signed IN ("unified top card" layout): class names documented widely
 //     as job-details-jobs-unified-top-card__* / jobs-description__content,
-//     but not independently re-verified live here (would require a real
-//     LinkedIn login, which this build deliberately avoids per the task's
-//     guardrails). Included as a fallback tier — if LinkedIn has since
-//     renamed these, extraction just falls through to "" and the popup
-//     shows manual entry instead of crashing.
+//     not independently verified live (would require a real LinkedIn
+//     login). Since JSON-LD covers the signed-in case too, this tier
+//     matters less than it did before.
 //
 // Selectors are tried in order per field; first non-empty match wins.
 const { extractJob } = require("./extract");

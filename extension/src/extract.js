@@ -1,6 +1,65 @@
 // Generic, defensive DOM-scraping helpers shared by the LinkedIn and Indeed
 // content scripts. Job-board markup shifts often and without notice, so
 // every lookup here is "try a selector, fall back to the next, never throw."
+//
+// JSON-LD (schema.org JobPosting) is tried first: job boards embed this for
+// Google for Jobs / SEO, server-rendered into the initial HTML regardless of
+// signed-in/signed-out layout differences — confirmed present on a live
+// LinkedIn job page on 2026-08-25 (title, hiringOrganization.name,
+// description all populated) even though this build never logs in. CSS
+// selectors are kept as a fallback for pages that don't have it.
+
+/**
+ * Decodes HTML entities and strips tags from a JobPosting's `description`
+ * field, which schema.org allows (and LinkedIn/Indeed use) as an HTML
+ * string. Uses a detached element so nothing is ever inserted into the live
+ * page and no script can execute.
+ */
+function htmlToPlainText(html) {
+  try {
+    const el = document.createElement("div");
+    el.innerHTML = html;
+    return (el.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+  } catch (_err) {
+    return "";
+  }
+}
+
+/**
+ * Scans all <script type="application/ld+json"> tags for a schema.org
+ * JobPosting (directly, inside an array, or inside a @graph wrapper) and
+ * returns {title, company, description} or null if none is found/valid.
+ */
+function extractFromJsonLd() {
+  const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+  for (const script of scripts) {
+    let parsed;
+    try {
+      parsed = JSON.parse(script.textContent);
+    } catch (_err) {
+      continue;
+    }
+    const candidates = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.["@graph"])
+        ? parsed["@graph"]
+        : [parsed];
+    for (const node of candidates) {
+      const type = node?.["@type"];
+      const isJobPosting = type === "JobPosting" || (Array.isArray(type) && type.includes("JobPosting"));
+      if (!isJobPosting) continue;
+      const title = typeof node.title === "string" ? node.title.trim() : "";
+      const company =
+        typeof node.hiringOrganization?.name === "string" ? node.hiringOrganization.name.trim() : "";
+      const description =
+        typeof node.description === "string" ? htmlToPlainText(node.description) : "";
+      if (title || company || description) {
+        return { title, company, description };
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * Returns the trimmed textContent of the first selector (in order) that
@@ -27,9 +86,11 @@ function firstMatchText(selectors) {
  */
 function extractJob({ titleSelectors, companySelectors, descriptionSelectors }) {
   try {
-    const title = firstMatchText(titleSelectors);
-    const company = firstMatchText(companySelectors);
-    const description = firstMatchText(descriptionSelectors);
+    const fromJsonLd = extractFromJsonLd();
+
+    const title = fromJsonLd?.title || firstMatchText(titleSelectors);
+    const company = fromJsonLd?.company || firstMatchText(companySelectors);
+    const description = fromJsonLd?.description || firstMatchText(descriptionSelectors);
 
     return {
       detected: Boolean(title || company || description),
@@ -49,4 +110,4 @@ function extractJob({ titleSelectors, companySelectors, descriptionSelectors }) 
   }
 }
 
-module.exports = { firstMatchText, extractJob };
+module.exports = { firstMatchText, extractFromJsonLd, extractJob };
