@@ -15,7 +15,7 @@
 // fallback if JSON-LD isn't present on a given page; they're sourced from
 // Indeed's widely-documented current markup rather than independently
 // re-confirmed live.
-const { extractJob, stripTrailingMoreToggle } = require("./extract");
+const { extractJob } = require("./extract");
 const { JOB_DETECTED, REQUEST_JOB } = require("./messages");
 
 const SELECTORS = {
@@ -40,9 +40,7 @@ const SELECTORS = {
 };
 
 function runExtraction() {
-  const result = extractJob(SELECTORS);
-  result.description = stripTrailingMoreToggle(result.description);
-  return result;
+  return extractJob(SELECTORS);
 }
 
 try {

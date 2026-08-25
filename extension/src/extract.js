@@ -62,6 +62,25 @@ function extractFromJsonLd() {
 }
 
 /**
+ * Returns an element's text with any nested <button>/<a> elements removed
+ * first (e.g. a "show more" toggle embedded inside a description
+ * container). Structural exclusion by element type, not by guessing at
+ * wording afterward — a description that legitimately ends its own prose
+ * with "...and more" is left untouched, since that word lives in a text
+ * node, not inside a button/link. Operates on a clone so the live page is
+ * never touched.
+ */
+function textWithoutInteractiveDescendants(el) {
+  try {
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll("button, a").forEach((n) => n.remove());
+    return (clone.textContent || "").trim();
+  } catch (_err) {
+    return (el.textContent || "").trim();
+  }
+}
+
+/**
  * Returns the trimmed textContent of the first selector (in order) that
  * matches an element with non-empty text, or "" if none match.
  */
@@ -70,6 +89,24 @@ function firstMatchText(selectors) {
     try {
       const el = document.querySelector(sel);
       const text = el && el.textContent ? el.textContent.trim() : "";
+      if (text) return text;
+    } catch (_err) {
+      // Invalid selector or detached node — just try the next one.
+    }
+  }
+  return "";
+}
+
+/**
+ * Same as firstMatchText, but for description fields specifically: strips
+ * embedded toggle buttons/links first so a "show more" label never ends up
+ * appended to the real text.
+ */
+function firstMatchDescriptionText(selectors) {
+  for (const sel of selectors) {
+    try {
+      const el = document.querySelector(sel);
+      const text = el ? textWithoutInteractiveDescendants(el) : "";
       if (text) return text;
     } catch (_err) {
       // Invalid selector or detached node — just try the next one.
@@ -90,7 +127,7 @@ function extractJob({ titleSelectors, companySelectors, descriptionSelectors }) 
 
     const title = fromJsonLd?.title || firstMatchText(titleSelectors);
     const company = fromJsonLd?.company || firstMatchText(companySelectors);
-    const description = fromJsonLd?.description || firstMatchText(descriptionSelectors);
+    const description = fromJsonLd?.description || firstMatchDescriptionText(descriptionSelectors);
 
     return {
       detected: Boolean(title || company || description),
@@ -126,11 +163,15 @@ function extractDescriptionHeuristic() {
   try {
     const candidates = [];
     for (const el of document.querySelectorAll("div, section, article")) {
-      const text = (el.textContent || "").trim();
+      // Length/ratio checks run against text with toggle buttons/links
+      // already excluded, so a "show more" label can never inflate a
+      // candidate past a filter or end up glued onto the returned text —
+      // structural exclusion, not a guess based on wording afterward.
+      const text = textWithoutInteractiveDescendants(el);
       // A real description is at least a few sentences; anything shorter is
       // more likely a compact header/metadata block (title+company+location
       // badges concatenated together) than actual job body copy.
-      if (text.length < 400 || text.length > 20000) continue;
+      if (text.length < 400 || text.length > 30000) continue;
       if (el.querySelectorAll("a").length > 4) continue;
       if (el.querySelectorAll("button").length > 6) continue;
       // Sibling UI elements (badges, labels) often get concatenated by
@@ -149,22 +190,10 @@ function extractDescriptionHeuristic() {
   }
 }
 
-/**
- * Strips a trailing "show more" / "see more" toggle button's own label off
- * the end of extracted description text. These sites keep the full text in
- * the DOM at all times and only CSS-clip it visually, so textContent
- * already has everything — the toggle button itself just gets swept up as
- * the last "word" (e.g. "...Confluence… more"), since it's a sibling/child
- * of the description container rather than separately excludable text.
- */
-function stripTrailingMoreToggle(text) {
-  return text.replace(/[….]{1,3}\s*(show|see)?\s*more\s*$/i, "").trim();
-}
-
 module.exports = {
   firstMatchText,
+  firstMatchDescriptionText,
   extractFromJsonLd,
   extractDescriptionHeuristic,
-  stripTrailingMoreToggle,
   extractJob,
 };
