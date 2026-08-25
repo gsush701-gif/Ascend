@@ -20,6 +20,7 @@ if (typeof WebSocket === "undefined") {
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const morgan = require("morgan");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
 const { extractPdfText } = require("./lib/pdfText");
@@ -43,6 +44,12 @@ app.set("trust proxy", 1);
 // hardened defaults (HSTS, no-sniff, frameguard, etc).
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// Render's log stream is the only visibility we have into real traffic —
+// one concise line per request (method, path, status, response time) so
+// production issues are debuggable after the fact instead of only live in
+// a terminal that's no longer attached to anyone.
+app.use(morgan("tiny"));
+
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 app.use(
   cors({
@@ -55,9 +62,13 @@ app.use(express.json({ limit: "5mb" }));
 // AI-backed routes each cost a real Groq API call — cap abuse/runaway cost
 // per IP. Deliberately in-memory (fine for a single instance); move to a
 // shared store (e.g. redis) if this ever runs multi-instance.
+// 60/15min (~4/min sustained) comfortably covers a real user iterating on
+// several resume bullets in one sitting plus an /analyze run, while still
+// keeping a scripted hammering of the Groq-backed routes well below the
+// point where it would run up meaningful API cost.
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please try again in a few minutes." },
