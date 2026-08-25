@@ -14,9 +14,9 @@ export function BackgroundFX() {
       />
 
       {/* glow blobs */}
-      <div className="absolute -top-44 left-1/2 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-cyan-400/[0.12] blur-[110px]" />
-      <div className="absolute top-52 -left-40 h-[460px] w-[460px] rounded-full bg-violet-400/[0.10] blur-[100px]" />
-      <div className="absolute -bottom-44 right-0 h-[560px] w-[560px] rounded-full bg-cyan-300/[0.10] blur-[110px]" />
+      <div className="animate-blob-1 absolute -top-44 left-1/2 h-[560px] w-[560px] -translate-x-1/2 rounded-full bg-cyan-400/[0.12] blur-[110px]" />
+      <div className="animate-blob-2 absolute top-52 -left-40 h-[460px] w-[460px] rounded-full bg-violet-400/[0.10] blur-[100px]" />
+      <div className="animate-blob-3 absolute -bottom-44 right-0 h-[560px] w-[560px] rounded-full bg-cyan-300/[0.10] blur-[110px]" />
     </div>
   );
 }

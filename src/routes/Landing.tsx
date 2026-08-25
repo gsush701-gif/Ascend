@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   Target,
   ListChecks,
@@ -7,6 +8,9 @@ import {
   ClipboardList,
   LineChart,
   Share2,
+  AlertCircle,
+  Clock3,
+  RefreshCw,
 } from "lucide-react";
 import { PublicShell } from "../components/layout/PublicShell";
 import { Reveal } from "../components/ui/Reveal";
@@ -21,7 +25,7 @@ export function Landing() {
     <PublicShell>
       <div className="space-y-28 pb-10">
         {/* HERO */}
-        <section className="pt-6 text-center">
+        <section className="relative pt-6 text-center">
           <Reveal>
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-900/[0.04] px-4 py-2 text-xs text-slate-600">
               <span className="h-2 w-2 rounded-full bg-cyan-400" />
@@ -32,11 +36,7 @@ export function Landing() {
             </div>
           </Reveal>
 
-          <Reveal delay={0.06}>
-            <h1 className="font-display mx-auto mt-6 max-w-4xl text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-              Your career, <span className="gradient-text">elevated</span>
-            </h1>
-          </Reveal>
+          <AnimatedHeadline />
 
           <Reveal delay={0.12}>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
@@ -60,6 +60,16 @@ export function Landing() {
               </a>
             </div>
           </Reveal>
+
+          {/* Big background-style ambient glow behind the live preview */}
+          <div
+            className="pointer-events-none absolute left-1/2 top-[60%] -z-10 h-[640px] w-[min(1100px,95vw)] -translate-x-1/2 -translate-y-1/2"
+            aria-hidden
+          >
+            <div className="animate-blob-1 absolute left-4 top-0 h-80 w-80 rounded-full bg-cyan-400/25 blur-[110px]" />
+            <div className="animate-blob-2 absolute right-4 top-8 h-80 w-80 rounded-full bg-violet-400/25 blur-[110px]" />
+            <div className="animate-blob-3 absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-cyan-300/20 blur-[100px]" />
+          </div>
 
           <Reveal delay={0.24}>
             <HeroPreview />
@@ -174,7 +184,7 @@ export function Landing() {
               <FeatureCard
                 icon={LineChart}
                 title="Dashboard & readiness"
-                desc="Fit score trend, interview outlook, and a readiness breakdown across resume, projects, and interview prep."
+                desc="Fit score trend, interview outlook, and a resume readiness score built from your saved analyses."
               />
             </Reveal>
             <Reveal delay={0.25}>
@@ -321,10 +331,25 @@ function HeroPreview() {
   const interviews = useCountUp(3, 1100, 250);
 
   return (
-    <div className={cn("mx-auto mt-10 max-w-3xl p-6 text-left", card)}>
-      <div className="flex items-center justify-between">
+    <div
+      className={cn(
+        "relative mx-auto mt-2 max-w-5xl overflow-hidden p-6 text-left sm:p-10",
+        card
+      )}
+    >
+      {/* inner glow, matches the dashboard's fit-score hero card */}
+      <div
+        className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-cyan-500/10 blur-[70px]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-violet-500/10 blur-[70px]"
+        aria-hidden
+      />
+
+      <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="h-2 w-2 rounded-full bg-cyan-400" />
+          <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
           Ascend • Live preview
         </div>
         <span className="rounded-full border border-slate-200 bg-slate-900/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
@@ -332,30 +357,70 @@ function HeroPreview() {
         </span>
       </div>
 
-      <div className="mt-5 grid gap-6 sm:grid-cols-[auto_1fr] sm:items-center">
+      <div className="relative mt-6 flex flex-wrap items-end justify-between gap-6">
         <div>
           <div className="text-[10px] uppercase tracking-wide text-slate-500">Fit score</div>
           <div className="mt-1 flex items-end gap-2">
-            <span className="font-display gradient-text text-5xl font-semibold tracking-tight">
+            <span className="font-display gradient-text text-6xl font-semibold tracking-tight sm:text-7xl">
               {fit}%
             </span>
-            <span className="pb-1.5 text-sm text-slate-500">Strong</span>
+            <span className="pb-2 text-sm text-slate-500">Strong</span>
           </div>
-          <div className="mt-3 w-40">
+          <div className="mt-3 w-44">
             <AnimatedBar pct={fit} gradient="linear-gradient(90deg, #22d3ee, #a78bfa)" />
           </div>
         </div>
 
-        <div>
-          <AlignmentChart points={HERO_TREND} height={128} />
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <HeroStat label="Apps sent" value={String(apps)} />
+          <HeroStat label="Interview rate" value={`${rate}%`} />
+          <HeroStat label="Interviews" value={String(interviews)} />
         </div>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3 border-t border-slate-200 pt-5">
-        <HeroStat label="Apps sent" value={String(apps)} />
-        <HeroStat label="Interview rate" value={`${rate}%`} />
-        <HeroStat label="Interviews" value={String(interviews)} />
+      <div className="relative mt-8 border-t border-slate-200 pt-6">
+        <div className="mb-2 text-xs font-medium text-slate-500">Fit score trend</div>
+        <AlignmentChart points={HERO_TREND} height={220} />
       </div>
+    </div>
+  );
+}
+
+/** Staged, word-by-word tagline reveal — plays once on load since the hero sits above the fold. */
+function AnimatedHeadline() {
+  const container = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.09, delayChildren: 0.1 } },
+  };
+  const word = {
+    hidden: { opacity: 0, y: 18 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: "easeOut" as const } },
+  };
+
+  return (
+    <div className="mx-auto mt-6 max-w-4xl">
+      <motion.h1
+        className="font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl"
+        initial="hidden"
+        animate="show"
+        variants={container}
+      >
+        <motion.span variants={word} className="inline-block">
+          Your
+        </motion.span>{" "}
+        <motion.span variants={word} className="inline-block">
+          career,
+        </motion.span>{" "}
+        <motion.span variants={word} className="gradient-text inline-block">
+          elevated
+        </motion.span>
+      </motion.h1>
+      <motion.div
+        initial={{ opacity: 0, scaleX: 0 }}
+        animate={{ opacity: 1, scaleX: 1 }}
+        transition={{ duration: 0.7, delay: 0.55, ease: "easeOut" }}
+        className="shimmer-line mx-auto mt-4 h-[2px] w-32 rounded-full"
+      />
     </div>
   );
 }
@@ -516,29 +581,29 @@ function ProductMock() {
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">Readiness breakdown</div>
+            <div className="text-sm font-semibold text-slate-900">Resume readiness</div>
             <div className="mt-4 space-y-3">
               <ReadinessRow label="Resume strength" pct={72} />
-              <ReadinessRow label="Projects" pct={58} />
-              <ReadinessRow label="Interview prep" pct={40} />
             </div>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">Next actions</div>
-            <div className="mt-4 space-y-3">
+            <div className="text-sm font-semibold text-slate-900">Focus next</div>
+            <div className="mt-4">
               <ActionItem
-                title="Analyze a new job"
-                desc="Get missing skills + score"
+                icon={AlertCircle}
+                accent="text-rose-600"
+                title="Backend Intern at Acme is overdue"
+                desc="This deadline has passed — update its status"
               />
-              <ActionItem
-                title="Add an application"
-                desc="Track status and deadlines"
-              />
-              <ActionItem
-                title="Upgrade bullets"
-                desc="Add impact + metrics"
-              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
+            <div className="text-sm font-semibold text-slate-900">Recent activity</div>
+            <div className="mt-4 space-y-2.5">
+              <ActivityRow icon={Clock3} title="Google SWE Intern" meta="Interview • 1 day ago" />
+              <ActivityRow icon={RefreshCw} title="Data Analyst Intern" meta="Applied • 4 days ago" />
             </div>
           </div>
         </div>
@@ -602,14 +667,45 @@ function ReadinessRow({ label, pct }: { label: string; pct: number }) {
 function ActionItem({
   title,
   desc,
+  icon: Icon,
+  accent = "text-cyan-600",
 }: {
   title: string;
   desc: string;
+  icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  accent?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm transition hover:bg-slate-900/[0.03]">
-      <div className="text-sm font-semibold text-slate-900">{title}</div>
-      <div className="mt-1 text-xs text-slate-500">{desc}</div>
+    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm transition hover:bg-slate-900/[0.03]">
+      {Icon && (
+        <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/60", accent)}>
+          <Icon className="h-4 w-4" strokeWidth={2.25} />
+        </span>
+      )}
+      <div>
+        <div className="text-sm font-semibold text-slate-900">{title}</div>
+        <div className="mt-1 text-xs text-slate-500">{desc}</div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityRow({
+  title,
+  meta,
+  icon: Icon,
+}: {
+  title: string;
+  meta: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-dash-surface p-3.5 text-sm">
+      <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2.25} />
+      <div className="min-w-0">
+        <div className="truncate text-slate-900">{title}</div>
+        <div className="text-xs text-slate-500">{meta}</div>
+      </div>
     </div>
   );
 }
