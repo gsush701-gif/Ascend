@@ -30,6 +30,13 @@ const groq = require("./lib/groq");
 
 const app = express();
 
+// Render (and most PaaS hosts) put the app behind a single reverse proxy
+// hop that sets X-Forwarded-For. Without this, Express's req.ip resolves
+// to the proxy's own address for every request, which collapses the
+// per-IP rate limiters below into one shared global bucket instead of
+// one per real client.
+app.set("trust proxy", 1);
+
 // This is a JSON API with no server-rendered HTML/browser assets, so the
 // default CSP (built for HTML pages) has nothing to apply to and only
 // risks breaking the API responses themselves; keep the rest of helmet's
