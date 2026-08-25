@@ -110,7 +110,7 @@ export function TopNav() {
       </div>
 
       {mobileOpen && (
-        <div className="absolute inset-x-0 top-14 border-b border-slate-200 bg-[#F4F5FA] md:hidden">
+        <div className="absolute inset-x-0 top-14 border-b border-slate-200 bg-[#F4F5FA] md:hidden animate-fade-in">
           <nav className="flex flex-col gap-1 p-3">
             {NAV_LINKS.map(({ to, label }) => (
               <NavLink

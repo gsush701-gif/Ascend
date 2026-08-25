@@ -27,11 +27,11 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
       aria-labelledby="modal-title"
     >
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-modal-backdrop"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-[#FFFFFF] p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-xl border border-slate-200 bg-[#FFFFFF] p-6 shadow-xl animate-modal-content">
         <h2
           id="modal-title"
           className="text-lg font-semibold text-slate-900"

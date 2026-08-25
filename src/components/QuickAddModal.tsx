@@ -72,11 +72,11 @@ export function QuickAddModal({
       aria-labelledby="quick-add-title"
     >
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-modal-backdrop"
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className={cn("relative w-full max-w-md p-6 shadow-xl", card)}>
+      <div className={cn("relative w-full max-w-md p-6 shadow-xl animate-modal-content", card)}>
         <div className="mb-4 flex items-center justify-between">
           <h2 id="quick-add-title" className="text-lg font-semibold text-slate-900">
             Quick add

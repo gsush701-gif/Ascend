@@ -41,8 +41,8 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-[#FFFFFF] p-8 shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-modal-backdrop">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-[#FFFFFF] p-8 shadow-2xl animate-modal-content">
         <h2 className="text-2xl font-semibold text-slate-900">
           Welcome to Ascend
         </h2>

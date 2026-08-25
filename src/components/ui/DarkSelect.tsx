@@ -84,7 +84,7 @@ export function DarkSelect({
             ref={(el) => {
               dropdownRef.current = el;
             }}
-            className="fixed z-[200] min-w-[140px] overflow-hidden rounded-lg border border-slate-200 bg-[#FFFFFF] shadow-lg"
+            className="fixed z-[200] min-w-[140px] overflow-hidden rounded-lg border border-slate-200 bg-[#FFFFFF] shadow-lg animate-fade-in"
             role="listbox"
             style={{ top: dropdownStyle.top, left: dropdownStyle.left }}
           >

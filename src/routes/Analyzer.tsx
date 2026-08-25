@@ -545,7 +545,7 @@ export function Analyzer() {
                         <ChevronDown className={cn("h-4 w-4 transition", showMarkNextStep && "rotate-180")} />
                       </button>
                       {showMarkNextStep && (
-                        <div className="absolute left-0 top-full mt-1 z-10 rounded-xl border border-slate-200 bg-[#FFFFFF] py-2 shadow-xl min-w-[180px]">
+                        <div className="absolute left-0 top-full mt-1 z-10 rounded-xl border border-slate-200 bg-[#FFFFFF] py-2 shadow-xl min-w-[180px] animate-fade-in">
                           {QUICK_NEXT_STEPS.map((step) => (
                             <button
                               key={step}
