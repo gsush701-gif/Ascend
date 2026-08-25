@@ -15,6 +15,7 @@ import { Login } from "./routes/Login";
 import { Signup } from "./routes/Signup";
 import { ForgotPassword } from "./routes/ForgotPassword";
 import { ResetPassword } from "./routes/ResetPassword";
+import { NotFound } from "./routes/NotFound";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 export default function App() {
@@ -80,6 +81,7 @@ export default function App() {
       <Route path="/resume-lab" element={<ProtectedRoute><ResumeLab /></ProtectedRoute>} />
       <Route path="/insights" element={<Navigate to="/dashboard" replace />} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 
