@@ -10,7 +10,6 @@ import { Roles } from "./routes/Roles";
 import { RoleDetail } from "./routes/RoleDetail";
 import { Profile } from "./routes/Profile";
 import { ResumeLab } from "./routes/ResumeLab";
-import { Settings } from "./routes/Settings";
 import { Login } from "./routes/Login";
 import { Signup } from "./routes/Signup";
 import { ForgotPassword } from "./routes/ForgotPassword";
@@ -80,7 +79,7 @@ export default function App() {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/resume-lab" element={<ProtectedRoute><ResumeLab /></ProtectedRoute>} />
       <Route path="/insights" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/settings" element={<Navigate to="/profile" replace />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

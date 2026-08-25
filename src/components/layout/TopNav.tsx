@@ -34,7 +34,6 @@ const NAV_LINKS = [
   { to: "/analyzer", label: "Analyze" },
   { to: "/resume-lab", label: "Resume Lab" },
   { to: "/profile", label: "Profile" },
-  { to: "/settings", label: "Settings" },
 ];
 
 export function TopNav() {
