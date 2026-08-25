@@ -127,9 +127,18 @@ function extractDescriptionHeuristic() {
     const candidates = [];
     for (const el of document.querySelectorAll("div, section, article")) {
       const text = (el.textContent || "").trim();
-      if (text.length < 150 || text.length > 20000) continue;
+      // A real description is at least a few sentences; anything shorter is
+      // more likely a compact header/metadata block (title+company+location
+      // badges concatenated together) than actual job body copy.
+      if (text.length < 400 || text.length > 20000) continue;
       if (el.querySelectorAll("a").length > 4) continue;
       if (el.querySelectorAll("button").length > 6) continue;
+      // Sibling UI elements (badges, labels) often get concatenated by
+      // textContent with no separating whitespace at all ("CompanyTitle
+      // Location"), which natural prose never does. Require a plausible
+      // space density to rule those out.
+      const spaceRatio = (text.match(/ /g) || []).length / text.length;
+      if (spaceRatio < 0.08) continue;
       candidates.push({ el, text });
     }
     if (candidates.length === 0) return "";
