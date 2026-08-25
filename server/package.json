@@ -18,6 +18,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
     "groq-sdk": "^0.7.0",
+    "helmet": "^8.3.0",
     "multer": "^2.0.2",
     "pdfjs-dist": "2.16.105",
     "undici": "^6.28.0",

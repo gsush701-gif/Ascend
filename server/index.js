@@ -18,6 +18,7 @@ if (typeof WebSocket === "undefined") {
 }
 
 const express = require("express");
+const helmet = require("helmet");
 const cors = require("cors");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
@@ -28,6 +29,12 @@ const { supabaseAdmin } = require("./lib/supabaseAdmin");
 const groq = require("./lib/groq");
 
 const app = express();
+
+// This is a JSON API with no server-rendered HTML/browser assets, so the
+// default CSP (built for HTML pages) has nothing to apply to and only
+// risks breaking the API responses themselves; keep the rest of helmet's
+// hardened defaults (HSTS, no-sniff, frameguard, etc).
+app.use(helmet({ contentSecurityPolicy: false }));
 
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 app.use(
@@ -44,6 +51,17 @@ app.use(express.json({ limit: "5mb" }));
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again in a few minutes." },
+});
+
+// Account deletion is irreversible and worth throttling independently of
+// the AI limiter above (it's unauthenticated-reachable in the sense that
+// anyone with a valid token can hit it repeatedly).
+const accountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests. Please try again in a few minutes." },
@@ -167,7 +185,7 @@ app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
     console.log("POST /analyze received");
     console.log("file?", !!req.file, "jdLength:", (req.body.jd || "").length);
 
-    const jd = req.body.jd || "";
+    const jd = typeof req.body.jd === "string" ? req.body.jd : "";
 
     if (!req.file) {
       return res
@@ -184,6 +202,11 @@ app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
       return res
         .status(400)
         .json({ error: "Job description is too short (field name: jd)" });
+    }
+    if (jd.length > 20000) {
+      return res
+        .status(400)
+        .json({ error: "Job description is too long (max 20000 characters)" });
     }
 
     console.log("Parsing PDF bytes:", req.file.buffer.length);
@@ -270,6 +293,9 @@ app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
 
 app.post("/api/improve-bullet", aiLimiter, optionalAuth, async (req, res) => {
   try {
+    if (req.body?.bullet !== undefined && typeof req.body.bullet !== "string") {
+      return res.status(400).json({ error: "Field 'bullet' must be a string" });
+    }
     const bullet = (req.body?.bullet || "").trim();
     if (!bullet) {
       return res.status(400).json({ error: "Field 'bullet' is required" });
@@ -299,28 +325,52 @@ app.post("/api/improve-bullet", aiLimiter, optionalAuth, async (req, res) => {
     return res.json(result);
   } catch (err) {
     console.error("improve-bullet failed:", err);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to improve bullet" });
+    // GroqNotConfiguredError's message is a fixed, safe, developer-authored
+    // string; anything else (raw upstream/unexpected errors) may echo
+    // internal details, so only surface it outside production.
+    const safeMessage =
+      err.name === "GroqNotConfiguredError" || process.env.NODE_ENV !== "production"
+        ? err.message
+        : null;
+    return res.status(err.statusCode || 500).json({ error: safeMessage || "Failed to improve bullet" });
   }
 });
 
 app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
   try {
+    if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {
+      return res.status(400).json({ error: "Field 'resumeText' must be a string" });
+    }
+    if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
+      return res.status(400).json({ error: "Field 'jobDescription' must be a string" });
+    }
+
     const resumeText = (req.body?.resumeText || "").trim();
     const jobDescription = (req.body?.jobDescription || "").trim() || undefined;
 
     if (resumeText.length < 30) {
       return res.status(400).json({ error: "Field 'resumeText' is required and must have real content" });
     }
+    if (resumeText.length > 50000) {
+      return res.status(400).json({ error: "Field 'resumeText' is too long (max 50000 characters)" });
+    }
+    if (jobDescription && jobDescription.length > 20000) {
+      return res.status(400).json({ error: "Field 'jobDescription' is too long (max 20000 characters)" });
+    }
 
     const result = await groq.improveResume(resumeText, jobDescription);
     return res.json(result);
   } catch (err) {
     console.error("improve-resume failed:", err);
-    return res.status(err.statusCode || 500).json({ error: err.message || "Failed to improve resume" });
+    const safeMessage =
+      err.name === "GroqNotConfiguredError" || process.env.NODE_ENV !== "production"
+        ? err.message
+        : null;
+    return res.status(err.statusCode || 500).json({ error: safeMessage || "Failed to improve resume" });
   }
 });
 
-app.post("/api/account/delete", optionalAuth, async (req, res) => {
+app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: "Login required" });
   }
