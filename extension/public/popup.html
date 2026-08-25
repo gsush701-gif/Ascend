@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="color-scheme" content="light" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="popup.css" />
+    <title>Ascend</title>
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <div class="brand">
+          <img src="icons/icon48.png" alt="" class="brand-mark" />
+          <span class="brand-name">Ascend</span>
+        </div>
+        <button id="logout-btn" class="link-btn hidden" type="button">Log out</button>
+      </header>
+
+      <!-- Loading -->
+      <section id="view-loading" class="view">
+        <p class="muted center">Loading…</p>
+      </section>
+
+      <!-- Login -->
+      <section id="view-login" class="view hidden">
+        <h1 class="title">Log in</h1>
+        <p class="subtitle">Sign in with your Ascend account to save roles.</p>
+        <form id="login-form" class="stack">
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input id="login-email" type="email" autocomplete="email" placeholder="you@example.com" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Password</span>
+            <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+          </label>
+          <div id="login-error" class="banner banner-error hidden"></div>
+          <button id="login-submit" class="btn btn-primary" type="submit">Log in</button>
+        </form>
+      </section>
+
+      <!-- Save job -->
+      <section id="view-save" class="view hidden">
+        <div id="detection-note" class="banner banner-info hidden"></div>
+        <div id="no-detection-note" class="banner banner-muted hidden">
+          Couldn't auto-detect this page. Enter the role details manually.
+        </div>
+        <form id="save-form" class="stack">
+          <label class="field">
+            <span class="field-label">Company</span>
+            <input id="field-company" type="text" placeholder="e.g. Acme Corp" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Role</span>
+            <input id="field-role" type="text" placeholder="e.g. Software Engineer Intern" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Job description</span>
+            <textarea id="field-description" rows="6" placeholder="Paste or edit the job description…"></textarea>
+          </label>
+          <div id="save-error" class="banner banner-error hidden"></div>
+          <button id="save-submit" class="btn btn-primary" type="submit">Save to Ascend</button>
+        </form>
+      </section>
+
+      <!-- Success -->
+      <section id="view-success" class="view hidden">
+        <div class="success-icon">&#10003;</div>
+        <h1 class="title center">Saved to Ascend</h1>
+        <p class="subtitle center">The role was added to your tracker.</p>
+        <div class="stack">
+          <button id="view-in-ascend-btn" class="btn btn-primary" type="button">View in Ascend</button>
+          <button id="save-another-btn" class="btn btn-secondary" type="button">Save another</button>
+        </div>
+      </section>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
