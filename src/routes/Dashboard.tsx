@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Send, TrendingUp, CalendarCheck } from "lucide-react";
+import {
+  Plus,
+  Send,
+  TrendingUp,
+  CalendarCheck,
+  AlertCircle,
+  Clock3,
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
+  type LucideIcon,
+} from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { QuickAddModal } from "../components/QuickAddModal";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
@@ -13,6 +24,7 @@ import {
   getResponseRate,
   getRejectionRate,
   getAverageAlignment,
+  getAlignmentTrend,
   getExpectedInterviewsRange,
   getUpcomingDeadlines,
   getInterviewCount,
@@ -24,9 +36,14 @@ import {
   getApplicationsLastWeek,
   getAlignmentHistoryFromTracker,
   getReadinessScores,
+  getFocusAction,
+  getRecentActivity,
+  formatRelativeDate,
   type UpcomingDeadline,
   type FunnelCounts,
   type ReadinessScores,
+  type FocusAction,
+  type ActivityItem,
 } from "../lib/dashboardStats";
 import { alignmentToPreparedness } from "../lib/preparedness";
 import { useProfile } from "../lib/profile";
@@ -40,8 +57,6 @@ import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklis
 import { DashboardSkeleton } from "../components/dashboard/DashboardSkeleton";
 import { toast } from "../components/ui/toast";
 import { isResumeLabUsed } from "../lib/onboarding";
-
-const BENCHMARK_RATE = 65;
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -92,6 +107,8 @@ export function Dashboard() {
     avgAlignment != null ? Math.max(0, 70 - avgAlignment) : null;
 
   const hasStatusUpdate = items.some((i) => i.status !== "Applied");
+  const focusAction = getFocusAction(items);
+  const recentActivity = getRecentActivity(items);
 
   return (
     <AppShell>
@@ -321,37 +338,22 @@ export function Dashboard() {
 
             <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
               <h2 className="text-sm font-semibold text-slate-900">
-                Readiness breakdown
+                Resume readiness
               </h2>
               <ReadinessBars scores={getReadinessScores(items)} />
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Next actions
-              </h2>
-              <div className="mt-4 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => navigate("/analyzer")}
-                  className="btn-press w-full rounded-xl border border-slate-200 bg-dash-surface p-4 text-left transition hover:bg-dash-surface/90"
-                >
-                  <div className="text-sm font-semibold text-slate-900">Analyze resume</div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    Get fit score and skill gaps for a role
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/roles")}
-                  className="btn-press w-full rounded-xl border border-slate-200 bg-dash-surface p-4 text-left transition hover:bg-dash-surface/90"
-                >
-                  <div className="text-sm font-semibold text-slate-900">Add role</div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    Track status and deadlines
-                  </div>
-                </button>
-              </div>
+              <h2 className="text-sm font-semibold text-slate-900">Focus next</h2>
+              <FocusPanel action={focusAction} onNavigate={navigate} />
+            </section>
+
+            <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
+              <h2 className="text-sm font-semibold text-slate-900">Recent activity</h2>
+              <RecentActivityList
+                activity={recentActivity}
+                onRoleClick={(id) => navigate(`/roles/${id}`)}
+              />
             </section>
           </div>
         </div>
@@ -364,8 +366,8 @@ export function Dashboard() {
               </div>
               <PerformanceInsight
                 interviewRate={interviewRate}
-                avgAlignment={avgAlignment}
                 gapTo70={gapTo70}
+                trend={getAlignmentTrend(items)}
               />
             </section>
             <OutlookCard
@@ -564,72 +566,167 @@ function ByStatusBars({
   );
 }
 
-const READINESS_LABELS: { key: keyof ReadinessScores; label: string }[] = [
-  { key: "resume", label: "Resume strength" },
-  { key: "projects", label: "Projects" },
-  { key: "deployments", label: "Deployments" },
-  { key: "interviewPrep", label: "Interview prep" },
-];
-
+/**
+ * Single real, data-backed readiness bar. This used to also show "Projects", "Deployments",
+ * and "Interview prep" bars fixed at 45% / 15% / 25% for every user — flat placeholders with no
+ * signal behind them. Cut in favor of the one score that actually traces to saved analysis data.
+ */
 function ReadinessBars({ scores }: { scores: ReadinessScores }) {
+  if (scores.resume == null) {
+    return (
+      <p className="mt-4 text-sm text-slate-500 italic">
+        Analyze a resume against a role to see your resume readiness here.
+      </p>
+    );
+  }
   return (
     <div className="mt-4 space-y-3">
-      {READINESS_LABELS.map(({ key, label }, i) => (
-        <div key={key}>
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>{label}</span>
-            <span>{scores[key]}%</span>
-          </div>
-          <div className="mt-1.5">
-            <AnimatedBar pct={scores[key]} colorClassName="bg-cyan-500" delayMs={i * 80} />
-          </div>
+      <div>
+        <div className="flex items-center justify-between text-xs text-slate-500">
+          <span>Resume strength</span>
+          <span>{scores.resume}%</span>
         </div>
-      ))}
+        <div className="mt-1.5">
+          <AnimatedBar pct={scores.resume} colorClassName="bg-cyan-500" />
+        </div>
+      </div>
     </div>
   );
 }
 
 function PerformanceInsight({
   interviewRate,
-  avgAlignment: _avgAlignment,
   gapTo70,
+  trend,
 }: {
   interviewRate: number | null;
-  avgAlignment: number | null;
   gapTo70: number | null;
+  trend: "up" | "down" | "stable" | null;
 }) {
   if (interviewRate == null) {
     return (
       <p className="text-sm text-slate-600 leading-relaxed">
-        Apply to more roles to measure your response rate. Once you get outcomes,
-        we&apos;ll show how you compare to top performers.
+        Apply to more roles to start measuring your interview rate and fit-score
+        trend.
       </p>
     );
   }
 
-  const belowBenchmark = interviewRate < BENCHMARK_RATE;
+  const trendText =
+    trend === "up"
+      ? "Your fit score has been trending up — keep targeting roles that match it."
+      : trend === "down"
+        ? "Your fit score has dipped recently — worth revisiting resume alignment for new roles."
+        : trend === "stable"
+          ? "Your fit score has been steady."
+          : null;
 
-  if (belowBenchmark) {
-    const hasGap = gapTo70 != null && gapTo70 > 10;
-    return (
-      <p className="text-sm text-slate-600 leading-relaxed">
-        Your interview rate is{" "}
-        <span className="font-semibold text-slate-900">{interviewRate}%</span>. Top-performing
-        users average{" "}
-        <span className="font-semibold text-slate-900">{BENCHMARK_RATE}%</span>.{" "}
-        {hasGap
-          ? "Focus on improving fit score or resume version testing."
-          : "Target roles with High fit to improve outcomes."}
-      </p>
-    );
-  }
+  const hasGap = gapTo70 != null && gapTo70 > 10;
 
   return (
     <p className="text-sm text-slate-600 leading-relaxed">
       Your interview rate is{" "}
-      <span className="font-semibold text-cyan-600">{interviewRate}%</span>. You&apos;re
-      ahead of the curve. Keep targeting high-fit roles.
+      <span className="font-semibold text-slate-900">{interviewRate}%</span>.{" "}
+      {trendText} {hasGap && `Closing the ${gapTo70}% gap to a 70% fit score could help.`}
     </p>
+  );
+}
+
+const FOCUS_ICONS: Record<FocusAction["type"], LucideIcon> = {
+  overdue: AlertCircle,
+  "deadline-soon": Clock3,
+  "needs-analysis": Sparkles,
+  stale: RefreshCw,
+  none: CheckCircle2,
+};
+
+const FOCUS_STYLES: Record<FocusAction["type"], string> = {
+  overdue: "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600",
+  "deadline-soon": "border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-600",
+  "needs-analysis": "border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 text-violet-600",
+  stale: "border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600",
+  none: "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600",
+};
+
+/** Single, dynamic "what to do next" card — derived from the user's own tracker data (deadlines,
+ * missing analysis, stale applications). No fabricated benchmarks or generic static links. */
+function FocusPanel({
+  action,
+  onNavigate,
+}: {
+  action: FocusAction;
+  onNavigate: (path: string) => void;
+}) {
+  const Icon = FOCUS_ICONS[action.type];
+  const handleClick = () => {
+    if (action.roleId) {
+      onNavigate(`/roles/${action.roleId}`);
+    } else {
+      onNavigate("/analyzer");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`btn-press mt-4 flex w-full items-start gap-3 rounded-xl border p-4 text-left transition ${FOCUS_STYLES[action.type]}`}
+    >
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/60">
+        <Icon className="h-4 w-4" strokeWidth={2.25} />
+      </span>
+      <div>
+        <div className="text-sm font-semibold text-slate-900">{action.title}</div>
+        <div className="mt-1 text-xs text-slate-500">{action.desc}</div>
+      </div>
+    </button>
+  );
+}
+
+/** Recently touched roles (added or updated), newest first — a real activity trail built from
+ * tracker timestamps, not a fabricated feed. */
+function RecentActivityList({
+  activity,
+  onRoleClick,
+}: {
+  activity: ActivityItem[];
+  onRoleClick: (id: string) => void;
+}) {
+  if (activity.length === 0) {
+    return (
+      <p className="mt-4 text-sm text-slate-500 italic">
+        No activity yet. Add or update a role to see it here.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-4 space-y-2.5">
+      {activity.map((a) => (
+        <button
+          key={a.id}
+          type="button"
+          onClick={() => onRoleClick(a.id)}
+          className="btn-press flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-dash-surface p-3.5 text-left text-sm transition hover:bg-dash-surface/90"
+        >
+          <span className="flex min-w-0 items-center gap-2.5">
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_BAR_COLORS[a.status]}`}
+            />
+            <span className="min-w-0 truncate text-slate-900">
+              {a.role} <span className="text-slate-400">at</span> {a.company}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-xs text-slate-500">
+            {a.hasCoverLetter && (
+              <span className="rounded-full border border-slate-200 bg-slate-900/5 px-1.5 py-0.5 text-[10px] text-slate-500">
+                Cover letter
+              </span>
+            )}
+            <span>{formatRelativeDate(a.date)}</span>
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
 

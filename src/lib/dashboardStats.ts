@@ -333,28 +333,24 @@ export function getFollowUpReadyCount(items: TrackerItem[]): number {
 }
 
 export type ReadinessScores = {
-  resume: number;
-  projects: number;
-  deployments: number;
-  interviewPrep: number;
+  /** Average resume strength across saved snapshots. Null when there's no data yet — never a placeholder. */
+  resume: number | null;
 };
 
-/** Readiness scores: resume from snapshots, others placeholders until we have signals. */
+/**
+ * Resume readiness, computed from real saved analysis snapshots (resumeStrengthAtSave).
+ * Previously this also returned flat placeholder numbers for "projects", "deployments", and
+ * "interview prep" (45 / 15 / 25 for every user, always) — there's no real signal behind those
+ * in the data model, so they were cut rather than shown as fabricated stats.
+ */
 export function getReadinessScores(items: TrackerItem[]): ReadinessScores {
   const withSnap = items.filter((i) => i.reportSnapshot?.resumeStrengthAtSave != null);
-  const resume =
-    withSnap.length > 0
-      ? Math.round(
-          withSnap.reduce((a, i) => a + (i.reportSnapshot!.resumeStrengthAtSave ?? 0), 0) /
-            withSnap.length
-        )
-      : 50;
-  return {
-    resume: Math.min(100, Math.max(0, resume)),
-    projects: 45,
-    deployments: 15,
-    interviewPrep: 25,
-  };
+  if (withSnap.length === 0) return { resume: null };
+  const resume = Math.round(
+    withSnap.reduce((a, i) => a + (i.reportSnapshot!.resumeStrengthAtSave ?? 0), 0) /
+      withSnap.length
+  );
+  return { resume: Math.min(100, Math.max(0, resume)) };
 }
 
 const BENCHMARK_INTERVIEW_RATE = 30;
@@ -443,6 +439,130 @@ export function getTopInsight(
     return "Add more applications to unlock response rate insights.";
   }
   return null;
+}
+
+export type FocusAction = {
+  type: "overdue" | "deadline-soon" | "needs-analysis" | "stale" | "none";
+  title: string;
+  desc: string;
+  roleId?: string;
+};
+
+/**
+ * Single most useful next action, derived entirely from the user's own tracker data —
+ * overdue deadlines, roles missing analysis, an upcoming deadline, or a stale application.
+ * No fabricated priorities or cross-user comparisons.
+ */
+export function getFocusAction(items: TrackerItem[]): FocusAction {
+  if (items.length === 0) {
+    return {
+      type: "none",
+      title: "Add your first role",
+      desc: "Track a role to unlock fit scoring, deadlines, and insights.",
+    };
+  }
+
+  const nextDeadline = getUpcomingDeadlines(items, 1)[0];
+  if (nextDeadline?.isOverdue) {
+    return {
+      type: "overdue",
+      title: `${nextDeadline.role} at ${nextDeadline.company} is overdue`,
+      desc: "This deadline has passed — update its status or follow up.",
+      roleId: nextDeadline.id,
+    };
+  }
+
+  const needsAnalysis = items.find((i) => !i.reportSnapshot);
+  if (needsAnalysis) {
+    return {
+      type: "needs-analysis",
+      title: `Analyze ${needsAnalysis.role} at ${needsAnalysis.company}`,
+      desc: "No fit score yet — add a job description to see alignment and skill gaps.",
+      roleId: needsAnalysis.id,
+    };
+  }
+
+  if (nextDeadline) {
+    return {
+      type: "deadline-soon",
+      title: `${nextDeadline.role} at ${nextDeadline.company} — due ${nextDeadline.daysText}`,
+      desc: "Deadline coming up. Make sure your application is ready.",
+      roleId: nextDeadline.id,
+    };
+  }
+
+  const staleThresholdMs = 10 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const stale = [...items]
+    .filter((i) => i.status === "Applied")
+    .sort(
+      (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+    )[0];
+  if (stale && now - new Date(stale.updatedAt).getTime() >= staleThresholdMs) {
+    const days = Math.floor(
+      (now - new Date(stale.updatedAt).getTime()) / (24 * 60 * 60 * 1000)
+    );
+    return {
+      type: "stale",
+      title: `Follow up on ${stale.role} at ${stale.company}`,
+      desc: `No update in ${days} days — consider following up or changing its status.`,
+      roleId: stale.id,
+    };
+  }
+
+  return {
+    type: "none",
+    title: "You're on top of things",
+    desc: "No urgent actions right now — keep applying to build your pipeline.",
+  };
+}
+
+export type ActivityItem = {
+  id: string;
+  company: string;
+  role: string;
+  status: TrackerStatus;
+  date: string;
+  hasCoverLetter: boolean;
+};
+
+/** Most recently touched roles (added or updated), newest first — a real activity trail from tracker timestamps. */
+export function getRecentActivity(items: TrackerItem[], max = 5): ActivityItem[] {
+  return [...items]
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt || b.createdAt).getTime() -
+        new Date(a.updatedAt || a.createdAt).getTime()
+    )
+    .slice(0, max)
+    .map((i) => ({
+      id: i.id,
+      company: i.company,
+      role: i.role,
+      status: i.status,
+      date: i.updatedAt || i.createdAt,
+      hasCoverLetter: Boolean(i.coverLetter),
+    }));
+}
+
+/** Human-friendly relative date ("Today", "Yesterday", "3 days ago", or a short date). */
+export function formatRelativeDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const startOfDay = (d: Date) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  };
+  const diffDays = Math.round(
+    (startOfDay(new Date()).getTime() - startOfDay(date).getTime()) /
+      (24 * 60 * 60 * 1000)
+  );
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 /** Expected interviews range from applications sent and current response rate. */
