@@ -20,6 +20,7 @@ type RoleRow = {
   deadline: string | null;
   priority: RolePriority | null;
   report_snapshot: SavedReportSnapshot | null;
+  cover_letter: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -39,6 +40,7 @@ function rowToItem(row: RoleRow): TrackerItem {
     deadline: row.deadline ?? undefined,
     priority: row.priority ?? undefined,
     jobDescription: row.job_description ?? undefined,
+    coverLetter: row.cover_letter ?? undefined,
   };
 }
 
@@ -232,6 +234,10 @@ export function useTracker(reportAlignment: number | undefined) {
     );
   }
 
+  function updateCoverLetter(id: string, coverLetter: string) {
+    applyUpdate(id, { coverLetter }, { cover_letter: coverLetter });
+  }
+
   function updateReportSnapshot(id: string, snapshot: SavedReportSnapshot) {
     applyUpdate(
       id,
@@ -262,5 +268,6 @@ export function useTracker(reportAlignment: number | undefined) {
     updateDeadline,
     updatePriority,
     updateReportSnapshot,
+    updateCoverLetter,
   };
 }

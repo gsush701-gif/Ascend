@@ -43,6 +43,8 @@ export type TrackerItem = {
   priority?: RolePriority;
   /** Job description used for analysis; saved when adding from Analyzer, used for Re-analyze. */
   jobDescription?: string;
+  /** AI-generated cover letter for this role; overwritten on regenerate. */
+  coverLetter?: string;
 };
 
 export const LS_KEY = "internos_tracker_v1";

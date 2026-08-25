@@ -393,6 +393,57 @@ app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
+app.post("/api/generate-cover-letter", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {
+      return res.status(400).json({ error: "Field 'resumeText' must be a string" });
+    }
+    if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
+      return res.status(400).json({ error: "Field 'jobDescription' must be a string" });
+    }
+    if (req.body?.companyName !== undefined && typeof req.body.companyName !== "string") {
+      return res.status(400).json({ error: "Field 'companyName' must be a string" });
+    }
+    if (req.body?.roleTitle !== undefined && typeof req.body.roleTitle !== "string") {
+      return res.status(400).json({ error: "Field 'roleTitle' must be a string" });
+    }
+
+    const resumeText = (req.body?.resumeText || "").trim();
+    const jobDescription = (req.body?.jobDescription || "").trim();
+    const companyName = (req.body?.companyName || "").trim() || undefined;
+    const roleTitle = (req.body?.roleTitle || "").trim() || undefined;
+
+    if (resumeText.length < 30) {
+      return res.status(400).json({ error: "Field 'resumeText' is required and must have real content" });
+    }
+    if (resumeText.length > 50000) {
+      return res.status(400).json({ error: "Field 'resumeText' is too long (max 50000 characters)" });
+    }
+    if (jobDescription.length < 20) {
+      return res.status(400).json({ error: "Field 'jobDescription' is required and must have real content" });
+    }
+    if (jobDescription.length > 20000) {
+      return res.status(400).json({ error: "Field 'jobDescription' is too long (max 20000 characters)" });
+    }
+    if (companyName && companyName.length > 200) {
+      return res.status(400).json({ error: "Field 'companyName' is too long (max 200 characters)" });
+    }
+    if (roleTitle && roleTitle.length > 200) {
+      return res.status(400).json({ error: "Field 'roleTitle' is too long (max 200 characters)" });
+    }
+
+    const result = await groq.generateCoverLetter(resumeText, jobDescription, companyName, roleTitle);
+    return res.json(result);
+  } catch (err) {
+    console.error("generate-cover-letter failed:", err);
+    const safeMessage =
+      err.name === "GroqNotConfiguredError" || process.env.NODE_ENV !== "production"
+        ? err.message
+        : null;
+    return res.status(err.statusCode || 500).json({ error: safeMessage || "Failed to generate cover letter" });
+  }
+});
+
 app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: "Login required" });
