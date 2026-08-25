@@ -24,11 +24,8 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
   if (signals.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5 mb-6">
-      <div className="text-base font-semibold mb-1">
-        Missing signals by priority
-      </div>
-      <div className="text-xs text-zinc-500 mb-4">
+    <div className="mb-2">
+      <div className="text-xs text-slate-500 mb-4">
         High = required · Medium = nice to have · Low = bonus
       </div>
       <div className="space-y-3">
@@ -52,18 +49,18 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
               ? "border-rose-500/70"
               : priority === "medium"
                 ? "border-amber-500/60"
-                : "border-zinc-500/50";
+                : "border-slate-300";
           const priorityBadge =
             priority === "high"
-              ? "bg-rose-500/20 text-rose-700"
+              ? "bg-rose-500/15 text-rose-700"
               : priority === "medium"
-                ? "bg-amber-500/20 text-amber-700"
-                : "bg-zinc-500/20 text-zinc-400";
+                ? "bg-amber-500/15 text-amber-700"
+                : "bg-slate-900/[0.06] text-slate-600";
 
           return (
             <div
               key={i}
-              className={`group relative flex flex-col gap-2 rounded-xl border-l-4 ${priorityBorder} bg-zinc-950/40 pl-4 pr-3 py-3 text-sm text-zinc-200`}
+              className={`group relative flex flex-col gap-2 rounded-xl border-l-4 ${priorityBorder} bg-dash-surface pl-4 pr-3 py-3 text-sm text-slate-700`}
               title={`Why it matters: ${why}`}
             >
               <div className="mb-1">
@@ -75,31 +72,31 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
               </div>
               <div className="min-w-0 flex-1">
                 {display ? (
-                  <span className="text-zinc-100">
+                  <span className="text-slate-900">
                     <span className="mr-1.5">{display.icon}</span>
                     <span className="font-medium">{display.label}: </span>
                     {display.message}
                   </span>
                 ) : (
                   <>
-                    <span className="font-medium text-zinc-100">{sig}</span>
-                    <span className="text-zinc-500 mx-2">→</span>
+                    <span className="font-medium text-slate-900">{sig}</span>
+                    <span className="text-slate-400 mx-2">→</span>
                     <span className="text-amber-700/90">{plan.action}</span>
-                    <span className="ml-2 text-xs text-zinc-500">
+                    <span className="ml-2 text-xs text-slate-500">
                       ({plan.days} day{plan.days !== 1 ? "s" : ""})
                     </span>
                   </>
                 )}
-                <div className="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 hidden rounded-lg border border-rose-900/60 bg-rose-950/95 px-3 py-2 text-xs text-rose-100 shadow-xl group-hover:block">
+                <div className="pointer-events-none absolute bottom-full left-0 right-0 z-10 mb-1 hidden rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-xl group-hover:block">
                   <span className="font-medium text-rose-700">
                     Why it matters:
                   </span>{" "}
                   {why}
                 </div>
               </div>
-              <div className="flex items-start gap-2 rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-2.5 py-1.5 text-xs">
+              <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs">
                 <span className="text-emerald-600 shrink-0">✅</span>
-                <span className="text-zinc-300">
+                <span className="text-slate-700">
                   Add: &ldquo;{example}&rdquo;
                 </span>
               </div>

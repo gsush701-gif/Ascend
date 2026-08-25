@@ -1,4 +1,8 @@
 import type { SharedProfileData } from "../types/analyzer";
+import { AscendLogo } from "./layout/AscendLogo";
+import { BackgroundFX } from "./layout/BackgroundFX";
+import { card, badge } from "../lib/ui";
+import { cn } from "../lib/cn";
 
 type ProfileViewProps = {
   username: string;
@@ -13,8 +17,9 @@ export function ProfileView({ username, data, onBack }: ProfileViewProps) {
       : "";
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="border-b border-zinc-800/60 px-6 py-4">
+    <div className="min-h-screen bg-[#F4F5FA] text-slate-900">
+      <BackgroundFX />
+      <header className="relative border-b border-slate-200 bg-[#F4F5FA]/95 px-6 py-4 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <a
             href="/"
@@ -22,51 +27,51 @@ export function ProfileView({ username, data, onBack }: ProfileViewProps) {
               e.preventDefault();
               onBack();
             }}
-            className="text-sm font-semibold text-zinc-400 hover:text-zinc-200"
+            className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
           >
-            ← Ascend
+            <AscendLogo className="h-6 w-auto" />
+            Ascend
           </a>
-          <span className="text-xs text-zinc-500">{baseUrl}</span>
+          <span className="text-xs text-slate-500">{baseUrl}</span>
         </div>
       </header>
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="text-2xl font-bold text-zinc-100">{username}</h1>
-        <p className="mt-1 text-sm text-zinc-500">Shared resume profile</p>
+      <main className="relative mx-auto max-w-2xl px-6 py-10">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-slate-900">
+          {username}
+        </h1>
+        <p className="mt-1 text-sm text-slate-500">Shared resume profile</p>
 
         <div className="mt-8 space-y-6">
-          <section className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          <section className={cn("p-5", card)}>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
               Top skills
             </h2>
             <div className="mt-3 flex flex-wrap gap-2">
               {data.skills.length > 0 ? (
                 data.skills.map((s, i) => (
-                  <span
-                    key={i}
-                    className="rounded-xl border border-zinc-700 bg-zinc-800/50 px-3 py-1.5 text-sm text-zinc-200"
-                  >
+                  <span key={i} className={badge}>
                     {s}
                   </span>
                 ))
               ) : (
-                <span className="text-sm text-zinc-500">None shared yet</span>
+                <span className="text-sm text-slate-500">None shared yet</span>
               )}
             </div>
           </section>
 
-          <section className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          <section className={cn("p-5", card)}>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
               Resume strength
             </h2>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-zinc-100">
+              <span className="font-display text-2xl font-semibold text-slate-900">
                 {data.strength}/100
               </span>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-zinc-800/60 bg-zinc-900/40 p-5">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-500">
+          <section className={cn("p-5", card)}>
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
               Alignment history
             </h2>
             <div className="mt-3 space-y-2">
@@ -74,9 +79,9 @@ export function ProfileView({ username, data, onBack }: ProfileViewProps) {
                 data.history.map((h, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-sm"
+                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-dash-surface px-3 py-2 text-sm"
                   >
-                    <span className="text-zinc-300">
+                    <span className="text-slate-500">
                       {new Date(h.createdAt).toLocaleDateString(undefined, {
                         month: "short",
                         day: "numeric",
@@ -84,13 +89,13 @@ export function ProfileView({ username, data, onBack }: ProfileViewProps) {
                         minute: "2-digit",
                       })}
                     </span>
-                    <span className="font-semibold text-zinc-100">
+                    <span className="font-semibold text-slate-900">
                       {h.alignment}%
                     </span>
                   </div>
                 ))
               ) : (
-                <span className="text-sm text-zinc-500">No analyses yet</span>
+                <span className="text-sm text-slate-500">No analyses yet</span>
               )}
             </div>
           </section>
@@ -103,7 +108,7 @@ export function ProfileView({ username, data, onBack }: ProfileViewProps) {
               e.preventDefault();
               onBack();
             }}
-            className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/60 px-4 py-2.5 text-sm font-medium text-zinc-200 hover:bg-zinc-800/60"
+            className="btn-press inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-900/[0.04] px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-900/[0.06]"
           >
             Create your own →
           </a>

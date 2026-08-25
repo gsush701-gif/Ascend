@@ -313,7 +313,7 @@ export function ResumeLab() {
               >
                 {loading ? (
                   <>
-                    <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-zinc-400 border-t-transparent" />
+                    <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-slate-400 border-t-transparent" />
                     Optimizing…
                   </>
                 ) : (
@@ -453,7 +453,7 @@ export function ResumeLab() {
               >
                 {resumeLoading ? (
                   <>
-                    <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-zinc-400 border-t-transparent" />
+                    <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-slate-400 border-t-transparent" />
                     Analyzing resume…
                   </>
                 ) : (
