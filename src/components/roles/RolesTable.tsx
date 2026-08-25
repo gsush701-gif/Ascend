@@ -72,7 +72,7 @@ export function RolesTable({
   updateDeadline,
 }: RolesTableProps) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-dash-card shadow-sm">
+    <div className="animate-fade-in overflow-hidden rounded-xl border border-slate-200 bg-dash-card shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-slate-200 bg-[#F4F5FA]/95 backdrop-blur-sm">

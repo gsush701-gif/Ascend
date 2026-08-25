@@ -299,7 +299,7 @@ export function Roles() {
             }}
           />
         ) : items.length === 0 && showExample ? (
-          <div className="rounded-xl border border-slate-200 bg-dash-card p-6 shadow-sm">
+          <div className="animate-fade-in rounded-xl border border-slate-200 bg-dash-card p-6 shadow-sm">
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-500">
               Example row (not saved)
             </p>

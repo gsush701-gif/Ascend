@@ -22,7 +22,7 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={`flex flex-col items-center justify-center px-6 text-center ${card} ${
+      className={`animate-fade-in flex flex-col items-center justify-center px-6 text-center ${card} ${
         compact ? "py-8" : "py-12"
       }`}
     >

@@ -54,7 +54,7 @@ export function RoleDetail() {
 
   return (
     <AppShell>
-      <div className="space-y-8">
+      <div className="animate-fade-in space-y-8">
         <div className="flex items-center gap-4">
           <button
             type="button"

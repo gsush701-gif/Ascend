@@ -122,7 +122,7 @@ export function Dashboard() {
         {loading ? (
           <DashboardSkeleton />
         ) : totalApplications === 0 ? (
-          <>
+          <div className="animate-fade-in space-y-6">
             <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h1 className="font-display text-xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
@@ -167,9 +167,9 @@ export function Dashboard() {
                 onClick: () => setWhyTrackingOpen(true),
               }}
             />
-          </>
+          </div>
         ) : (
-          <>
+          <div className="animate-fade-in space-y-6">
         {/* SaaS header */}
         <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -382,7 +382,7 @@ export function Dashboard() {
           </>
         )}
 
-        </>
+        </div>
         )}
       </div>
     </AppShell>
