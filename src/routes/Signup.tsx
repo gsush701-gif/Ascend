@@ -57,7 +57,7 @@ export function Signup() {
   if (confirmEmailSent) {
     return (
       <PublicShell>
-        <div className={cn("mx-auto max-w-sm space-y-4 p-8 text-center", card)}>
+        <div className={cn("animate-fade-in mx-auto max-w-sm space-y-4 p-8 text-center", card)}>
           <h1 className="text-xl font-semibold text-slate-900">Check your inbox</h1>
           <p className="text-sm text-slate-500">
             We sent a confirmation link to <span className="text-slate-800">{email}</span>.
@@ -87,7 +87,7 @@ export function Signup() {
         </div>
 
         {error && (
-          <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
+          <div className="animate-fade-in rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         )}
