@@ -1,0 +1,17 @@
+{
+  "name": "ascend-extension",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chrome extension (Manifest V3) that saves LinkedIn/Indeed job postings straight into Ascend's Roles tracker.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node build.js",
+    "watch": "node build.js --watch"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
