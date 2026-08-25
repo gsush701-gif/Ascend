@@ -110,4 +110,34 @@ function extractJob({ titleSelectors, companySelectors, descriptionSelectors }) 
   }
 }
 
-module.exports = { firstMatchText, extractFromJsonLd, extractJob };
+/**
+ * Last-resort description extraction for pages that have neither JSON-LD
+ * nor a matching CSS selector (e.g. LinkedIn's search-results inline job
+ * pane, which ships hashed/unstable class names with every deploy — any
+ * selector hardcoded against today's hashes would just break again on the
+ * next one). Finds the *smallest* block-level element whose text is long
+ * enough to plausibly be a job description and that isn't link/button-heavy
+ * (ruling out job-list sidebars and nav chrome, which have many anchors
+ * relative to their text length). Confirmed against real LinkedIn markup
+ * on 2026-08-25 — candidate text lengths for the real description clustered
+ * around 700-1300 chars, well clear of both nav lists and the whole page.
+ */
+function extractDescriptionHeuristic() {
+  try {
+    const candidates = [];
+    for (const el of document.querySelectorAll("div, section, article")) {
+      const text = (el.textContent || "").trim();
+      if (text.length < 150 || text.length > 20000) continue;
+      if (el.querySelectorAll("a").length > 4) continue;
+      if (el.querySelectorAll("button").length > 6) continue;
+      candidates.push({ el, text });
+    }
+    if (candidates.length === 0) return "";
+    candidates.sort((a, b) => a.text.length - b.text.length);
+    return candidates[0].text;
+  } catch (_err) {
+    return "";
+  }
+}
+
+module.exports = { firstMatchText, extractFromJsonLd, extractDescriptionHeuristic, extractJob };

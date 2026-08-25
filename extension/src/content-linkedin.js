@@ -21,7 +21,7 @@
 //     matters less than it did before.
 //
 // Selectors are tried in order per field; first non-empty match wins.
-const { extractJob } = require("./extract");
+const { extractJob, extractDescriptionHeuristic } = require("./extract");
 const { JOB_DETECTED, REQUEST_JOB } = require("./messages");
 
 const SELECTORS = {
@@ -52,8 +52,36 @@ const SELECTORS = {
   ],
 };
 
+// LinkedIn sets document.title to "{Job Title} | {Company} | LinkedIn" on
+// job pages — including the search-results inline preview pane, where the
+// visible DOM otherwise offers no stable signal at all (hashed class names
+// that change per deploy, no JSON-LD for the currently-selected job).
+// Confirmed live on 2026-08-25.
+function extractFromDocumentTitle() {
+  const parts = document.title.split(" | ").map((p) => p.trim());
+  if (parts.length >= 3 && parts[parts.length - 1] === "LinkedIn" && parts[0] && parts[1]) {
+    return { title: parts[0], company: parts[1] };
+  }
+  return null;
+}
+
 function runExtraction() {
-  return extractJob(SELECTORS);
+  const result = extractJob(SELECTORS);
+
+  if (!result.title || !result.company) {
+    const fromTitle = extractFromDocumentTitle();
+    if (fromTitle) {
+      result.title = result.title || fromTitle.title;
+      result.company = result.company || fromTitle.company;
+    }
+  }
+
+  if (!result.description) {
+    result.description = extractDescriptionHeuristic();
+  }
+
+  result.detected = Boolean(result.title || result.company || result.description);
+  return result;
 }
 
 // Report what we found once the page settles, so the toolbar badge can
