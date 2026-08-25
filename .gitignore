@@ -16,6 +16,9 @@ dist-ssr
 .env
 server/.env
 
+# Local dev-preview tooling config (not part of the app)
+.claude/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
