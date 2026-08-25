@@ -172,29 +172,31 @@ export function RoleDetail() {
               />
             </Panel>
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => navigate("/resume-lab", { state: item.jobDescription ? { jobDescription: item.jobDescription } : undefined })}
-                className="btn-press rounded-xl border border-slate-200 bg-slate-900/[0.04] py-2.5 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
-              >
-                Improve bullets for this role
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  navigate("/analyzer", {
-                    state: {
-                      roleId: item.id,
-                      jobDescription: item.jobDescription,
-                      previousReport: snap ? { alignment: snap.alignment, coverage: snap.coverage } : undefined,
-                    },
-                  })
-                }
-                className="btn-press flex-1 rounded-xl border border-slate-200 bg-slate-900/[0.04] py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
-              >
-                Re-analyze
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate("/analyzer", {
+                      state: {
+                        roleId: item.id,
+                        jobDescription: item.jobDescription,
+                        previousReport: snap ? { alignment: snap.alignment, coverage: snap.coverage } : undefined,
+                      },
+                    })
+                  }
+                  className="btn-press flex-1 rounded-xl bg-cyan-500 py-2.5 px-4 text-sm font-semibold text-black transition hover:bg-cyan-400"
+                >
+                  Re-analyze
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/resume-lab", { state: item.jobDescription ? { jobDescription: item.jobDescription } : undefined })}
+                  className="btn-press rounded-xl border border-slate-200 bg-slate-900/[0.04] py-2.5 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                >
+                  Improve bullets for this role
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -203,9 +205,9 @@ export function RoleDetail() {
                     navigate("/roles");
                   }
                 }}
-                className="btn-press rounded-xl border border-rose-500/30 bg-rose-500/10 py-2.5 px-4 text-sm font-medium text-rose-700 transition hover:bg-rose-500/20"
+                className="btn-press rounded-xl py-2.5 px-4 text-sm font-medium text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-600"
               >
-                Remove
+                Remove role
               </button>
             </div>
           </div>
