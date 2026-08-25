@@ -70,7 +70,12 @@ const accountLimiter = rateLimit({
 // Multer: keep uploaded PDF in memory + limit file size
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+    files: 1,
+    fields: 5, // only "jd" is expected alongside the file
+    fieldSize: 64 * 1024, // headroom above the 20000-char jd cap enforced below
+  },
 });
 
 // --- Skill dictionary: canonical (lowercase, singular) + patterns to match ---
@@ -394,6 +399,9 @@ app.get("/", (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: `Upload rejected: ${err.message}` });
+  }
   res.status(500).json({ error: "Internal server error" });
 });
 
