@@ -76,8 +76,15 @@ function runExtraction() {
     }
   }
 
-  if (!result.description) {
-    result.description = extractDescriptionHeuristic();
+  // A CSS selector can match *something* short and wrong (e.g. a page
+  // variant reusing #job-details for a compact summary, not the full
+  // body) rather than nothing at all, so "selector found no match" isn't
+  // a reliable signal to fall back on here. The heuristic requires 400+
+  // chars of real prose to even return a candidate, so whichever is
+  // longer is the safer bet regardless of which method produced it.
+  const heuristicDescription = extractDescriptionHeuristic();
+  if (heuristicDescription.length > result.description.length) {
+    result.description = heuristicDescription;
   }
 
   result.detected = Boolean(result.title || result.company || result.description);
