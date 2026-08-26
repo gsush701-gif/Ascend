@@ -37,8 +37,16 @@ const PLANS = {
   pro: {
     name: "Pro",
     priceMonthly: 900, // cents, i.e. $9.00 — a placeholder price, not a real
-    // business decision. Real billing (checkout, webhooks, price IDs) is a
-    // separate later task once Stripe API keys exist.
+    // business decision.
+    // Stripe Price id for this plan's recurring monthly price (Phase 4b).
+    // Filled in automatically by server/scripts/setup-stripe-plans.js, which
+    // creates (or reuses) a matching Stripe Product+Price and writes the
+    // resulting price id back into this exact field — this stays the single
+    // source of truth for both the price definition (priceMonthly above) and
+    // which live Stripe object represents it (this field). Re-run that
+    // script any time priceMonthly changes here, then it creates a new price
+    // (Stripe prices are immutable) and updates this field to match.
+    stripePriceId: "price_1U8drIC7X9ixl0QrsvwwjEDE",
     limits: {
       "ai.analyze_summary": 200,
       "ai.improve_bullet": 300,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
 import { Input } from "../components/ui/Input";
@@ -28,11 +28,87 @@ export function Profile() {
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
   const planInfo = usePlanUsage(session?.user?.id);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const applicationsTracked = items.length;
   const rolesAnalyzed = items.filter((i) => i.reportSnapshot).length;
   const payload = getStoredSharePayload();
+
+  // Stripe Checkout redirects back here with ?checkout=success|cancelled
+  // (server/index.js's /api/billing/create-checkout-session success_url /
+  // cancel_url). Surface it once as a toast, then strip the param so a
+  // refresh or back-navigation doesn't re-show it.
+  useEffect(() => {
+    const checkoutStatus = searchParams.get("checkout");
+    if (!checkoutStatus) return;
+    if (checkoutStatus === "success") {
+      toast.success({
+        title: "You're on Pro",
+        description: "Your subscription is active — thanks for upgrading!",
+      });
+    } else if (checkoutStatus === "cancelled") {
+      toast.info({ title: "Checkout cancelled", description: "No charge was made." });
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("checkout");
+    setSearchParams(next, { replace: true });
+    // Only ever run this in response to the URL actually carrying the
+    // param — re-running on every searchParams identity change would loop
+    // (setSearchParams itself changes searchParams).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleUpgrade = async () => {
+    if (!session?.access_token) return;
+    setBillingBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/billing/create-checkout-session`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(data, "Failed to start checkout"));
+      }
+      if (typeof data.url !== "string") {
+        throw new Error("Failed to start checkout");
+      }
+      window.location.href = data.url;
+    } catch (e) {
+      toast.error({
+        title: "Couldn't start checkout",
+        description: e instanceof Error ? e.message : "Please try again.",
+      });
+      setBillingBusy(false);
+    }
+  };
+
+  const handleManageBilling = async () => {
+    if (!session?.access_token) return;
+    setBillingBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/billing/create-portal-session`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(getApiErrorMessage(data, "Failed to open billing portal"));
+      }
+      if (typeof data.url !== "string") {
+        throw new Error("Failed to open billing portal");
+      }
+      window.location.href = data.url;
+    } catch (e) {
+      toast.error({
+        title: "Couldn't open billing portal",
+        description: e instanceof Error ? e.message : "Please try again.",
+      });
+      setBillingBusy(false);
+    }
+  };
 
   const handleGenerateShareLink = () => {
     const slug = shareSlug.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "") || "profile";
@@ -162,7 +238,12 @@ export function Profile() {
         </Panel>
 
         <Panel title="Plan" subtitle="Your current plan and usage this month.">
-          <PlanPanelBody planInfo={planInfo} />
+          <PlanPanelBody
+            planInfo={planInfo}
+            billingBusy={billingBusy}
+            onUpgrade={handleUpgrade}
+            onManageBilling={handleManageBilling}
+          />
         </Panel>
 
         <Panel
@@ -333,7 +414,17 @@ function usePlanUsage(userId: string | undefined): PlanInfo {
   return { loading: !plansLoaded || !usageLoaded, plansData, planKey, usageByType };
 }
 
-function PlanPanelBody({ planInfo }: { planInfo: PlanInfo }) {
+function PlanPanelBody({
+  planInfo,
+  billingBusy,
+  onUpgrade,
+  onManageBilling,
+}: {
+  planInfo: PlanInfo;
+  billingBusy: boolean;
+  onUpgrade: () => void;
+  onManageBilling: () => void;
+}) {
   const { loading, plansData, planKey, usageByType } = planInfo;
 
   if (!plansData) {
@@ -343,12 +434,24 @@ function PlanPanelBody({ planInfo }: { planInfo: PlanInfo }) {
   const plan = plansData.plans[planKey] ?? plansData.plans[plansData.defaultPlan];
   const priceLabel =
     plan.priceMonthly === 0 ? "Free — no paid tiers active yet." : `$${(plan.priceMonthly / 100).toFixed(2)}/month`;
+  const isPro = planKey === "pro";
 
   return (
     <>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className={badgePrimary}>{plan.name} plan</span>
         <span className="text-sm text-slate-500">{priceLabel}</span>
+        {!loading && (
+          <Button
+            type="button"
+            onClick={isPro ? onManageBilling : onUpgrade}
+            variant={isPro ? "secondary" : "primary"}
+            disabled={billingBusy}
+            className="ml-auto"
+          >
+            {billingBusy ? "Redirecting…" : isPro ? "Manage billing" : "Upgrade to Pro"}
+          </Button>
+        )}
       </div>
       <ul className="mt-4 space-y-1.5 text-sm">
         {Object.entries(plan.limits).map(([eventType, limit]) => {

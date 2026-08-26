@@ -55,6 +55,8 @@ const { recordUsageEvent } = require("./lib/usageEvents");
 const { checkQuota, enforceUsageQuota } = require("./lib/usage");
 const { PLANS, DEFAULT_PLAN, USAGE_LABELS } = require("./lib/plans");
 const groq = require("./lib/groq");
+const { stripe, isStripeConfigured } = require("./lib/stripe");
+const billing = require("./lib/billing");
 
 const app = express();
 
@@ -90,6 +92,68 @@ app.use(
     methods: ["GET", "POST"],
   }),
 );
+
+// Stripe's webhook signature check (stripe.webhooks.constructEvent, in the
+// route handler below) needs the exact raw request bytes — a JSON-parsed
+// and re-serialized body will not reproduce the same signature and every
+// event would be rejected as invalid. This route is deliberately registered
+// here, BEFORE the app-wide express.json() below, and uses its own
+// express.raw() body parser scoped to just this one path. Express runs
+// middleware/routes in registration order, and this route's handler always
+// sends a response itself (it never calls next()), so for a request to this
+// exact path the stack never reaches express.json() below — the global
+// json parser genuinely never touches this route's body. Verified directly
+// in Phase 4b's manual webhook testing (constructEvent succeeds against a
+// live-generated signature), not just assumed from the ordering.
+app.post("/api/billing/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  if (!isStripeConfigured || !stripe) {
+    return res.status(503).send("Billing is not configured on the server");
+  }
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("[billing webhook] STRIPE_WEBHOOK_SECRET is not set — rejecting request.");
+    return res.status(503).send("Webhook is not configured on the server");
+  }
+
+  const signature = req.headers["stripe-signature"];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+  } catch (err) {
+    console.error("[billing webhook] signature verification failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Every branch below is wrapped so a downstream failure (e.g. the
+  // `subscriptions` table not existing yet in an environment where
+  // migrations 006+ haven't been applied — see supabase/migrations/012's
+  // header comment) is logged rather than left to bubble into a 5xx. Stripe
+  // retries non-2xx deliveries on a backoff for days; for a webhook whose
+  // whole job is a best-effort DB sync, a stuck retry storm is worse than a
+  // logged miss the owner can replay manually from the Stripe dashboard
+  // once the underlying issue (e.g. missing migration) is fixed.
+  try {
+    switch (event.type) {
+      case "checkout.session.completed":
+        await billing.handleCheckoutSessionCompleted(event.data.object, { stripe, supabaseAdmin });
+        break;
+      case "customer.subscription.updated":
+        await billing.handleSubscriptionUpdated(event.data.object, { supabaseAdmin });
+        break;
+      case "customer.subscription.deleted":
+        await billing.handleSubscriptionDeleted(event.data.object, { supabaseAdmin });
+        break;
+      default:
+        console.log(`[billing webhook] unhandled event type, ignoring: ${event.type}`);
+    }
+  } catch (err) {
+    console.error(`[billing webhook] handler failed for event ${event.type}:`, err);
+    captureException(err, { route: req.path, stripeEventType: event.type, stripeEventId: event.id });
+  }
+
+  return res.status(200).json({ received: true });
+});
+
 app.use(express.json({ limit: "5mb" }));
 
 // AI-backed routes each cost a real Groq API call — cap abuse/runaway cost
@@ -128,6 +192,17 @@ const trackLimiter = createRateLimiter({
   max: 120,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "track",
+});
+
+// Checkout/portal session creation each make a real Stripe API call; a
+// logged-in user has no legitimate reason to hit either more than a
+// handful of times in 15 minutes (opening the pricing/billing UI a few
+// times while deciding), so this is deliberately tighter than aiLimiter.
+const billingLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "billing",
 });
 
 // Multer: keep uploaded PDF in memory + limit file size
@@ -215,6 +290,108 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 // to show for a logged-in user with no `subscriptions` row.
 app.get("/api/plans", (req, res) => {
   res.json({ plans: PLANS, defaultPlan: DEFAULT_PLAN, usageLabels: USAGE_LABELS });
+});
+
+// --- Stripe billing (Phase 4b) ---
+//
+// Both routes below require a logged-in user (same optionalAuth + manual
+// req.user check pattern already used by /api/account/delete, rather than a
+// separate hard-auth middleware that doesn't otherwise exist in this
+// codebase). The webhook route that actually owns writes to `subscriptions`
+// lives above, before express.json(), since it needs the raw request body.
+
+app.post("/api/billing/create-checkout-session", billingLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!isStripeConfigured || !stripe) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Billing is not configured on the server");
+  }
+  if (!PLANS.pro.stripePriceId) {
+    return sendError(
+      req,
+      res,
+      503,
+      ErrorCodes.SERVICE_UNAVAILABLE,
+      "The Pro plan isn't set up in Stripe yet (run server/scripts/setup-stripe-plans.js).",
+    );
+  }
+
+  try {
+    // Reuse an existing Stripe customer if this user already has one (e.g.
+    // a past subscription that was later canceled) rather than letting
+    // Stripe mint a second, disconnected customer record for the same
+    // person.
+    let existingCustomerId = null;
+    if (supabaseAdmin) {
+      const { data } = await supabaseAdmin
+        .from("subscriptions")
+        .select("stripe_customer_id")
+        .eq("user_id", req.user.id)
+        .maybeSingle();
+      existingCustomerId = data?.stripe_customer_id || null;
+    }
+
+    const frontendUrl = billing.getFrontendUrl();
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: PLANS.pro.stripePriceId, quantity: 1 }],
+      client_reference_id: req.user.id,
+      metadata: { supabase_user_id: req.user.id },
+      ...(existingCustomerId
+        ? { customer: existingCustomerId }
+        : { customer_email: req.user.email || undefined }),
+      success_url: `${frontendUrl}/profile?checkout=success`,
+      cancel_url: `${frontendUrl}/profile?checkout=cancelled`,
+    });
+
+    return res.json({ url: session.url });
+  } catch (err) {
+    console.error("create-checkout-session failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to start checkout");
+  }
+});
+
+app.post("/api/billing/create-portal-session", billingLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!isStripeConfigured || !stripe) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Billing is not configured on the server");
+  }
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Billing is not configured on the server");
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", req.user.id)
+      .maybeSingle();
+    if (error || !data?.stripe_customer_id) {
+      return sendError(
+        req,
+        res,
+        404,
+        ErrorCodes.NOT_FOUND,
+        "No billing account found yet — subscribe to Pro first.",
+      );
+    }
+
+    const frontendUrl = billing.getFrontendUrl();
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: data.stripe_customer_id,
+      return_url: `${frontendUrl}/profile`,
+    });
+
+    return res.json({ url: portalSession.url });
+  } catch (err) {
+    console.error("create-portal-session failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to open billing portal");
+  }
 });
 
 app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (req, res) => {
