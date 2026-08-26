@@ -11,6 +11,7 @@ import { useTracker } from "../features/tracker/hooks/useTracker";
 import { useProfile } from "../lib/profile";
 import { supabase } from "../lib/supabaseClient";
 import { API_BASE } from "../config/api";
+import { getApiErrorMessage } from "../lib/apiError";
 import {
   getStoredSharePayload,
   getStoredShareSlug,
@@ -85,7 +86,7 @@ export function Profile() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || "Failed to delete account");
+        throw new Error(getApiErrorMessage(data, "Failed to delete account"));
       }
       await signOut();
       navigate("/login", { replace: true });

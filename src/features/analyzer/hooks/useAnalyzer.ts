@@ -14,6 +14,8 @@ import {
 } from "../../../lib/parseJd";
 import { API_BASE } from "../../../config/api";
 import { useAuth } from "../../../context/AuthContext";
+import { getApiErrorMessage } from "../../../lib/apiError";
+import { logEvent } from "../../../lib/analytics";
 
 const API_URL = `${API_BASE}/analyze`;
 const JD_MIN_LENGTH = 20;
@@ -116,6 +118,7 @@ export function useAnalyzer() {
   function setResume(file: File | null) {
     setSelectedResumeId(null);
     setResumeState(file);
+    if (file) logEvent("resume_uploaded", { source: "picker" });
   }
 
   /** Set a resume that came from the user's saved resumes (src/features/resumes). */
@@ -167,10 +170,11 @@ export function useAnalyzer() {
       const data = await res.json();
 
       if (!res.ok) {
-        setAnalyzeError(data?.error || "Analyze failed. Please try again.");
+        setAnalyzeError(getApiErrorMessage(data, "Analyze failed. Please try again."));
         return;
       }
       setReport(data);
+      logEvent("analysis_completed", { alignment: data?.alignment });
       setAlignmentHistory((prev) => {
         const next: AlignmentHistoryItem[] = [
           {

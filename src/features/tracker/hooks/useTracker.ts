@@ -7,6 +7,7 @@ import type {
 } from "../../../types/tracker";
 import { supabase } from "../../../lib/supabaseClient";
 import { useAuth } from "../../../context/AuthContext";
+import { logEvent } from "../../../lib/analytics";
 
 type RoleRow = {
   id: string;
@@ -228,6 +229,7 @@ export function useTracker(reportAlignment: number | undefined) {
     setRole("");
     setNextStep("Apply today");
     onAdded(id);
+    logEvent("role_created", { status });
 
     supabase
       .from("roles")

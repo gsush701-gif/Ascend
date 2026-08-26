@@ -11,6 +11,8 @@ import { extractTextFromPdf } from "../../lib/pdf";
 import { API_BASE } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 import { ApplicationDetailsPanel } from "./ApplicationDetailsPanel";
+import { getApiErrorMessage } from "../../lib/apiError";
+import { logEvent } from "../../lib/analytics";
 
 const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
@@ -88,10 +90,11 @@ export function RoleDetailDrawer({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "AI request failed");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "AI request failed"));
       setClResult(data);
       setClShowForm(false);
       updateCoverLetter(item.id, data.coverLetter);
+      logEvent("cover_letter_generated");
     } catch (e) {
       setClError(
         e instanceof Error ? e.message : "Failed to generate cover letter",

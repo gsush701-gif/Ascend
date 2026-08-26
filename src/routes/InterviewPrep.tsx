@@ -8,6 +8,8 @@ import { Button } from "../components/ui/Button";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { API_BASE } from "../config/api";
 import { useAuth } from "../context/AuthContext";
+import { getApiErrorMessage } from "../lib/apiError";
+import { logEvent } from "../lib/analytics";
 
 type InterviewQuestion = { question: string; category: string };
 
@@ -73,11 +75,12 @@ export function InterviewPrep() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "AI request failed");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "AI request failed"));
       updateInterviewPrep(item.id, {
         questions: data.questions ?? [],
         generatedAt: new Date().toISOString(),
       });
+      logEvent("interview_started", { questionCount: data.questions?.length });
       setExpandedIndex(null);
       setAnswers({});
       setFeedbackByIndex({});
@@ -125,7 +128,7 @@ export function InterviewPrep() {
           }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "AI request failed");
+        if (!res.ok) throw new Error(getApiErrorMessage(data, "AI request failed"));
         setFeedbackByIndex((prev) => ({ ...prev, [index]: data }));
       } catch (e) {
         setFeedbackError((prev) => ({

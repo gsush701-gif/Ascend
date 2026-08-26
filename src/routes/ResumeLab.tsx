@@ -17,6 +17,7 @@ import { API_BASE } from "../config/api";
 import { useAuth } from "../context/AuthContext";
 import { extractTextFromPdf } from "../lib/pdf";
 import { supabase } from "../lib/supabaseClient";
+import { getApiErrorMessage } from "../lib/apiError";
 
 const HISTORY_KEY = "internos_resume_lab_history_v1";
 const HISTORY_MAX = 20;
@@ -253,7 +254,7 @@ export function ResumeLab() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "AI request failed");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "AI request failed"));
       setResumeResult(data);
       setResumeLabUsed();
     } catch (e) {
@@ -297,7 +298,7 @@ export function ResumeLab() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "AI request failed");
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "AI request failed"));
       if (!mounted.current) return;
       setLinkedinResult(data);
       setResumeLabUsed();
