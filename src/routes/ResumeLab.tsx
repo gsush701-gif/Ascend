@@ -16,6 +16,7 @@ import { setResumeLabUsed } from "../lib/onboarding";
 import { API_BASE } from "../config/api";
 import { useAuth } from "../context/AuthContext";
 import { extractTextFromPdf } from "../lib/pdf";
+import { supabase } from "../lib/supabaseClient";
 
 const HISTORY_KEY = "internos_resume_lab_history_v1";
 const HISTORY_MAX = 20;
@@ -47,6 +48,30 @@ function clearHistory() {
   } catch {}
 }
 
+type ResumeImprovementRow = {
+  id: string;
+  input: string;
+  improved: string;
+  why: string | null;
+  stack: string | null;
+  impact: string | null;
+  created_at: string;
+};
+
+function rowToHistoryEntry(row: ResumeImprovementRow): HistoryEntry {
+  return {
+    id: row.id,
+    input: row.input,
+    result: {
+      improved: row.improved,
+      why: row.why ?? "",
+      stack: row.stack ?? "",
+      impact: row.impact ?? "",
+    },
+    createdAt: row.created_at,
+  };
+}
+
 type ResumeImproveResult = {
   summary: string;
   topFixes: string[];
@@ -62,7 +87,7 @@ type LinkedInImproveResult = {
 
 export function ResumeLab() {
   const location = useLocation();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const jobDescription = (location.state as { jobDescription?: string } | null)?.jobDescription ?? "";
   const [mode, setMode] = useState<"bullet" | "resume" | "linkedin">("bullet");
 
@@ -76,7 +101,13 @@ export function ResumeLab() {
   const [slowRequest, setSlowRequest] = useState(false);
   const [result, setResult] = useState<BulletImprovementResult | null>(null);
   const [copyLabel, setCopyLabel] = useState<"Copy" | "Copied!">("Copy");
-  const [history, setHistory] = useState<HistoryEntry[]>(loadHistory);
+  // Logged-in users see their history from the `resume_improvements` table
+  // (the backend already persists it there — see server/index.js's
+  // /api/improve-bullet handler — but nothing used to read it back).
+  // Logged-out users keep the existing localStorage-only behavior, since
+  // there's no account to attach DB rows to.
+  const [history, setHistory] = useState<HistoryEntry[]>(() => (user ? [] : loadHistory()));
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [showEmptyError, setShowEmptyError] = useState(false);
   const [jobContextExpanded, setJobContextExpanded] = useState(true);
   const mounted = useRef(true);
@@ -100,12 +131,40 @@ export function ResumeLab() {
   const [linkedinCopyLabel, setLinkedinCopyLabel] = useState<"Copy" | "Copied!">("Copy");
 
   useEffect(() => {
-    setHistory(loadHistory());
     mounted.current = true;
     return () => {
       mounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setHistory(loadHistory());
+      return;
+    }
+    let cancelled = false;
+    setHistoryLoading(true);
+    supabase
+      .from("resume_improvements")
+      .select("id, input, improved, why, stack, impact, created_at")
+      .order("created_at", { ascending: false })
+      .limit(HISTORY_MAX)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("[ResumeLab] failed to load history:", error);
+          // Fall back to whatever local history exists rather than showing
+          // nothing on a transient network/DB error.
+          setHistory(loadHistory());
+        } else {
+          setHistory(((data as ResumeImprovementRow[] | null) ?? []).map(rowToHistoryEntry));
+        }
+        setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   const runImprove = useCallback(async () => {
     const trimmed = input.trim();
@@ -154,11 +213,16 @@ export function ResumeLab() {
       createdAt: new Date().toISOString(),
     };
     setHistory((prev) => {
-      const next = [entry, ...prev];
-      saveHistory(next);
+      const next = [entry, ...prev].slice(0, HISTORY_MAX);
+      // Logged-in: the backend already persisted this call to
+      // `resume_improvements` (fire-and-forget, see /api/improve-bullet).
+      // This is just an optimistic local prepend for instant feedback —
+      // a refresh re-reads the real list from the DB. Logged-out: this
+      // localStorage copy IS the only record, so persist it.
+      if (!user) saveHistory(next);
       return next;
     });
-  }, [input, session]);
+  }, [input, session, user]);
 
   const runImproveResume = useCallback(async () => {
     if (!resumeFile) {
@@ -259,8 +323,18 @@ export function ResumeLab() {
 
   const handleClearHistory = useCallback(() => {
     setHistory([]);
-    clearHistory();
-  }, []);
+    if (user) {
+      supabase
+        .from("resume_improvements")
+        .delete()
+        .eq("user_id", user.id)
+        .then(({ error }) => {
+          if (error) console.error("[ResumeLab] failed to clear history:", error);
+        });
+    } else {
+      clearHistory();
+    }
+  }, [user]);
 
   const handleCopy = useCallback(() => {
     if (!result?.improved) return;
@@ -457,6 +531,9 @@ export function ResumeLab() {
             )}
 
             {/* History */}
+            {historyLoading && history.length === 0 && (
+              <p className="text-xs text-slate-400">Loading your improvement history…</p>
+            )}
             {history.length > 0 && (
               <section>
                 <div className="flex items-center justify-between gap-3">
