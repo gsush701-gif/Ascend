@@ -7,6 +7,7 @@ import { Landing } from "./routes/Landing";
 import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
 import { Roles } from "./routes/Roles";
+import { Contacts } from "./routes/Contacts";
 import { RoleDetail } from "./routes/RoleDetail";
 import { InterviewPrep } from "./routes/InterviewPrep";
 import { Profile } from "./routes/Profile";
@@ -74,6 +75,7 @@ export default function App() {
       {/* Private (app) — requires login */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
+      <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
       <Route path="/roles/:id" element={<ProtectedRoute><RoleDetail /></ProtectedRoute>} />
       <Route path="/roles/:id/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />

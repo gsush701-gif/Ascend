@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { AscendLogo } from "./AscendLogo";
+import { NotificationsBell } from "./NotificationsBell";
 import { useAuth } from "../../context/AuthContext";
 
 function NavPill({
@@ -31,6 +32,7 @@ function NavPill({
 const NAV_LINKS = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/roles", label: "Roles" },
+  { to: "/contacts", label: "Contacts" },
   { to: "/analyzer", label: "Analyze" },
   { to: "/resume-lab", label: "Resume Lab" },
   { to: "/profile", label: "Profile" },
@@ -80,6 +82,7 @@ export function TopNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {user && <NotificationsBell />}
           <button
             type="button"
             onClick={() => setMobileOpen((o) => !o)}
