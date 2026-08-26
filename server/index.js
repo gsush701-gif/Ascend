@@ -393,6 +393,52 @@ app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
+app.post("/api/improve-linkedin", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.text !== undefined && typeof req.body.text !== "string") {
+      return res.status(400).json({ error: "Field 'text' must be a string" });
+    }
+    if (req.body?.section !== undefined && typeof req.body.section !== "string") {
+      return res.status(400).json({ error: "Field 'section' must be a string" });
+    }
+    if (req.body?.targetRole !== undefined && typeof req.body.targetRole !== "string") {
+      return res.status(400).json({ error: "Field 'targetRole' must be a string" });
+    }
+
+    const text = (req.body?.text || "").trim();
+    const section = req.body?.section;
+    const targetRole = (req.body?.targetRole || "").trim() || undefined;
+
+    if (section !== "headline" && section !== "about") {
+      return res.status(400).json({ error: "Field 'section' must be one of \"headline\" or \"about\"" });
+    }
+    if (!text) {
+      return res.status(400).json({ error: "Field 'text' is required" });
+    }
+    // A LinkedIn headline is short (~220-char platform limit); an About
+    // section is closer in scale to a resume bullet block. Cap each
+    // consistently with /api/improve-bullet's 600-char cap rather than
+    // inventing a new arbitrary number.
+    const maxLength = section === "headline" ? 300 : 600;
+    if (text.length > maxLength) {
+      return res.status(400).json({ error: `Field 'text' is too long (max ${maxLength} characters)` });
+    }
+    if (targetRole && targetRole.length > 200) {
+      return res.status(400).json({ error: "Field 'targetRole' is too long (max 200 characters)" });
+    }
+
+    const result = await groq.improveLinkedInSection(text, section, targetRole);
+    return res.json(result);
+  } catch (err) {
+    console.error("improve-linkedin failed:", err);
+    const safeMessage =
+      err.name === "GroqNotConfiguredError" || process.env.NODE_ENV !== "production"
+        ? err.message
+        : null;
+    return res.status(err.statusCode || 500).json({ error: safeMessage || "Failed to improve LinkedIn section" });
+  }
+});
+
 app.post("/api/generate-cover-letter", aiLimiter, optionalAuth, async (req, res) => {
   try {
     if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {

@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Copy, FileText, Sparkles } from "lucide-react";
 import { cn } from "../lib/cn";
 import { AppShell } from "../components/layout/AppShell";
 import { Textarea } from "../components/ui/Textarea";
+import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
 import {
@@ -52,11 +53,18 @@ type ResumeImproveResult = {
   rewrittenBullets: { original: string; improved: string }[];
 };
 
+type LinkedInSection = "headline" | "about";
+
+type LinkedInImproveResult = {
+  improved: string;
+  why: string;
+};
+
 export function ResumeLab() {
   const location = useLocation();
   const { session } = useAuth();
   const jobDescription = (location.state as { jobDescription?: string } | null)?.jobDescription ?? "";
-  const [mode, setMode] = useState<"bullet" | "resume">("bullet");
+  const [mode, setMode] = useState<"bullet" | "resume" | "linkedin">("bullet");
 
   // Single-bullet mode
   const [input, setInput] = useState("");
@@ -79,6 +87,17 @@ export function ResumeLab() {
   const [resumeSlowRequest, setResumeSlowRequest] = useState(false);
   const [resumeResult, setResumeResult] = useState<ResumeImproveResult | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
+
+  // LinkedIn profile mode
+  const [linkedinSection, setLinkedinSection] = useState<LinkedInSection>("headline");
+  const [linkedinInput, setLinkedinInput] = useState("");
+  const [linkedinTargetRole, setLinkedinTargetRole] = useState("");
+  const [linkedinLoading, setLinkedinLoading] = useState(false);
+  const [linkedinSlowRequest, setLinkedinSlowRequest] = useState(false);
+  const [linkedinResult, setLinkedinResult] = useState<LinkedInImproveResult | null>(null);
+  const [linkedinError, setLinkedinError] = useState<string | null>(null);
+  const [linkedinShowEmptyError, setLinkedinShowEmptyError] = useState(false);
+  const [linkedinCopyLabel, setLinkedinCopyLabel] = useState<"Copy" | "Copied!">("Copy");
 
   useEffect(() => {
     setHistory(loadHistory());
@@ -184,6 +203,60 @@ export function ResumeLab() {
     }
   }, [resumeFile, jobDescription, session]);
 
+  const runImproveLinkedIn = useCallback(async () => {
+    const trimmed = linkedinInput.trim();
+    if (!trimmed) {
+      setLinkedinShowEmptyError(true);
+      toast.error(`Paste your ${linkedinSection === "headline" ? "headline" : "About section"} to improve`);
+      return;
+    }
+    setLinkedinShowEmptyError(false);
+    setLinkedinError(null);
+    setLinkedinLoading(true);
+    setLinkedinSlowRequest(false);
+    setLinkedinResult(null);
+    const slowTimer = setTimeout(() => setLinkedinSlowRequest(true), 6000);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/improve-linkedin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          text: trimmed,
+          section: linkedinSection,
+          targetRole: linkedinTargetRole.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "AI request failed");
+      if (!mounted.current) return;
+      setLinkedinResult(data);
+      setResumeLabUsed();
+    } catch (e) {
+      if (!mounted.current) return;
+      setLinkedinError(e instanceof Error ? e.message : "Failed to improve LinkedIn section");
+    } finally {
+      clearTimeout(slowTimer);
+      if (mounted.current) {
+        setLinkedinLoading(false);
+        setLinkedinSlowRequest(false);
+      }
+    }
+  }, [linkedinInput, linkedinSection, linkedinTargetRole, session]);
+
+  const handleCopyLinkedin = useCallback(() => {
+    if (!linkedinResult?.improved) return;
+    navigator.clipboard.writeText(linkedinResult.improved).then(() => {
+      setLinkedinCopyLabel("Copied!");
+      setTimeout(() => setLinkedinCopyLabel("Copy"), 2000);
+    });
+  }, [linkedinResult]);
+
   const handleClearHistory = useCallback(() => {
     setHistory([]);
     clearHistory();
@@ -233,6 +306,16 @@ export function ResumeLab() {
               )}
             >
               Full resume (PDF)
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("linkedin")}
+              className={cn(
+                "rounded-md px-4 py-1.5 text-sm font-medium transition",
+                mode === "linkedin" ? "bg-white text-black shadow-sm" : "text-slate-500 hover:text-slate-900"
+              )}
+            >
+              LinkedIn profile
             </button>
           </div>
         </section>
@@ -404,7 +487,7 @@ export function ResumeLab() {
               </section>
             )}
           </>
-        ) : (
+        ) : mode === "resume" ? (
           <>
             {/* Full resume upload */}
             <section className={cn(card, "space-y-4")}>
@@ -510,6 +593,155 @@ export function ResumeLab() {
                     </ul>
                   </div>
                 )}
+              </section>
+            )}
+          </>
+        ) : (
+          <>
+            {/* LinkedIn section toggle */}
+            <section className="flex justify-center">
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-900/[0.04] p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinkedinSection("headline");
+                    setLinkedinResult(null);
+                    setLinkedinError(null);
+                  }}
+                  className={cn(
+                    "rounded-md px-4 py-1.5 text-sm font-medium transition",
+                    linkedinSection === "headline"
+                      ? "bg-white text-black shadow-sm"
+                      : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  Headline
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinkedinSection("about");
+                    setLinkedinResult(null);
+                    setLinkedinError(null);
+                  }}
+                  className={cn(
+                    "rounded-md px-4 py-1.5 text-sm font-medium transition",
+                    linkedinSection === "about"
+                      ? "bg-white text-black shadow-sm"
+                      : "text-slate-500 hover:text-slate-900"
+                  )}
+                >
+                  About section
+                </button>
+              </div>
+            </section>
+
+            <section className="space-y-4">
+              <div
+                className={cn(
+                  "rounded-xl border px-4 py-3 focus-within:ring-1",
+                  linkedinShowEmptyError
+                    ? "border-red-400/50 bg-red-500/5 focus-within:border-red-400/50 focus-within:ring-red-400/20"
+                    : "border-slate-200 bg-slate-900/[0.04] focus-within:border-slate-300 focus-within:ring-slate-200"
+                )}
+              >
+                <Textarea
+                  value={linkedinInput}
+                  onChange={(e) => {
+                    setLinkedinInput(e.target.value);
+                    setLinkedinShowEmptyError(false);
+                  }}
+                  placeholder={
+                    linkedinSection === "headline"
+                      ? "Paste your current LinkedIn headline..."
+                      : "Paste your current LinkedIn About section..."
+                  }
+                  rows={linkedinSection === "headline" ? 2 : 6}
+                  className="min-h-0 resize-none border-0 bg-transparent p-0 focus:ring-0"
+                />
+              </div>
+              {linkedinShowEmptyError && (
+                <p className="text-sm text-red-600">
+                  Paste your {linkedinSection === "headline" ? "headline" : "About section"} to improve.
+                </p>
+              )}
+              {!linkedinInput.trim() && !linkedinShowEmptyError && (
+                <div className={cn(cardAlt, "p-4")}>
+                  <p className="text-sm text-slate-600">
+                    {linkedinSection === "headline"
+                      ? "We'll make it punchy, keyword-rich, and under LinkedIn's headline limit."
+                      : "We'll turn it into a fuller narrative that sounds like you, not a template."}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-slate-500">
+                  Target role (optional)
+                </label>
+                <Input
+                  value={linkedinTargetRole}
+                  onChange={(e) => setLinkedinTargetRole(e.target.value)}
+                  placeholder="e.g. Backend Engineer"
+                />
+              </div>
+
+              {linkedinError && (
+                <p className="text-sm text-red-600">{linkedinError}</p>
+              )}
+
+              <Button
+                type="button"
+                onClick={runImproveLinkedIn}
+                disabled={linkedinLoading}
+                className="w-full"
+                variant="primary"
+              >
+                {linkedinLoading ? (
+                  <>
+                    <span className="spinner inline-block h-4 w-4 rounded-full border-2 border-slate-400 border-t-transparent" />
+                    Optimizing…
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    Improve
+                  </>
+                )}
+              </Button>
+              {linkedinLoading && linkedinSlowRequest && (
+                <p className="text-xs text-slate-500">
+                  Still working — the server may be waking up from idle, this can take up to a minute.
+                </p>
+              )}
+            </section>
+
+            {/* Output */}
+            {linkedinResult && !linkedinLoading && (
+              <section className={cn("animate-fade-in space-y-6", card)}>
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Improved {linkedinSection === "headline" ? "headline" : "About section"}
+                  </div>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-800 whitespace-pre-wrap">
+                    {linkedinSection === "headline" ? `“${linkedinResult.improved}”` : linkedinResult.improved}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopyLinkedin}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                  >
+                    <Copy size={14} />
+                    {linkedinCopyLabel}
+                  </button>
+                </div>
+
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wider text-slate-500">
+                    Why it’s better
+                  </div>
+                  <p className="mt-1.5 text-sm text-slate-600">{linkedinResult.why}</p>
+                </div>
               </section>
             )}
           </>

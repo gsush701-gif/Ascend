@@ -104,6 +104,47 @@ Only use content that appears in the resume text; do not invent employers or dat
 }
 
 /**
+ * Rewrite a LinkedIn profile section (headline or About) to be more
+ * compelling, keyword-rich, and specific to the candidate's real input.
+ */
+async function improveLinkedInSection(text, section, targetRole) {
+  const isHeadline = section === "headline";
+  const system = isHeadline
+    ? `You are an expert LinkedIn profile writer for software engineering candidates.
+Rewrite the candidate's LinkedIn headline to be punchy, keyword-rich (for recruiter search), and specific about what they do${
+        targetRole ? `, tailored toward a "${targetRole}" role` : ""
+      }.
+Rules:
+- LinkedIn headlines have a hard limit of about 220 characters — keep the rewrite comfortably under that.
+- Use concrete technologies, roles, or specialties from the candidate's input; don't invent unrelated skills.
+- Avoid generic filler like "passionate professional" or "hard worker" — be specific instead.
+- Separators like "|" or "•" between a few short phrases work well; do not write full sentences.
+Respond with ONLY a JSON object of this exact shape:
+{"improved": string, "why": string (1 sentence on why it's stronger)}`
+    : `You are an expert LinkedIn profile writer for software engineering candidates.
+Rewrite the candidate's LinkedIn About section into a compelling narrative${
+        targetRole ? `, tailored toward a "${targetRole}" role` : ""
+      }.
+Rules:
+- Write a few short paragraphs (not a single wall of text, not bullet points).
+- Professional but written in first person with a human voice — not generic corporate boilerplate.
+- Incorporate the candidate's real background, skills, and interests from their input; don't invent employers, dates, or credentials that aren't implied.
+- End with something that invites connection (what they're looking for, or what they're excited about) if it fits naturally.
+Respond with ONLY a JSON object of this exact shape:
+{"improved": string, "why": string (1 sentence on why it's stronger)}`;
+
+  const user = `Current ${isHeadline ? "headline" : "About section"}:\n"""${text}"""`;
+
+  const result = await chatJson(system, user);
+
+  if (isHeadline && typeof result.improved === "string" && result.improved.length > 260) {
+    throw new GroqRequestError("Groq returned a headline far over LinkedIn's character limit");
+  }
+
+  return result;
+}
+
+/**
  * Draft a tailored cover letter for a specific role, grounded in the
  * candidate's actual resume text and the role's job description.
  */
@@ -201,6 +242,7 @@ async function summarizeAlignment(resumeText, jobDescription, report) {
 module.exports = {
   improveBullet,
   improveResume,
+  improveLinkedInSection,
   generateCoverLetter,
   generateInterviewQuestions,
   generateInterviewFeedback,
