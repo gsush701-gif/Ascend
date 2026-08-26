@@ -6,7 +6,7 @@
 -- users; "no row" and "free" are treated as equivalent everywhere this table
 -- is read. A later task wires up real Stripe checkout + webhooks, which will
 -- be the only thing that ever inserts/updates rows here.
-create table subscriptions (
+create table if not exists subscriptions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade unique,
   plan text not null default 'free',
@@ -27,6 +27,7 @@ alter table subscriptions enable row level security;
 -- updates must only ever happen server-side via the service-role client
 -- (which bypasses RLS entirely), once the Stripe webhook handler that owns
 -- this table's writes exists.
+drop policy if exists "own subscription read" on subscriptions;
 create policy "own subscription read" on subscriptions for select using (auth.uid() = user_id);
 
-create index subscriptions_user_id_idx on subscriptions(user_id);
+create index if not exists subscriptions_user_id_idx on subscriptions(user_id);

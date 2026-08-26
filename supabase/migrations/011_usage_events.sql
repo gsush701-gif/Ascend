@@ -9,7 +9,7 @@
 --
 -- user_id is nullable on purpose: anonymous/logged-out AI usage is still
 -- tracked for cost visibility, just without a user association.
-create table usage_events (
+create table if not exists usage_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
   event_type text not null,
@@ -26,7 +26,8 @@ alter table usage_events enable row level security;
 -- RLS entirely), never from the browser — so only a select policy is needed,
 -- letting a logged-in user see their own usage history if a UI for that is
 -- ever built.
+drop policy if exists "own usage_events" on usage_events;
 create policy "own usage_events" on usage_events for select using (auth.uid() = user_id);
 
-create index usage_events_user_id_idx on usage_events(user_id);
-create index usage_events_type_idx on usage_events(event_type);
+create index if not exists usage_events_user_id_idx on usage_events(user_id);
+create index if not exists usage_events_type_idx on usage_events(event_type);
