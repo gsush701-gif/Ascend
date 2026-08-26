@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npx tsc -b --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Render already auto-deploys on push to AscendV1 independently, and
+      # Playwright/E2E coverage is deliberately out of scope for this pass
+      # (would need test-account infrastructure this project doesn't have
+      # yet) — this pipeline is lint + type-check + unit tests + build only.
+
+      - name: Security audit (non-blocking)
+        run: npm audit --audit-level=high
+        continue-on-error: true
