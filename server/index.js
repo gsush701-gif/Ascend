@@ -43,6 +43,7 @@ const {
   missingSignals,
   classifySkillsImportance,
   computeScoreBreakdown,
+  extractSalary,
 } = require("./lib/scoring");
 
 const { optionalAuth } = require("./middleware/auth");
@@ -510,6 +511,10 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
       .map((x) => x.name);
     const actions = makeActions(missingSkillNames);
 
+    // Additive field — regex-only, deterministic, never fabricated. `null`
+    // when the JD text doesn't actually mention a salary range.
+    const salary = extractSalary(jd);
+
     const report = {
       alignment,
       coverage,
@@ -518,6 +523,7 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
       skills,
       missingSignals: signals,
       actions,
+      salary,
       meta: {
         jdSkillsCount: jdSkills.length,
         resumeSkillsFound: resumeSkills.length,

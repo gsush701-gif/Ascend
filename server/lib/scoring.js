@@ -379,6 +379,124 @@ function computeScoreBreakdown({ skills, resumeText, numPages, signals }) {
   };
 }
 
+// --- Salary extraction (Phase 5, Task 4) ----------------------------------
+//
+// Regex-only, deterministic, no AI involved. Only ever returns a range that
+// was actually written in the text — never fabricates a number. Every
+// pattern here requires a literal "$" (per the spec: "default USD if a $
+// sign is present, no currency guessing beyond that" — this module makes no
+// attempt to detect other currency symbols/codes).
+//
+// A connector between the two numbers ("-", an en/em dash, "to", or "and"
+// for "between $X and $Y" phrasing) is required so a lone dollar amount
+// (e.g. "$5,000 sign-on bonus") is never mistaken for a range.
+const RANGE_CONNECTOR = "(?:-|–|—|to|and)";
+
+// "$18-$25/hour", "$18/hr - $25/hr", "$18 to $25 per hour", "$18-$25 an hour"
+const HOURLY_RANGE_RE = new RegExp(
+  `\\$\\s*(\\d+(?:\\.\\d+)?)\\s*(?:/\\s*(?:hr|hour))?\\s*${RANGE_CONNECTOR}\\s*\\$?\\s*(\\d+(?:\\.\\d+)?)\\s*(?:/\\s*(?:hr|hour)|per\\s+hour|an?\\s+hour|hourly)`,
+  "i",
+);
+
+// "$80k-$110k", "$80K - $110K annually"
+const ANNUAL_K_RANGE_RE = new RegExp(
+  `\\$\\s*(\\d+(?:\\.\\d+)?)\\s*k\\b\\s*${RANGE_CONNECTOR}\\s*\\$?\\s*(\\d+(?:\\.\\d+)?)\\s*k\\b`,
+  "i",
+);
+
+// "$70,000-$90,000 per year", "$70,000 to $90,000 annually", "$70000/year"
+const ANNUAL_KEYWORD_RANGE_RE = new RegExp(
+  `\\$\\s*([\\d,]+(?:\\.\\d+)?)\\s*${RANGE_CONNECTOR}\\s*\\$?\\s*([\\d,]+(?:\\.\\d+)?)\\s*(?:/\\s*(?:yr|year)|per\\s+year|annually|a\\s+year|/\\s*annum|per\\s+annum)`,
+  "i",
+);
+
+// Bare "$80,000 - $100,000" with no explicit period keyword nearby — the
+// overwhelmingly common way job postings write an annual range without
+// bothering to say "per year". Requires comma-grouped thousands so it
+// doesn't collide with the hourly pattern's small bare numbers.
+const PLAIN_COMMA_RANGE_RE = new RegExp(
+  `\\$\\s*(\\d{2,3}(?:,\\d{3})+(?:\\.\\d+)?)\\s*${RANGE_CONNECTOR}\\s*\\$?\\s*(\\d{2,3}(?:,\\d{3})+(?:\\.\\d+)?)`,
+);
+
+function toNumber(raw) {
+  return parseFloat(String(raw).replace(/,/g, ""));
+}
+
+const HOURLY_ESTIMATE_HOURS_PER_YEAR = 2080; // 40 hrs/week * 52 weeks — an estimate, not a guarantee.
+
+/**
+ * Extract a salary range from free text (job description) using regex only.
+ * Returns `{ min, max, currency, period, estimatedAnnual? }` or `null` if no
+ * salary pattern is found — never fabricates a number from text that
+ * doesn't actually mention one. `estimatedAnnual` is only present for
+ * hourly ranges, and is explicitly labeled as an estimate (hourly * 2080),
+ * not a claim about the role's real annual pay.
+ */
+function extractSalary(jobDescriptionText) {
+  const text = typeof jobDescriptionText === "string" ? jobDescriptionText : "";
+  if (!text.trim()) return null;
+
+  const hourlyMatch = HOURLY_RANGE_RE.exec(text);
+  if (hourlyMatch) {
+    const min = toNumber(hourlyMatch[1]);
+    const max = toNumber(hourlyMatch[2]);
+    if (Number.isFinite(min) && Number.isFinite(max) && min > 0 && max > 0 && min <= max && max < 1000) {
+      const lo = Math.min(min, max);
+      const hi = Math.max(min, max);
+      return {
+        min: lo,
+        max: hi,
+        currency: "USD",
+        period: "hourly",
+        estimatedAnnual: {
+          min: Math.round(lo * HOURLY_ESTIMATE_HOURS_PER_YEAR),
+          max: Math.round(hi * HOURLY_ESTIMATE_HOURS_PER_YEAR),
+          note: `Estimate only — based on ${HOURLY_ESTIMATE_HOURS_PER_YEAR} hours/year (40 hrs/week x 52 weeks). Actual annual pay may vary.`,
+        },
+      };
+    }
+  }
+
+  const kMatch = ANNUAL_K_RANGE_RE.exec(text);
+  if (kMatch) {
+    const min = toNumber(kMatch[1]) * 1000;
+    const max = toNumber(kMatch[2]) * 1000;
+    if (Number.isFinite(min) && Number.isFinite(max) && min > 0 && max > 0) {
+      return { min: Math.min(min, max), max: Math.max(min, max), currency: "USD", period: "annual" };
+    }
+  }
+
+  const annualKeywordMatch = ANNUAL_KEYWORD_RANGE_RE.exec(text);
+  if (annualKeywordMatch) {
+    const min = toNumber(annualKeywordMatch[1]);
+    const max = toNumber(annualKeywordMatch[2]);
+    if (Number.isFinite(min) && Number.isFinite(max) && min > 0 && max > 0) {
+      return { min: Math.min(min, max), max: Math.max(min, max), currency: "USD", period: "annual" };
+    }
+  }
+
+  const plainMatch = PLAIN_COMMA_RANGE_RE.exec(text);
+  if (plainMatch) {
+    const min = toNumber(plainMatch[1]);
+    const max = toNumber(plainMatch[2]);
+    // Sanity-bound so an unrelated dollar range (e.g. "$1,000,000 Series A
+    // round") in the surrounding JD text isn't mistaken for a salary — real
+    // salary postings fall well inside this window.
+    if (
+      Number.isFinite(min) &&
+      Number.isFinite(max) &&
+      min >= 1000 &&
+      max >= 1000 &&
+      min <= 1000000 &&
+      max <= 1000000
+    ) {
+      return { min: Math.min(min, max), max: Math.max(min, max), currency: "USD", period: "annual" };
+    }
+  }
+
+  return null;
+}
+
 module.exports = {
   SKILL_ENTRIES,
   norm,
@@ -392,6 +510,7 @@ module.exports = {
   computeScoreBreakdown,
   computeAtsScore,
   computeResumeEvidenceScore,
+  extractSalary,
   REQUIRED_SIGNAL_PHRASES,
   PREFERRED_SIGNAL_PHRASES,
 };

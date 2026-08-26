@@ -4,6 +4,7 @@ import {
   classifySkillsImportance,
   computeScoreBreakdown,
   missingSignals,
+  extractSalary,
 } from "./scoring.js";
 
 describe("extractSkills — word-boundary matching (Task 1)", () => {
@@ -204,5 +205,78 @@ describe("computeScoreBreakdown — explainable score (Task 3)", () => {
     expect(overallScore).toBeLessThanOrEqual(100);
     expect(breakdown.requiredSkills).toBe(0);
     expect(breakdown.technicalStack).toBe(0);
+  });
+});
+
+describe("extractSalary — regex salary detection (Task 4)", () => {
+  it("returns null when no salary is mentioned at all", () => {
+    expect(extractSalary("We are looking for a Software Engineer with Python experience.")).toBeNull();
+  });
+
+  it("returns null for empty/missing text", () => {
+    expect(extractSalary("")).toBeNull();
+    expect(extractSalary(undefined)).toBeNull();
+    expect(extractSalary(null)).toBeNull();
+  });
+
+  it("does not hallucinate a number from an unrelated dollar mention", () => {
+    expect(extractSalary("We just raised $5,000,000 in Series A funding.")).toBeNull();
+    expect(extractSalary("Company benefits include a $500 wellness stipend.")).toBeNull();
+  });
+
+  it("parses a simple hourly range with /hour suffix", () => {
+    const result = extractSalary("Pay range: $18-$25/hour depending on experience.");
+    expect(result).toMatchObject({ min: 18, max: 25, currency: "USD", period: "hourly" });
+    expect(result.estimatedAnnual).toBeDefined();
+    expect(result.estimatedAnnual.min).toBe(18 * 2080);
+    expect(result.estimatedAnnual.max).toBe(25 * 2080);
+    expect(result.estimatedAnnual.note.toLowerCase()).toContain("estimate");
+  });
+
+  it("parses an hourly range phrased as 'per hour'", () => {
+    const result = extractSalary("Compensation: $20 to $30 per hour.");
+    expect(result).toMatchObject({ min: 20, max: 30, period: "hourly" });
+  });
+
+  it("parses an hourly range phrased as 'an hour'", () => {
+    const result = extractSalary("This role pays $22-$28 an hour.");
+    expect(result).toMatchObject({ min: 22, max: 28, period: "hourly" });
+  });
+
+  it("parses a $XXk-$YYk annual range", () => {
+    const result = extractSalary("Salary: $80k-$110k depending on level.");
+    expect(result).toMatchObject({ min: 80000, max: 110000, currency: "USD", period: "annual" });
+    expect(result.estimatedAnnual).toBeUndefined();
+  });
+
+  it("parses a $XXK - $YYK annual range with spaces and uppercase K", () => {
+    const result = extractSalary("We offer $90K - $130K annually.");
+    expect(result).toMatchObject({ min: 90000, max: 130000, period: "annual" });
+  });
+
+  it("parses a comma-grouped annual range with an explicit 'per year' keyword", () => {
+    const result = extractSalary("Base salary of $70,000 - $90,000 per year.");
+    expect(result).toMatchObject({ min: 70000, max: 90000, period: "annual" });
+  });
+
+  it("parses a bare comma-grouped annual range with no period keyword", () => {
+    const result = extractSalary("Compensation: $85,000 - $105,000.");
+    expect(result).toMatchObject({ min: 85000, max: 105000, period: "annual" });
+  });
+
+  it("handles 'to' as a range connector", () => {
+    const result = extractSalary("Salary range $75,000 to $95,000 per year.");
+    expect(result).toMatchObject({ min: 75000, max: 95000, period: "annual" });
+  });
+
+  it("handles reversed min/max order by normalizing to min <= max", () => {
+    const result = extractSalary("Pay: $110k-$80k depending on experience.");
+    expect(result.min).toBe(80000);
+    expect(result.max).toBe(110000);
+  });
+
+  it("never fabricates a currency other than USD (only $ is supported)", () => {
+    const result = extractSalary("Salary: $80,000 - $100,000 per year.");
+    expect(result.currency).toBe("USD");
   });
 });

@@ -13,6 +13,8 @@ import { useAuth } from "../../context/AuthContext";
 import { ApplicationDetailsPanel } from "./ApplicationDetailsPanel";
 import { getApiErrorMessage } from "../../lib/apiError";
 import { logEvent } from "../../lib/analytics";
+import { useProfile } from "../../lib/profile";
+import { getCompatibilityNotes } from "../../features/preferences/compatibility";
 
 const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
@@ -43,6 +45,8 @@ export function RoleDetailDrawer({
 }: RoleDetailDrawerProps) {
   const navigate = useNavigate();
   const { session } = useAuth();
+  const { profile } = useProfile();
+  const compatibilityNotes = profile ? getCompatibilityNotes(item, profile) : [];
   const snap = item.reportSnapshot;
   const alignment = snap?.alignment ?? item.alignment;
   const missingSignals = snap?.missingSignals ?? [];
@@ -218,6 +222,49 @@ export function RoleDetailDrawer({
           </Panel>
 
           <ApplicationDetailsPanel item={item} updateRoleFields={updateRoleFields} />
+
+          {compatibilityNotes.length > 0 && (
+            <Panel
+              title="Compatibility with your preferences"
+              subtitle="A plain comparison of this role's stated info against your profile — not a score, and not legal advice."
+            >
+              <ul className="space-y-2">
+                {compatibilityNotes.map((note, i) => (
+                  <li
+                    key={i}
+                    className={
+                      "rounded-lg px-3 py-2 text-sm " +
+                      (note.tone === "match"
+                        ? "bg-emerald-500/10 text-emerald-700"
+                        : note.tone === "mismatch"
+                        ? "bg-amber-500/10 text-amber-800"
+                        : "bg-slate-900/[0.04] text-slate-600")
+                    }
+                  >
+                    {note.text}
+                  </li>
+                ))}
+              </ul>
+            </Panel>
+          )}
+
+          {snap?.salary && (
+            <Panel title="Salary" subtitle="Extracted from this role's job description text.">
+              <p className="text-lg font-semibold text-slate-900">
+                {snap.salary.currency} {snap.salary.min.toLocaleString()}–{snap.salary.max.toLocaleString()}
+                <span className="ml-1 text-sm font-normal text-slate-500">
+                  {snap.salary.period === "hourly" ? "/hour" : "/year"}
+                </span>
+              </p>
+              {snap.salary.estimatedAnnual && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Estimated annual: {snap.salary.currency}{" "}
+                  {snap.salary.estimatedAnnual.min.toLocaleString()}–
+                  {snap.salary.estimatedAnnual.max.toLocaleString()}. {snap.salary.estimatedAnnual.note}
+                </p>
+              )}
+            </Panel>
+          )}
 
           {missingSignals.length > 0 && (
             <Panel title="Skill gaps" subtitle="Focus on these to improve fit.">

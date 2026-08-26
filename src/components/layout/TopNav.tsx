@@ -32,6 +32,8 @@ function NavPill({
 const NAV_LINKS = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/roles", label: "Roles" },
+  { to: "/goals", label: "Goals" },
+  { to: "/analytics", label: "Analytics" },
   { to: "/contacts", label: "Contacts" },
   { to: "/analyzer", label: "Analyze" },
   { to: "/resume-lab", label: "Resume Lab" },

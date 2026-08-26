@@ -104,6 +104,13 @@ export function getInterviewCount(items: TrackerItem[]): number {
     .length;
 }
 
+/** Statuses indicating an offer was extended (whether accepted or not). */
+export const OFFER_PLUS_STATUSES: TrackerStatus[] = ["Offer", "Accepted"];
+
+export function getOfferCount(items: TrackerItem[]): number {
+  return items.filter((i) => OFFER_PLUS_STATUSES.includes(i.status)).length;
+}
+
 /** Start of current week (Monday 00:00 local). */
 function getStartOfWeek(d: Date): Date {
   const date = new Date(d);

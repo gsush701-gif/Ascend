@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { DarkSelect } from "../ui/DarkSelect";
 import { Tooltip } from "../ui/Tooltip";
 import { ProgressCell } from "./ProgressCell";
@@ -341,12 +342,14 @@ function CompanyCell({
           className={INPUT_CLASS}
         />
       ) : (
-        <span
-          className="block max-w-[120px] truncate text-slate-700"
-          title={item.company}
+        <Link
+          to={`/companies/${encodeURIComponent(item.company)}`}
+          onClick={(e) => e.stopPropagation()}
+          className="block max-w-[120px] truncate text-slate-700 hover:text-cyan-600 hover:underline"
+          title={`${item.company} — view your history with this company`}
         >
           {item.company}
-        </span>
+        </Link>
       )}
     </td>
   );

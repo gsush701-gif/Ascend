@@ -160,6 +160,7 @@ export function Analyzer() {
             missingSignals: report.missingSignals,
             actions: report.actions,
             meta: report.meta,
+            salary: report.salary ?? undefined,
             alignmentHistory: alignmentHistory.map((h) => ({
               alignment: h.alignment,
               createdAt: h.createdAt,
@@ -477,6 +478,29 @@ export function Analyzer() {
                   </div>
                 )}
 
+                {/* Salary (regex-extracted from the JD text; never fabricated) */}
+                {report?.salary && (
+                  <div className={cn(cardAlt, "p-4")}>
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-2">
+                      Salary mentioned in this posting
+                    </h3>
+                    <p className="text-lg font-semibold text-slate-900">
+                      {report.salary.currency} {report.salary.min.toLocaleString()}–{report.salary.max.toLocaleString()}
+                      <span className="ml-1 text-sm font-normal text-slate-500">
+                        {report.salary.period === "hourly" ? "/hour" : "/year"}
+                      </span>
+                    </p>
+                    {report.salary.estimatedAnnual && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        Estimated annual: {report.salary.currency}{" "}
+                        {report.salary.estimatedAnnual.min.toLocaleString()}–
+                        {report.salary.estimatedAnnual.max.toLocaleString()}.{" "}
+                        {report.salary.estimatedAnnual.note}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* AI take */}
                 {report?.aiSummary && (
                   <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
@@ -703,6 +727,7 @@ export function Analyzer() {
                                 missingSignals: report.missingSignals,
                                 actions: report.actions,
                                 meta: report.meta,
+                                salary: report.salary ?? undefined,
                                 alignmentHistory: alignmentHistory.map((h) => ({
                                   alignment: h.alignment,
                                   createdAt: h.createdAt,

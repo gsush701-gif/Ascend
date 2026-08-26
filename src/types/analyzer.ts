@@ -14,6 +14,23 @@ export type ScoreBreakdown = {
   ats: number;
 };
 
+/** Regex-extracted salary range from a job description (server/lib/scoring.js's
+ * extractSalary). Never fabricated — absent/null when the JD text doesn't
+ * actually mention a salary. `estimatedAnnual` is only present for hourly
+ * ranges and is explicitly labeled as an estimate (hourly * 2080 hours/year),
+ * not a claim about the role's real annual pay. */
+export type SalaryRange = {
+  min: number;
+  max: number;
+  currency: string;
+  period: "hourly" | "annual";
+  estimatedAnnual?: {
+    min: number;
+    max: number;
+    note: string;
+  };
+};
+
 export type SignalState = "linked" | "mentioned_only" | "absent";
 
 export type ResumeStrengthSignals = {
@@ -40,6 +57,8 @@ export type Report = {
   aiSummary?: string;
   /** Explainable components behind `alignment`. Absent for older cached/saved reports from before this field existed. */
   breakdown?: ScoreBreakdown;
+  /** Regex-extracted salary range from the JD text, or null when none was mentioned. Absent for older cached/saved reports from before this field existed. */
+  salary?: SalaryRange | null;
   meta?: {
     jdSkillsCount?: number;
     resumeSkillsFound?: number;

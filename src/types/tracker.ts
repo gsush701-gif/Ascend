@@ -47,6 +47,14 @@ export type SavedReportSnapshot = {
   };
   alignmentHistory: { alignment: number; createdAt: string }[];
   resumeStrengthAtSave?: number;
+  /** Regex-extracted salary range from this role's job description at analysis time. Absent when the JD didn't mention one. */
+  salary?: {
+    min: number;
+    max: number;
+    currency: string;
+    period: "hourly" | "annual";
+    estimatedAnnual?: { min: number; max: number; note: string };
+  };
 };
 
 export type TrackerItem = {

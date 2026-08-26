@@ -8,6 +8,9 @@ import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
 import { Roles } from "./routes/Roles";
 import { Contacts } from "./routes/Contacts";
+import { Goals } from "./routes/Goals";
+import { Analytics } from "./routes/Analytics";
+import { Companies } from "./routes/Companies";
 import { RoleDetail } from "./routes/RoleDetail";
 import { InterviewPrep } from "./routes/InterviewPrep";
 import { Profile } from "./routes/Profile";
@@ -77,6 +80,10 @@ export default function App() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
       <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
+      <Route path="/goals" element={<ProtectedRoute><Goals /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+      <Route path="/companies" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
+      <Route path="/companies/:companyName" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
       <Route path="/roles/:id" element={<ProtectedRoute><RoleDetail /></ProtectedRoute>} />
       <Route path="/roles/:id/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
