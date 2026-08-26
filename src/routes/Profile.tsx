@@ -20,6 +20,35 @@ import {
   buildShareUrl,
 } from "../lib/shareProfile";
 
+/**
+ * Reads one table for the "Export data" panel, RLS-scoped like every other
+ * direct Supabase read in this file. Deliberately never throws: several of
+ * the tables it reads (job_analyses, contacts, career_goals, notifications,
+ * resumes) were only added in migrations 005+ (see supabase/migrations/),
+ * which may not be applied yet in every environment — a missing table
+ * should degrade to an empty array in the export, not abort the whole
+ * download for the other sections that do have data.
+ */
+async function fetchExportTable<T = Record<string, unknown>>(
+  table: string,
+  columns: string,
+): Promise<T[]> {
+  try {
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.warn(`[export] could not read "${table}": ${error.message}`);
+      return [];
+    }
+    return (data as T[] | null) ?? [];
+  } catch (e) {
+    console.warn(`[export] could not read "${table}":`, e);
+    return [];
+  }
+}
+
 export function Profile() {
   const navigate = useNavigate();
   const { session, signOut } = useAuth();
@@ -124,16 +153,35 @@ export function Profile() {
 
   const handleExportData = async () => {
     try {
-      const { data: resumeImprovements, error } = await supabase
-        .from("resume_improvements")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+      const [resumeImprovements, resumes, jobAnalyses, contacts, careerGoals, notifications] =
+        await Promise.all([
+          fetchExportTable("resume_improvements", "*"),
+          // Metadata only — deliberately excludes `storage_path` (an internal
+          // Storage bucket key) and `extracted_text` (the full resume body).
+          // A "download all my resume files" affordance is a separate,
+          // future feature; this export stays JSON-only.
+          fetchExportTable(
+            "resumes",
+            "id, name, version, is_default, created_at, updated_at, deleted_at",
+          ),
+          fetchExportTable(
+            "job_analyses",
+            "id, resume_id, role_id, job_description, result, created_at",
+          ),
+          fetchExportTable("contacts", "*"),
+          fetchExportTable("career_goals", "*"),
+          fetchExportTable("notifications", "*"),
+        ]);
 
       const data = {
         exportedAt: new Date().toISOString(),
         roles: tracker.tracker,
-        resumeImprovements: resumeImprovements ?? [],
+        resumeImprovements,
+        resumes,
+        jobAnalyses,
+        contacts,
+        careerGoals,
+        notifications,
       };
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
@@ -263,10 +311,11 @@ export function Profile() {
 
         <Panel
           title="Export data"
-          subtitle="Download all your tracked roles and resume improvements as JSON."
+          subtitle="Download all your Ascend data as a single JSON file."
         >
           <p className="text-sm text-slate-600">
-            Includes applications, alignment history, and resume improvement history.
+            Includes tracked applications, resume improvement history, resume metadata (not the
+            PDF files themselves), past analyses, contacts, career goals, and notifications.
           </p>
           <Button
             type="button"

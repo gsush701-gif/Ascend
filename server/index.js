@@ -60,6 +60,7 @@ const { stripe, isStripeConfigured } = require("./lib/stripe");
 const billing = require("./lib/billing");
 const { fetchOwnedRow } = require("./lib/supabaseUser");
 const { isUuid } = require("./lib/validation");
+const { getResumeStoragePathsToDelete } = require("./lib/accountDeletion");
 
 const app = express();
 
@@ -1175,6 +1176,64 @@ app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) =
   if (!supabaseAdmin) {
     return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Account deletion is not configured on the server");
   }
+
+  // Every other table with a `user_id` FK (`resumes`, `job_analyses`,
+  // `contacts`, `notifications`, `career_goals`, `subscriptions`, plus the
+  // original `roles`/`resume_improvements`/`profiles`) has
+  // `on delete cascade` to `auth.users`, so deleteUser() below removes those
+  // rows automatically at the Postgres level. Storage is NOT covered by that
+  // cascade — the PDF files in the `resumes` bucket are a separate system —
+  // so we look up and delete those objects first, while the `resumes` rows
+  // (and their `storage_path`s) still exist to be read.
+  //
+  // Order matters: Storage cleanup happens before deleteUser() so a failure
+  // here still leaves the rows in place to retry from, rather than deleting
+  // the user first and losing the only record of which paths need cleanup.
+  try {
+    const { data: resumeRows, error: resumesError } = await supabaseAdmin
+      .from("resumes")
+      .select("storage_path")
+      .eq("user_id", req.user.id);
+
+    if (resumesError) {
+      // Don't block account deletion on a failure to even list the user's
+      // resumes — log loudly so this is noticeable, and proceed anyway.
+      console.error(
+        `[account-delete] failed to list resumes for storage cleanup (user ${req.user.id}):`,
+        resumesError.message,
+      );
+      captureException(resumesError, { requestId: req.requestId, route: req.path, stage: "list-resumes" });
+    } else {
+      const paths = getResumeStoragePathsToDelete(resumeRows);
+      if (paths.length > 0) {
+        const { error: removeError } = await supabaseAdmin.storage.from("resumes").remove(paths);
+        if (removeError) {
+          // A Storage API hiccup must never block the user's actual account
+          // deletion — but it does mean these files are about to become
+          // orphaned (their owning DB row is seconds from cascading away),
+          // so this is logged as loudly as possible for the owner to catch.
+          console.error(
+            `[account-delete] ORPHANED STORAGE FILES: failed to delete ${paths.length} resume object(s) ` +
+              `for user ${req.user.id} before account deletion. Paths: ${paths.join(", ")}. Error: ${removeError.message}`,
+          );
+          captureException(removeError, {
+            requestId: req.requestId,
+            route: req.path,
+            stage: "remove-storage-objects",
+            userId: req.user.id,
+            orphanedPaths: paths,
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.error(
+      `[account-delete] ORPHANED STORAGE FILES: unexpected error during resume storage cleanup for user ${req.user.id}:`,
+      err,
+    );
+    captureException(err, { requestId: req.requestId, route: req.path, stage: "storage-cleanup" });
+  }
+
   try {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(req.user.id);
     if (error) throw error;
