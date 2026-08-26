@@ -32,3 +32,18 @@ create table if not exists jobs (
 
 create index if not exists jobs_company_idx on jobs(lower(company));
 create index if not exists jobs_url_idx on jobs(url);
+
+-- RLS is enabled with deliberately NO policies. This is not a "user-owned
+-- table" (no user_id, no ownership concept), so there's no per-row auth.uid()
+-- policy to write — but Supabase's standard project setup grants the anon
+-- and authenticated Postgres roles table-level privileges by default, and
+-- without RLS enabled here, that means anyone holding the public anon key
+-- (bundled in every frontend build) could read/insert/update/delete arbitrary
+-- rows in this table via the auto-generated REST API. Nothing in this
+-- codebase queries `jobs` from the client today (confirmed: no
+-- `.from("jobs")` call anywhere in src/), so enabling RLS with zero policies
+-- (deny-all for anon/authenticated; the service-role client used server-side
+-- always bypasses RLS) closes that exposure with no functional change. When
+-- a future feature needs client access to this table, add a scoped policy
+-- here rather than removing this line.
+alter table jobs enable row level security;
