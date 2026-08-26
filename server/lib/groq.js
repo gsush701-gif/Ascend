@@ -248,6 +248,7 @@ module.exports = {
   generateInterviewFeedback,
   summarizeAlignment,
   isGroqConfigured: configured,
+  GROQ_MODEL,
   GroqNotConfiguredError,
   GroqRequestError,
 };
