@@ -29,7 +29,7 @@ Ascend helps high-performing students manage every internship role from analysis
    cd server && npm install && cd ..
    ```
 
-2. **Create a Supabase project** at [supabase.com](https://supabase.com), then run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor (Dashboard → SQL Editor → New query) to create the `profiles`, `roles`, and `resume_improvements` tables with row-level security.
+2. **Create a Supabase project** at [supabase.com](https://supabase.com), then run [`supabase/schema.sql`](supabase/schema.sql) in the Supabase SQL editor (Dashboard → SQL Editor → New query) to create the `profiles`, `roles`, and `resume_improvements` tables with row-level security. Then run each file in [`supabase/migrations/`](supabase/migrations) in order (`002_...` through `006_...`) the same way. `005_resumes.sql` also provisions a private `resumes` Storage bucket and its RLS policies — no separate dashboard step needed.
 
 3. **Get a free Groq API key** at [console.groq.com](https://console.groq.com).
 

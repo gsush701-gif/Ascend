@@ -106,12 +106,31 @@ const upload = multer({
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
+app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (req, res) => {
   try {
     console.log("POST /analyze received");
     console.log("file?", !!req.file, "jdLength:", (req.body.jd || "").length);
 
     const jd = typeof req.body.jd === "string" ? req.body.jd : "";
+    // Optional: set by the frontend when the uploaded file came from an
+    // already-saved resume (src/features/resumes) or an in-progress Roles
+    // reanalysis, so the persisted job_analyses row (below) can be linked
+    // back to it. Neither is required for /analyze to function.
+    if (req.body.resumeId !== undefined && typeof req.body.resumeId !== "string") {
+      return res.status(400).json({ error: "Field 'resumeId' must be a string" });
+    }
+    if (req.body.roleId !== undefined && typeof req.body.roleId !== "string") {
+      return res.status(400).json({ error: "Field 'roleId' must be a string" });
+    }
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const resumeId =
+      typeof req.body.resumeId === "string" && UUID_RE.test(req.body.resumeId.trim())
+        ? req.body.resumeId.trim()
+        : null;
+    const roleId =
+      typeof req.body.roleId === "string" && UUID_RE.test(req.body.roleId.trim())
+        ? req.body.roleId.trim()
+        : null;
 
     if (!req.file) {
       return res
@@ -223,6 +242,24 @@ app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
       } catch (e) {
         console.warn("[analyze] AI summary skipped:", e.message);
       }
+    }
+
+    // Persist this analysis for logged-in users so it can be read back later
+    // (Analysis history on /resumes) — fire-and-forget, mirrors the
+    // /api/improve-bullet -> resume_improvements pattern above.
+    if (req.user && supabaseAdmin) {
+      supabaseAdmin
+        .from("job_analyses")
+        .insert({
+          user_id: req.user.id,
+          resume_id: resumeId,
+          role_id: roleId,
+          job_description: jd,
+          result: report,
+        })
+        .then(({ error }) => {
+          if (error) console.warn("[analyze] save failed:", error.message);
+        });
     }
 
     return res.json(report);

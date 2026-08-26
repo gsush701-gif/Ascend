@@ -13,12 +13,19 @@ import {
   type ParsedJdRequirements,
 } from "../../../lib/parseJd";
 import { API_BASE } from "../../../config/api";
+import { useAuth } from "../../../context/AuthContext";
 
 const API_URL = `${API_BASE}/analyze`;
 const JD_MIN_LENGTH = 20;
 
 export function useAnalyzer() {
-  const [resume, setResume] = useState<File | null>(null);
+  const { session } = useAuth();
+  const [resume, setResumeState] = useState<File | null>(null);
+  const [resumeText, setResumeText] = useState<string>("");
+  // Set when the current `resume` File came from a previously-saved resume
+  // (src/features/resumes) rather than a fresh upload, so /analyze can link
+  // its saved job_analyses row back to it. Cleared on any manual re-upload.
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [resumeStrength, setResumeStrength] = useState<ResumeStrength | null>(
     null,
   );
@@ -79,6 +86,7 @@ export function useAnalyzer() {
     if (!resume) {
       setResumeStrength(null);
       setResumeStrengthLoading(false);
+      setResumeText("");
       return;
     }
     let cancelled = false;
@@ -87,10 +95,14 @@ export function useAnalyzer() {
     extractTextFromPdf(resume)
       .then((text) => {
         if (cancelled) return;
+        setResumeText(text);
         setResumeStrength(computeResumeStrength(text));
       })
       .catch(() => {
-        if (!cancelled) setResumeStrength(null);
+        if (!cancelled) {
+          setResumeStrength(null);
+          setResumeText("");
+        }
       })
       .finally(() => {
         if (!cancelled) setResumeStrengthLoading(false);
@@ -99,6 +111,18 @@ export function useAnalyzer() {
       cancelled = true;
     };
   }, [resume]);
+
+  /** Set a resume from a plain file picker — clears any saved-resume link. */
+  function setResume(file: File | null) {
+    setSelectedResumeId(null);
+    setResumeState(file);
+  }
+
+  /** Set a resume that came from the user's saved resumes (src/features/resumes). */
+  function setResumeFromSaved(file: File, resumeId: string) {
+    setSelectedResumeId(resumeId);
+    setResumeState(file);
+  }
 
   const hasValidJd = jd.trim().length >= JD_MIN_LENGTH;
   const canAnalyzeJdOnly = hasValidJd && !loading;
@@ -115,7 +139,7 @@ export function useAnalyzer() {
     setParsedJdData(parseJdRequirements(jd.trim()));
   }
 
-  async function onAnalyze() {
+  async function onAnalyze(options?: { roleId?: string }) {
     if (!resume || !hasValidJd) return;
 
     setLoading(true);
@@ -130,8 +154,16 @@ export function useAnalyzer() {
       const fd = new FormData();
       fd.append("resume", resume);
       fd.append("jd", jd);
+      if (selectedResumeId) fd.append("resumeId", selectedResumeId);
+      if (options?.roleId) fd.append("roleId", options.roleId);
 
-      const res = await fetch(API_URL, { method: "POST", body: fd });
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined,
+        body: fd,
+      });
       const data = await res.json();
 
       if (!res.ok) {
@@ -187,6 +219,9 @@ export function useAnalyzer() {
   return {
     resume,
     setResume,
+    setResumeFromSaved,
+    selectedResumeId,
+    resumeText,
     lastResumeFilename,
     resumeStrength,
     resumeStrengthLoading,

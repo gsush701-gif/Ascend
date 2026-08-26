@@ -18,6 +18,8 @@ import { Button } from "../components/ui/Button";
 import { pageHeader, pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
 import { useAnalyzer } from "../features/analyzer/hooks/useAnalyzer";
 import { useTracker } from "../features/tracker/hooks/useTracker";
+import { useResumes } from "../features/resumes/hooks/useResumes";
+import { useAuth } from "../context/AuthContext";
 import { getRecentCompanies, getRecentRoles } from "../lib/dashboardStats";
 import { cn } from "../lib/cn";
 import { alignmentToPreparedness, type Preparedness } from "../lib/preparedness";
@@ -30,10 +32,16 @@ export function Analyzer() {
   const analyzer = useAnalyzer();
   const tracker = useTracker(analyzer.report?.alignment);
   const { updateReportSnapshot } = tracker;
+  const { user } = useAuth();
+  const { resumes: savedResumes, saveResume, downloadResumeFile } = useResumes();
+  const [savingResume, setSavingResume] = useState(false);
 
   const {
     resume,
     setResume,
+    setResumeFromSaved,
+    selectedResumeId,
+    resumeText,
     lastResumeFilename,
     jd,
     setJd,
@@ -112,9 +120,32 @@ export function Analyzer() {
       return;
     }
     if (resume) {
-      onAnalyze();
+      onAnalyze(reanalyzeRoleId ? { roleId: reanalyzeRoleId } : undefined);
     } else {
       onAnalyzeJdOnly();
+    }
+  };
+
+  const handleSelectSavedResume = async (resumeId: string) => {
+    const saved = savedResumes.find((r) => r.id === resumeId);
+    if (!saved) return;
+    const file = await downloadResumeFile(saved);
+    if (!file) {
+      toast.error({ title: "Couldn't load resume", description: "Failed to download that resume. Try again." });
+      return;
+    }
+    setResumeFromSaved(file, saved.id);
+  };
+
+  const handleSaveResume = async () => {
+    if (!resume || !resumeText) return;
+    setSavingResume(true);
+    const { error } = await saveResume(resume, resumeText, resume.name);
+    setSavingResume(false);
+    if (error) {
+      toast.error({ title: "Couldn't save resume", description: error });
+    } else {
+      toast.success({ title: "Resume saved", description: "View it anytime under My Resumes." });
     }
   };
 
@@ -282,6 +313,36 @@ export function Analyzer() {
                     Last used: {lastResumeFilename}
                   </p>
                 )}
+                {user && savedResumes.length > 0 && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[11px] text-slate-400 shrink-0">or choose from saved:</span>
+                    <select
+                      value={selectedResumeId ?? ""}
+                      onChange={(e) => {
+                        if (e.target.value) handleSelectSavedResume(e.target.value);
+                      }}
+                      className="h-8 w-full rounded-md border border-slate-200 bg-slate-900/[0.04] px-2 text-xs text-slate-700 focus:border-slate-300 focus:outline-none"
+                    >
+                      <option value="">Select a saved resume…</option>
+                      {savedResumes.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                          {r.isDefault ? " (default)" : ""} · v{r.version}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {user && resume && resumeText && !selectedResumeId && (
+                  <button
+                    type="button"
+                    onClick={handleSaveResume}
+                    disabled={savingResume}
+                    className="mt-2 text-xs font-medium text-cyan-700 hover:text-cyan-800 disabled:opacity-50"
+                  >
+                    {savingResume ? "Saving…" : "Save this resume to My Resumes"}
+                  </button>
+                )}
               </div>
 
               <div>
@@ -323,7 +384,7 @@ export function Analyzer() {
                   {analyzeError}
                   <button
                     type="button"
-                    onClick={onAnalyze}
+                    onClick={() => onAnalyze(reanalyzeRoleId ? { roleId: reanalyzeRoleId } : undefined)}
                     disabled={!canAnalyze || loading}
                     className="mt-2 block text-red-700 hover:text-red-100 underline"
                   >
@@ -677,7 +738,7 @@ export function Analyzer() {
                           <button
                             type="button"
                             onClick={() => {
-                              if (resume && hasValidJd) onAnalyze();
+                              if (resume && hasValidJd) onAnalyze(reanalyzeRoleId ? { roleId: reanalyzeRoleId } : undefined);
                               else onAnalyzeJdOnly();
                             }}
                             className="text-xs text-slate-400 hover:text-slate-700 inline-flex items-center gap-1"

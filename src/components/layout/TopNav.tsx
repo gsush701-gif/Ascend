@@ -35,6 +35,7 @@ const NAV_LINKS = [
   { to: "/contacts", label: "Contacts" },
   { to: "/analyzer", label: "Analyze" },
   { to: "/resume-lab", label: "Resume Lab" },
+  { to: "/resumes", label: "Resumes" },
   { to: "/profile", label: "Profile" },
 ];
 
