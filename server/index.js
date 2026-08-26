@@ -52,6 +52,8 @@ const { supabaseAdmin } = require("./lib/supabaseAdmin");
 const { createRateLimiter } = require("./lib/rateLimit");
 const { ErrorCodes, sendError } = require("./lib/errors");
 const { recordUsageEvent } = require("./lib/usageEvents");
+const { checkQuota, enforceUsageQuota } = require("./lib/usage");
+const { PLANS, DEFAULT_PLAN, USAGE_LABELS } = require("./lib/plans");
 const groq = require("./lib/groq");
 
 const app = express();
@@ -205,6 +207,16 @@ function respondAiError(req, res, err, fallbackMessage) {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+// Static plan/pricing/quota config (server/lib/plans.js is the single source
+// of truth) — public, no auth required, nothing user-specific in the
+// response. The frontend's Profile page reads this to render actual plan
+// limits instead of hardcoded prose. Every user is implicitly on `free`
+// until real billing exists, so `defaultPlan` tells the frontend which key
+// to show for a logged-in user with no `subscriptions` row.
+app.get("/api/plans", (req, res) => {
+  res.json({ plans: PLANS, defaultPlan: DEFAULT_PLAN, usageLabels: USAGE_LABELS });
+});
+
 app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (req, res) => {
   try {
     console.log("POST /analyze received");
@@ -338,13 +350,23 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
     };
 
     // Best-effort AI summary layered on top of the deterministic score above.
-    // Never fails the request — /analyze keeps working without a Groq key.
+    // Never fails the request — /analyze keeps working without a Groq key,
+    // and also keeps working (minus this extra layer) for a logged-in free
+    // user who has used up their monthly "ai.analyze_summary" quota: the
+    // quota gate here only skips the bonus summary, it never rejects the
+    // whole /analyze response, since the deterministic report never touches
+    // Groq and shouldn't be blocked by a Groq-specific quota.
     if (groq.isGroqConfigured) {
       try {
-        const aiSummary = await callGroq(req, "ai.analyze_summary", () =>
-          groq.summarizeAlignment(resumeText, jd, report),
-        );
-        if (aiSummary) report.aiSummary = aiSummary;
+        const quota = await checkQuota(req.user && req.user.id, "ai.analyze_summary");
+        if (quota.allowed) {
+          const aiSummary = await callGroq(req, "ai.analyze_summary", () =>
+            groq.summarizeAlignment(resumeText, jd, report),
+          );
+          if (aiSummary) report.aiSummary = aiSummary;
+        } else {
+          console.warn("[analyze] AI summary skipped: monthly usage limit reached");
+        }
       } catch (e) {
         console.warn("[analyze] AI summary skipped:", e.message);
       }
@@ -388,6 +410,8 @@ app.post("/api/improve-bullet", aiLimiter, optionalAuth, async (req, res) => {
     if (bullet.length > 600) {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Bullet is too long (max 600 characters)");
     }
+
+    if (!(await enforceUsageQuota(req, res, "ai.improve_bullet"))) return;
 
     const result = await callGroq(req, "ai.improve_bullet", () => groq.improveBullet(bullet));
 
@@ -442,6 +466,8 @@ app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' is too long (max 20000 characters)");
     }
 
+    if (!(await enforceUsageQuota(req, res, "ai.improve_resume"))) return;
+
     const result = await callGroq(req, "ai.improve_resume", () => groq.improveResume(resumeText, jobDescription));
     return res.json(result);
   } catch (err) {
@@ -489,6 +515,8 @@ app.post("/api/improve-linkedin", aiLimiter, optionalAuth, async (req, res) => {
     if (targetRole && targetRole.length > 200) {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'targetRole' is too long (max 200 characters)");
     }
+
+    if (!(await enforceUsageQuota(req, res, "ai.improve_linkedin"))) return;
 
     const result = await callGroq(req, "ai.improve_linkedin", () =>
       groq.improveLinkedInSection(text, section, targetRole),
@@ -551,6 +579,8 @@ app.post("/api/generate-cover-letter", aiLimiter, optionalAuth, async (req, res)
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleTitle' is too long (max 200 characters)");
     }
 
+    if (!(await enforceUsageQuota(req, res, "ai.generate_cover_letter"))) return;
+
     const result = await callGroq(req, "ai.generate_cover_letter", () =>
       groq.generateCoverLetter(resumeText, jobDescription, companyName, roleTitle),
     );
@@ -595,6 +625,8 @@ app.post("/api/generate-interview-questions", aiLimiter, optionalAuth, async (re
     if (roleTitle && roleTitle.length > 200) {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleTitle' is too long (max 200 characters)");
     }
+
+    if (!(await enforceUsageQuota(req, res, "ai.generate_interview_questions"))) return;
 
     const result = await callGroq(req, "ai.generate_interview_questions", () =>
       groq.generateInterviewQuestions(jobDescription, companyName, roleTitle),
@@ -647,6 +679,8 @@ app.post("/api/interview-feedback", aiLimiter, optionalAuth, async (req, res) =>
     if (jobDescription && jobDescription.length > 20000) {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' is too long (max 20000 characters)");
     }
+
+    if (!(await enforceUsageQuota(req, res, "ai.interview_feedback"))) return;
 
     const result = await callGroq(req, "ai.interview_feedback", () =>
       groq.generateInterviewFeedback(question, answer, jobDescription),

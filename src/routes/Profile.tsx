@@ -28,6 +28,7 @@ export function Profile() {
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const planInfo = usePlanUsage(session?.user?.id);
 
   const applicationsTracked = items.length;
   const rolesAnalyzed = items.filter((i) => i.reportSnapshot).length;
@@ -160,16 +161,8 @@ export function Profile() {
           </div>
         </Panel>
 
-        <Panel title="Plan" subtitle="Your current plan.">
-          <div className="flex items-center gap-3">
-            <span className={badgePrimary}>Free plan</span>
-            <span className="text-sm text-slate-500">All features included — no paid tiers yet.</span>
-          </div>
-          <ul className="mt-4 space-y-1.5 text-sm text-slate-600">
-            <li>• Unlimited role tracking</li>
-            <li>• AI-powered resume analysis and rewriting</li>
-            <li>• Data synced across devices</li>
-          </ul>
+        <Panel title="Plan" subtitle="Your current plan and usage this month.">
+          <PlanPanelBody planInfo={planInfo} />
         </Panel>
 
         <Panel
@@ -236,6 +229,143 @@ export function Profile() {
         </Panel>
       </div>
     </AppShell>
+  );
+}
+
+type PlanConfig = {
+  name: string;
+  priceMonthly: number;
+  limits: Record<string, number>;
+};
+
+type PlansResponse = {
+  plans: Record<string, PlanConfig>;
+  defaultPlan: string;
+  usageLabels: Record<string, string>;
+};
+
+type PlanInfo = {
+  loading: boolean;
+  plansData: PlansResponse | null;
+  planKey: string;
+  usageByType: Record<string, number>;
+};
+
+/**
+ * Loads the central plan config (server/lib/plans.js, via GET /api/plans —
+ * static, no auth required) plus this user's current plan and this month's
+ * usage per AI operation, so the Plan panel below can show real numbers
+ * instead of hardcoded prose.
+ *
+ * Plan lookup mirrors server/lib/usage.js's getUserPlanKey(): no
+ * `subscriptions` row, or a non-'active' status, both mean 'free' — there's
+ * no billing yet, so in practice this is always 'free' today, but reading
+ * the user's own row (RLS-scoped, same read-only pattern as the rest of
+ * this app) keeps the display correct once a later task starts writing
+ * real rows there.
+ */
+function usePlanUsage(userId: string | undefined): PlanInfo {
+  const [plansData, setPlansData] = useState<PlansResponse | null>(null);
+  const [planKey, setPlanKey] = useState("free");
+  const [usageByType, setUsageByType] = useState<Record<string, number>>({});
+  const [plansLoaded, setPlansLoaded] = useState(false);
+  const [usageLoaded, setUsageLoaded] = useState(!userId);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/plans`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: PlansResponse | null) => {
+        if (cancelled || !data) return;
+        setPlansData(data);
+        setPlanKey((prev) => prev || data.defaultPlan);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setPlansLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    setUsageLoaded(false);
+
+    supabase
+      .from("subscriptions")
+      .select("plan, status")
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return;
+        if (data.status === "active" && data.plan) setPlanKey(data.plan);
+      });
+
+    const startOfMonth = new Date();
+    startOfMonth.setUTCDate(1);
+    startOfMonth.setUTCHours(0, 0, 0, 0);
+
+    supabase
+      .from("usage_events")
+      .select("event_type")
+      .eq("user_id", userId)
+      .gte("created_at", startOfMonth.toISOString())
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (!error && data) {
+          const counts: Record<string, number> = {};
+          for (const row of data as { event_type: string }[]) {
+            counts[row.event_type] = (counts[row.event_type] || 0) + 1;
+          }
+          setUsageByType(counts);
+        }
+        setUsageLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  return { loading: !plansLoaded || !usageLoaded, plansData, planKey, usageByType };
+}
+
+function PlanPanelBody({ planInfo }: { planInfo: PlanInfo }) {
+  const { loading, plansData, planKey, usageByType } = planInfo;
+
+  if (!plansData) {
+    return <p className="text-sm text-slate-500">{loading ? "Loading plan…" : "Plan info unavailable."}</p>;
+  }
+
+  const plan = plansData.plans[planKey] ?? plansData.plans[plansData.defaultPlan];
+  const priceLabel =
+    plan.priceMonthly === 0 ? "Free — no paid tiers active yet." : `$${(plan.priceMonthly / 100).toFixed(2)}/month`;
+
+  return (
+    <>
+      <div className="flex items-center gap-3">
+        <span className={badgePrimary}>{plan.name} plan</span>
+        <span className="text-sm text-slate-500">{priceLabel}</span>
+      </div>
+      <ul className="mt-4 space-y-1.5 text-sm">
+        {Object.entries(plan.limits).map(([eventType, limit]) => {
+          const used = usageByType[eventType] || 0;
+          const label = plansData.usageLabels[eventType] || eventType;
+          const overLimit = used >= limit;
+          return (
+            <li key={eventType} className="flex items-center justify-between gap-4 text-slate-600">
+              <span>{label}</span>
+              <span className={overLimit ? "font-medium text-rose-600" : "font-medium text-slate-900"}>
+                {used}/{limit} this month
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 
