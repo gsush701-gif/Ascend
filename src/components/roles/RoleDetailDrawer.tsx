@@ -4,19 +4,15 @@ import { X, Copy, FileText, Sparkles, MessageSquare } from "lucide-react";
 import { alignmentToPreparedness } from "../../lib/preparedness";
 import { Panel } from "../ui/Panel";
 import type { TrackerItem, TrackerStatus } from "../../types/tracker";
+import { TRACKER_STATUS_ORDER } from "../../types/tracker";
 import { MissingSignals } from "../../features/analyzer/components/MissingSignals";
 import { ActionsList } from "../../features/analyzer/components/ActionsList";
 import { extractTextFromPdf } from "../../lib/pdf";
 import { API_BASE } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
+import { ApplicationDetailsPanel } from "./ApplicationDetailsPanel";
 
-const STATUS_OPTIONS: TrackerStatus[] = [
-  "Wishlist",
-  "Applied",
-  "Interview",
-  "Offer",
-  "Rejected",
-];
+const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
 type CoverLetterResult = { coverLetter: string; keyPoints: string[] };
 
@@ -28,6 +24,7 @@ type RoleDetailDrawerProps = {
   updateNotes: (id: string, notes: string) => void;
   updateDeadline: (id: string, deadline: string) => void;
   updateCoverLetter: (id: string, coverLetter: string) => void;
+  updateRoleFields: (id: string, fields: Partial<TrackerItem>) => void;
   removeItem: (id: string) => void;
 };
 
@@ -39,6 +36,7 @@ export function RoleDetailDrawer({
   updateNotes,
   updateDeadline,
   updateCoverLetter,
+  updateRoleFields,
   removeItem,
 }: RoleDetailDrawerProps) {
   const navigate = useNavigate();
@@ -215,6 +213,8 @@ export function RoleDetailDrawer({
               className="w-full resize-none rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
             />
           </Panel>
+
+          <ApplicationDetailsPanel item={item} updateRoleFields={updateRoleFields} />
 
           {missingSignals.length > 0 && (
             <Panel title="Skill gaps" subtitle="Focus on these to improve fit.">

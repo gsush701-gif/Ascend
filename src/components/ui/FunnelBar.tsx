@@ -1,28 +1,37 @@
 import type { TrackerStatus } from "../../types/tracker";
+import { TRACKER_STATUS_ORDER } from "../../types/tracker";
 import type { FunnelCounts } from "../../lib/dashboardStats";
 
-const STATUS_ORDER: TrackerStatus[] = [
-  "Wishlist",
-  "Applied",
-  "Interview",
-  "Offer",
-  "Rejected",
-];
+const STATUS_ORDER: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
 const STATUS_COLORS: Record<TrackerStatus, string> = {
   Wishlist: "bg-slate-900/10",
+  Analyzed: "bg-indigo-400/60",
+  "Ready to Apply": "bg-cyan-400/50",
   Applied: "bg-sky-500/70",
+  "Recruiter Contact": "bg-violet-400/50",
   Interview: "bg-amber-500/70",
+  "Technical Interview": "bg-orange-500/70",
+  "Final Interview": "bg-orange-600/70",
   Offer: "bg-emerald-500/70",
+  Accepted: "bg-emerald-600/70",
   Rejected: "bg-rose-500/50",
+  Withdrawn: "bg-slate-500/40",
 };
 
 const STATUS_LABELS: Record<TrackerStatus, string> = {
   Wishlist: "Wishlist",
+  Analyzed: "Analyzed",
+  "Ready to Apply": "Ready to Apply",
   Applied: "Applied",
+  "Recruiter Contact": "Recruiter Contact",
   Interview: "Interview",
+  "Technical Interview": "Technical Interview",
+  "Final Interview": "Final Interview",
   Offer: "Offer",
+  Accepted: "Accepted",
   Rejected: "Rejected",
+  Withdrawn: "Withdrawn",
 };
 
 type FunnelBarProps = {

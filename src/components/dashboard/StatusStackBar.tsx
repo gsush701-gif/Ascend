@@ -1,30 +1,26 @@
 import type { TrackerStatus } from "../../types/tracker";
+import { TRACKER_STATUS_ORDER } from "../../types/tracker";
 import type { FunnelCounts } from "../../lib/dashboardStats";
 
-const FUNNEL_ORDER: TrackerStatus[] = [
-  "Applied",
-  "Interview",
-  "Offer",
-  "Rejected",
-  "Wishlist",
-];
+const FUNNEL_ORDER: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
 /** Muted status colors - no loud gold/maroon */
 const SEGMENT_COLORS: Record<TrackerStatus, string> = {
   Wishlist: "bg-slate-600/50",
+  Analyzed: "bg-slate-500/40",
+  "Ready to Apply": "bg-slate-400/50",
   Applied: "bg-slate-500/70",
+  "Recruiter Contact": "bg-slate-400/70",
   Interview: "bg-slate-400/60",
+  "Technical Interview": "bg-cyan-400/60",
+  "Final Interview": "bg-cyan-500/60",
   Offer: "bg-cyan-500/70",
+  Accepted: "bg-cyan-600/70",
   Rejected: "bg-slate-600/50",
+  Withdrawn: "bg-slate-600/40",
 };
 
-const SEGMENT_BG_LEGEND: Record<TrackerStatus, string> = {
-  Wishlist: "bg-slate-600/50",
-  Applied: "bg-slate-500/70",
-  Interview: "bg-slate-400/60",
-  Offer: "bg-cyan-500/70",
-  Rejected: "bg-slate-600/50",
-};
+const SEGMENT_BG_LEGEND: Record<TrackerStatus, string> = SEGMENT_COLORS;
 
 type StatusStackBarProps = {
   counts: FunnelCounts;

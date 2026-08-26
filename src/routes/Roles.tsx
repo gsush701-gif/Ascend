@@ -6,6 +6,7 @@ import { QuickAddModal } from "../components/QuickAddModal";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { getRecentCompanies, getRecentRoles } from "../lib/dashboardStats";
 import type { TrackerStatus } from "../types/tracker";
+import { TRACKER_STATUS_ORDER } from "../types/tracker";
 import { Toolbar } from "../components/roles/Toolbar";
 import {
   RolesTable,
@@ -18,10 +19,17 @@ import { toast } from "../components/ui/toast";
 
 const CONVERSION_PCT: Record<TrackerStatus, number> = {
   Wishlist: 0,
+  Analyzed: 5,
+  "Ready to Apply": 10,
   Applied: 25,
+  "Recruiter Contact": 35,
   Interview: 50,
+  "Technical Interview": 60,
+  "Final Interview": 75,
   Offer: 100,
+  Accepted: 100,
   Rejected: 0,
+  Withdrawn: 0,
 };
 
 export function Roles() {
@@ -37,6 +45,7 @@ export function Roles() {
     updateCompany,
     updateDeadline,
     updateCoverLetter,
+    updateRoleFields,
     removeItem,
   } = useTracker(undefined);
 
@@ -61,7 +70,7 @@ export function Roles() {
   const [statusFilter, setStatusFilter] = useState<TrackerStatus | "all">(() => {
     try {
       const v = localStorage.getItem("internos_roles_status_filter");
-      if (v && (v === "all" || ["Wishlist","Applied","Interview","Offer","Rejected"].includes(v)))
+      if (v && (v === "all" || (TRACKER_STATUS_ORDER as string[]).includes(v)))
         return v as TrackerStatus | "all";
     } catch {}
     return "all";
@@ -117,6 +126,8 @@ export function Roles() {
     },
     [addManualTrackerItem]
   );
+
+
 
   const filteredAndSorted = useMemo(() => {
     let list = items.filter((item) => {
@@ -241,6 +252,7 @@ export function Roles() {
           updateNotes={wrappedUpdateNotes}
           updateDeadline={updateDeadline}
           updateCoverLetter={updateCoverLetter}
+          updateRoleFields={updateRoleFields}
           removeItem={removeItem}
         />
       )}
@@ -250,6 +262,7 @@ export function Roles() {
         onAdd={handleQuickAdd}
         recentCompanies={getRecentCompanies(items)}
         recentRoles={getRecentRoles(items)}
+        existingItems={items}
       />
       <div
         className={cn(

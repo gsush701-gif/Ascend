@@ -45,6 +45,7 @@ import {
   type FocusAction,
   type ActivityItem,
 } from "../lib/dashboardStats";
+import { TRACKER_STATUS_ORDER } from "../types/tracker";
 import { alignmentToPreparedness } from "../lib/preparedness";
 import { useProfile } from "../lib/profile";
 import { KpiCard } from "../components/dashboard/KpiCard";
@@ -118,6 +119,7 @@ export function Dashboard() {
         onAdd={handleQuickAdd}
         recentCompanies={getRecentCompanies(items)}
         recentRoles={getRecentRoles(items)}
+        existingItems={items}
       />
       {showOnboarding && (
         <OnboardingModal onComplete={() => setShowOnboarding(false)} />
@@ -480,20 +482,21 @@ function UpcomingDeadlinesList({
   );
 }
 
-const STATUS_ORDER: (keyof FunnelCounts)[] = [
-  "Applied",
-  "Interview",
-  "Offer",
-  "Rejected",
-  "Wishlist",
-];
+const STATUS_ORDER: (keyof FunnelCounts)[] = TRACKER_STATUS_ORDER;
 
 const STATUS_BAR_COLORS: Record<keyof FunnelCounts, string> = {
-  Applied: "bg-cyan-500",
-  Interview: "bg-violet-500",
-  Offer: "bg-emerald-500",
-  Rejected: "bg-rose-500/70",
   Wishlist: "bg-slate-400",
+  Analyzed: "bg-indigo-400",
+  "Ready to Apply": "bg-cyan-300",
+  Applied: "bg-cyan-500",
+  "Recruiter Contact": "bg-violet-300",
+  Interview: "bg-violet-500",
+  "Technical Interview": "bg-violet-600",
+  "Final Interview": "bg-violet-700",
+  Offer: "bg-emerald-500",
+  Accepted: "bg-emerald-600",
+  Rejected: "bg-rose-500/70",
+  Withdrawn: "bg-slate-500",
 };
 
 function ByStatusBars({

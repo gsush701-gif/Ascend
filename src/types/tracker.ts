@@ -1,9 +1,35 @@
 export type TrackerStatus =
   | "Wishlist"
+  | "Analyzed"
+  | "Ready to Apply"
   | "Applied"
+  | "Recruiter Contact"
   | "Interview"
+  | "Technical Interview"
+  | "Final Interview"
   | "Offer"
-  | "Rejected";
+  | "Accepted"
+  | "Rejected"
+  | "Withdrawn";
+
+/** Canonical pipeline order, earliest stage first. Shared by every place that
+ * needs to render/iterate statuses in a sensible order (filters, funnel/status
+ * bars, dropdowns). Existing statuses keep their original meaning — this is
+ * purely the display/iteration order. */
+export const TRACKER_STATUS_ORDER: TrackerStatus[] = [
+  "Wishlist",
+  "Analyzed",
+  "Ready to Apply",
+  "Applied",
+  "Recruiter Contact",
+  "Interview",
+  "Technical Interview",
+  "Final Interview",
+  "Offer",
+  "Accepted",
+  "Rejected",
+  "Withdrawn",
+];
 
 export type RolePriority = "high" | "medium" | "low";
 
@@ -50,6 +76,37 @@ export type TrackerItem = {
     questions: { question: string; category: string }[];
     generatedAt: string;
   };
+
+  // --- Phase 2b "application details" fields (all additive/optional) ---
+  /** FK to the shared `jobs` table, when this role was created from a known posting. */
+  jobId?: string;
+  /** FK to the `resumes` table — which saved resume was used for this application. */
+  resumeId?: string;
+  /** Link to the original job posting (distinct from `applicationUrl`). */
+  jobUrl?: string;
+  /** Where this role was found, e.g. "LinkedIn", "referral". */
+  source?: string;
+  location?: string;
+  remoteType?: string;
+  employmentType?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  sponsorship?: string;
+  recruiterName?: string;
+  recruiterEmail?: string;
+  recruiterLinkedin?: string;
+  /** Link to the actual application form/portal (distinct from `jobUrl`). */
+  applicationUrl?: string;
+  /** Whether this application came via a referral. Defaults to false. */
+  referral?: boolean;
+  /** Real typed deadline, distinct from the legacy free-text `deadline` field above. */
+  deadlineAt?: string;
+  appliedAt?: string;
+  interviewAt?: string;
+  offerAt?: string;
+  rejectionAt?: string;
+  followUpAt?: string;
 };
 
 export const LS_KEY = "internos_tracker_v1";

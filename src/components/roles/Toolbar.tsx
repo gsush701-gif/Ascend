@@ -4,15 +4,12 @@ import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { pageHeader, pageTitle, pageSubtitle, pageHeaderActions } from "../../lib/ui";
 import type { TrackerStatus } from "../../types/tracker";
+import { TRACKER_STATUS_ORDER } from "../../types/tracker";
 import type { SortKey } from "./RolesTable";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "all", label: "All statuses" },
-  { value: "Wishlist", label: "Wishlist" },
-  { value: "Applied", label: "Applied" },
-  { value: "Interview", label: "Interview" },
-  { value: "Offer", label: "Offer" },
-  { value: "Rejected", label: "Rejected" },
+  ...TRACKER_STATUS_ORDER.map((s) => ({ value: s, label: s })),
 ];
 
 /** 5 sort presets: key + direction. Max 5 options per user request. */

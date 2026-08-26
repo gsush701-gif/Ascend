@@ -2,13 +2,57 @@ import type { TrackerItem, TrackerStatus } from "../types/tracker";
 
 export type FunnelCounts = Record<TrackerStatus, number>;
 
+/** Statuses reached only after actually submitting an application — includes
+ * every terminal state too (Rejected/Withdrawn still mean an application was
+ * sent). Excludes the pre-application stages (Wishlist/Analyzed/Ready to
+ * Apply). Used everywhere "applications sent" needs counting. */
+export const APPLIED_PLUS_STATUSES: TrackerStatus[] = [
+  "Applied",
+  "Recruiter Contact",
+  "Interview",
+  "Technical Interview",
+  "Final Interview",
+  "Offer",
+  "Accepted",
+  "Rejected",
+  "Withdrawn",
+];
+
+/** Statuses indicating at least one interview has happened. */
+export const INTERVIEW_PLUS_STATUSES: TrackerStatus[] = [
+  "Interview",
+  "Technical Interview",
+  "Final Interview",
+  "Offer",
+  "Accepted",
+];
+
+/** Non-terminal, already-applied statuses eligible for the "stale, follow up"
+ * nudge in getFocusAction — excludes pre-application stages and terminal
+ * outcomes (Offer/Accepted/Rejected/Withdrawn) since those don't need a
+ * "you've gone quiet" reminder the same way. */
+const STALE_ELIGIBLE_STATUSES: TrackerStatus[] = [
+  "Applied",
+  "Recruiter Contact",
+  "Interview",
+  "Technical Interview",
+  "Final Interview",
+];
+
 export function getFunnelCounts(items: TrackerItem[]): FunnelCounts {
   const counts: FunnelCounts = {
     Wishlist: 0,
+    Analyzed: 0,
+    "Ready to Apply": 0,
     Applied: 0,
+    "Recruiter Contact": 0,
     Interview: 0,
+    "Technical Interview": 0,
+    "Final Interview": 0,
     Offer: 0,
+    Accepted: 0,
     Rejected: 0,
+    Withdrawn: 0,
   };
   items.forEach((item) => {
     counts[item.status] = (counts[item.status] ?? 0) + 1;
@@ -52,17 +96,11 @@ export function getAverageAlignment(items: TrackerItem[]): number | null {
 }
 
 export function getApplicationsSentCount(items: TrackerItem[]): number {
-  return items.filter(
-    (i) =>
-      i.status === "Applied" ||
-      i.status === "Interview" ||
-      i.status === "Offer" ||
-      i.status === "Rejected"
-  ).length;
+  return items.filter((i) => APPLIED_PLUS_STATUSES.includes(i.status)).length;
 }
 
 export function getInterviewCount(items: TrackerItem[]): number {
-  return items.filter((i) => i.status === "Interview" || i.status === "Offer")
+  return items.filter((i) => INTERVIEW_PLUS_STATUSES.includes(i.status))
     .length;
 }
 
@@ -80,10 +118,7 @@ function getStartOfWeek(d: Date): Date {
 function countAppliedInWeek(items: TrackerItem[], weekStartMs: number, weekEndMs: number): number {
   return items.filter(
     (i) =>
-      (i.status === "Applied" ||
-        i.status === "Interview" ||
-        i.status === "Offer" ||
-        i.status === "Rejected") &&
+      APPLIED_PLUS_STATUSES.includes(i.status) &&
       new Date(i.createdAt).getTime() >= weekStartMs &&
       new Date(i.createdAt).getTime() < weekEndMs
   ).length;
@@ -91,13 +126,7 @@ function countAppliedInWeek(items: TrackerItem[], weekStartMs: number, weekEndMs
 
 /** Unique dates (YYYY-MM-DD) when applications were added, sorted descending (most recent first). */
 function getApplicationDates(items: TrackerItem[]): string[] {
-  const applied = items.filter(
-    (i) =>
-      i.status === "Applied" ||
-      i.status === "Interview" ||
-      i.status === "Offer" ||
-      i.status === "Rejected"
-  );
+  const applied = items.filter((i) => APPLIED_PLUS_STATUSES.includes(i.status));
   const dates = new Set<string>();
   applied.forEach((i) => {
     const d = new Date(i.createdAt);
@@ -131,13 +160,7 @@ export function getApplicationStreak(items: TrackerItem[]): number {
 
 /** Days since last application (0 = today, 1 = yesterday). Null if no applications. */
 export function getDaysSinceLastApplication(items: TrackerItem[]): number | null {
-  const applied = items.filter(
-    (i) =>
-      i.status === "Applied" ||
-      i.status === "Interview" ||
-      i.status === "Offer" ||
-      i.status === "Rejected"
-  );
+  const applied = items.filter((i) => APPLIED_PLUS_STATUSES.includes(i.status));
   if (applied.length === 0) return null;
   const latest = applied.reduce((max, i) =>
     new Date(i.createdAt).getTime() > new Date(max.createdAt).getTime()
@@ -494,7 +517,7 @@ export function getFocusAction(items: TrackerItem[]): FocusAction {
   const staleThresholdMs = 10 * 24 * 60 * 60 * 1000;
   const now = Date.now();
   const stale = [...items]
-    .filter((i) => i.status === "Applied")
+    .filter((i) => STALE_ELIGIBLE_STATUSES.includes(i.status))
     .sort(
       (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
     )[0];

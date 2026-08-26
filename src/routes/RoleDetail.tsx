@@ -5,16 +5,12 @@ import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import type { TrackerStatus } from "../types/tracker";
+import { TRACKER_STATUS_ORDER } from "../types/tracker";
 import { MissingSignals } from "../features/analyzer/components/MissingSignals";
 import { ActionsList } from "../features/analyzer/components/ActionsList";
+import { ApplicationDetailsPanel } from "../components/roles/ApplicationDetailsPanel";
 
-const STATUS_OPTIONS: TrackerStatus[] = [
-  "Wishlist",
-  "Applied",
-  "Interview",
-  "Offer",
-  "Rejected",
-];
+const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
 export function RoleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +21,7 @@ export function RoleDetail() {
     updateNextStep,
     updateNotes,
     updateDeadline,
+    updateRoleFields,
     removeItem,
   } = useTracker(undefined);
 
@@ -172,6 +169,8 @@ export function RoleDetail() {
                 className="w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none resize-none"
               />
             </Panel>
+
+            <ApplicationDetailsPanel item={item} updateRoleFields={updateRoleFields} />
 
             <div className="flex flex-col gap-2">
               <div className="flex flex-wrap gap-2">
