@@ -4,6 +4,8 @@ import { Input } from "./ui/Input";
 import { Button } from "./ui/Button";
 import { card } from "../lib/ui";
 import { cn } from "../lib/cn";
+import type { TrackerItem } from "../types/tracker";
+import { findDuplicateRole, formatDuplicateWarning } from "../features/tracker/duplicateDetection";
 
 type QuickAddModalProps = {
   isOpen: boolean;
@@ -11,6 +13,8 @@ type QuickAddModalProps = {
   onAdd: (company: string, role: string) => void;
   recentCompanies?: string[];
   recentRoles?: string[];
+  /** Already-tracked roles, used to warn on a likely duplicate before adding. */
+  existingItems?: TrackerItem[];
 };
 
 export function QuickAddModal({
@@ -19,6 +23,7 @@ export function QuickAddModal({
   onAdd,
   recentCompanies = [],
   recentRoles = [],
+  existingItems = [],
 }: QuickAddModalProps) {
   const companyRef = useRef<HTMLInputElement>(null);
   const roleRef = useRef<HTMLInputElement>(null);
@@ -56,6 +61,15 @@ export function QuickAddModal({
       return;
     }
     setError(null);
+
+    const duplicate = findDuplicateRole(existingItems, { company, role });
+    if (duplicate) {
+      const proceed = window.confirm(
+        `${formatDuplicateWarning(duplicate)}\n\nAdd it anyway?`
+      );
+      if (!proceed) return;
+    }
+
     onAdd(company, role);
     companyRef.current!.value = "";
     roleRef.current!.value = "";

@@ -21,6 +21,7 @@ import { useTracker } from "../features/tracker/hooks/useTracker";
 import { useResumes } from "../features/resumes/hooks/useResumes";
 import { useAuth } from "../context/AuthContext";
 import { getRecentCompanies, getRecentRoles } from "../lib/dashboardStats";
+import { findDuplicateRole, formatDuplicateWarning } from "../features/tracker/duplicateDetection";
 import { cn } from "../lib/cn";
 import { alignmentToPreparedness, type Preparedness } from "../lib/preparedness";
 
@@ -168,6 +169,15 @@ export function Analyzer() {
         : undefined;
     const company = tracker.company.trim() || "Unknown company";
     const role = tracker.role.trim() || report?.roleTitle || "Unknown role";
+
+    const duplicate = findDuplicateRole(tracker.tracker, { company, role });
+    if (duplicate) {
+      const proceed = window.confirm(
+        `${formatDuplicateWarning(duplicate)}\n\nAdd it anyway?`
+      );
+      if (!proceed) return;
+    }
+
     const notesFromSkills =
       skillsToAddToNotes.length > 0 ? `Skills to highlight:\n• ${skillsToAddToNotes.join("\n• ")}` : undefined;
     tracker.addManualTrackerItem(

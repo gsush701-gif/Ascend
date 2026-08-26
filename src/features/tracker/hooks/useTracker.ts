@@ -24,6 +24,29 @@ type RoleRow = {
   interview_prep: TrackerItem["interviewPrep"] | null;
   created_at: string;
   updated_at: string;
+  // Phase 2b "application details" columns (all nullable/additive).
+  job_id: string | null;
+  resume_id: string | null;
+  job_url: string | null;
+  source: string | null;
+  location: string | null;
+  remote_type: string | null;
+  employment_type: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  sponsorship: string | null;
+  recruiter_name: string | null;
+  recruiter_email: string | null;
+  recruiter_linkedin: string | null;
+  application_url: string | null;
+  referral: boolean | null;
+  deadline_at: string | null;
+  applied_at: string | null;
+  interview_at: string | null;
+  offer_at: string | null;
+  rejection_at: string | null;
+  follow_up_at: string | null;
 };
 
 function rowToItem(row: RoleRow): TrackerItem {
@@ -43,8 +66,58 @@ function rowToItem(row: RoleRow): TrackerItem {
     jobDescription: row.job_description ?? undefined,
     coverLetter: row.cover_letter ?? undefined,
     interviewPrep: row.interview_prep ?? undefined,
+    jobId: row.job_id ?? undefined,
+    resumeId: row.resume_id ?? undefined,
+    jobUrl: row.job_url ?? undefined,
+    source: row.source ?? undefined,
+    location: row.location ?? undefined,
+    remoteType: row.remote_type ?? undefined,
+    employmentType: row.employment_type ?? undefined,
+    salaryMin: row.salary_min ?? undefined,
+    salaryMax: row.salary_max ?? undefined,
+    salaryCurrency: row.salary_currency ?? undefined,
+    sponsorship: row.sponsorship ?? undefined,
+    recruiterName: row.recruiter_name ?? undefined,
+    recruiterEmail: row.recruiter_email ?? undefined,
+    recruiterLinkedin: row.recruiter_linkedin ?? undefined,
+    applicationUrl: row.application_url ?? undefined,
+    referral: row.referral ?? false,
+    deadlineAt: row.deadline_at ?? undefined,
+    appliedAt: row.applied_at ?? undefined,
+    interviewAt: row.interview_at ?? undefined,
+    offerAt: row.offer_at ?? undefined,
+    rejectionAt: row.rejection_at ?? undefined,
+    followUpAt: row.follow_up_at ?? undefined,
   };
 }
+
+/** Maps the new Phase 2b TrackerItem fields to their snake_case DB columns.
+ * Used only by updateRoleFields (the generic setter) — the pre-existing
+ * fields keep their own dedicated updateX functions below. */
+const APPLICATION_DETAIL_COLUMNS: Partial<Record<keyof TrackerItem, string>> = {
+  jobId: "job_id",
+  resumeId: "resume_id",
+  jobUrl: "job_url",
+  source: "source",
+  location: "location",
+  remoteType: "remote_type",
+  employmentType: "employment_type",
+  salaryMin: "salary_min",
+  salaryMax: "salary_max",
+  salaryCurrency: "salary_currency",
+  sponsorship: "sponsorship",
+  recruiterName: "recruiter_name",
+  recruiterEmail: "recruiter_email",
+  recruiterLinkedin: "recruiter_linkedin",
+  applicationUrl: "application_url",
+  referral: "referral",
+  deadlineAt: "deadline_at",
+  appliedAt: "applied_at",
+  interviewAt: "interview_at",
+  offerAt: "offer_at",
+  rejectionAt: "rejection_at",
+  followUpAt: "follow_up_at",
+};
 
 function touchUpdatedAt(x: TrackerItem): TrackerItem {
   return { ...x, updatedAt: new Date().toISOString() };
@@ -244,6 +317,26 @@ export function useTracker(reportAlignment: number | undefined) {
     applyUpdate(id, { interviewPrep }, { interview_prep: interviewPrep ?? null });
   }
 
+  /**
+   * Generic setter for the Phase 2b "application details" fields (job URL,
+   * location, salary, recruiter contact, milestone dates, etc). Avoids an
+   * unwieldy explosion of near-identical updateX functions for ~20 fields;
+   * follows the same optimistic-update, RLS-scoped pattern as applyUpdate.
+   * Only fields present in APPLICATION_DETAIL_COLUMNS are persisted —
+   * anything else is silently ignored to avoid accidentally writing to an
+   * unmapped column.
+   */
+  function updateRoleFields(id: string, fields: Partial<TrackerItem>) {
+    const dbPatch: Record<string, unknown> = {};
+    (Object.keys(fields) as (keyof TrackerItem)[]).forEach((key) => {
+      const column = APPLICATION_DETAIL_COLUMNS[key];
+      if (!column) return;
+      const value = fields[key];
+      dbPatch[column] = value === "" || value === undefined ? null : value;
+    });
+    applyUpdate(id, fields, dbPatch);
+  }
+
   function updateReportSnapshot(id: string, snapshot: SavedReportSnapshot) {
     applyUpdate(
       id,
@@ -276,5 +369,6 @@ export function useTracker(reportAlignment: number | undefined) {
     updateReportSnapshot,
     updateCoverLetter,
     updateInterviewPrep,
+    updateRoleFields,
   };
 }
