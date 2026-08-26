@@ -6,7 +6,9 @@ import { Select } from "../components/ui/Select";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ContactCard } from "../components/contacts/ContactCard";
 import { ContactFormModal } from "../components/contacts/ContactFormModal";
+import { ColdEmailModal } from "../components/contacts/ColdEmailModal";
 import { useContacts, type ContactInput } from "../features/contacts/hooks/useContacts";
+import { useTracker } from "../features/tracker/hooks/useTracker";
 import {
   filterAndSortContacts,
   type ContactSortKey,
@@ -18,8 +20,10 @@ import { pageHeader, pageTitle, pageSubtitle, pageHeaderActions, card } from "..
 
 export function Contacts() {
   const { contacts, loading, addContact, updateContact, removeContact } = useContacts();
+  const { tracker } = useTracker(undefined);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [emailContact, setEmailContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<ContactSortKey>("nextFollowUp");
   const [filter, setFilter] = useState<ContactFilterKey>("all");
@@ -132,6 +136,7 @@ export function Contacts() {
                 contact={c}
                 onEdit={() => openEditModal(c)}
                 onDelete={() => handleDelete(c)}
+                onGenerateEmail={() => setEmailContact(c)}
               />
             ))}
           </div>
@@ -144,6 +149,8 @@ export function Contacts() {
         onSubmit={handleSubmit}
         initial={editingContact}
       />
+
+      <ColdEmailModal contact={emailContact} roles={tracker} onClose={() => setEmailContact(null)} />
     </AppShell>
   );
 }

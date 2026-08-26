@@ -1,4 +1,4 @@
-import { Building2, Mail, Linkedin, Calendar, Pencil, Trash2 } from "lucide-react";
+import { Building2, Mail, Linkedin, Calendar, Pencil, Trash2, Sparkles } from "lucide-react";
 import { card, badge } from "../../lib/ui";
 import { cn } from "../../lib/cn";
 import type { Contact } from "../../types/contacts";
@@ -29,9 +29,10 @@ type ContactCardProps = {
   contact: Contact;
   onEdit: () => void;
   onDelete: () => void;
+  onGenerateEmail: () => void;
 };
 
-export function ContactCard({ contact, onEdit, onDelete }: ContactCardProps) {
+export function ContactCard({ contact, onEdit, onDelete, onGenerateEmail }: ContactCardProps) {
   const overdue = isOverdue(contact.nextFollowUpAt);
 
   return (
@@ -46,6 +47,15 @@ export function ContactCard({ contact, onEdit, onDelete }: ContactCardProps) {
           )}
         </div>
         <div className="flex shrink-0 gap-1">
+          <button
+            type="button"
+            onClick={onGenerateEmail}
+            className="rounded-lg p-1.5 text-slate-500 transition hover:bg-cyan-500/10 hover:text-cyan-600"
+            aria-label={`Generate outreach message for ${contact.name}`}
+            title="Generate outreach message"
+          >
+            <Sparkles size={14} />
+          </button>
           <button
             type="button"
             onClick={onEdit}

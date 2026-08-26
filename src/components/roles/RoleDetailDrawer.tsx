@@ -7,6 +7,7 @@ import type { TrackerItem, TrackerStatus } from "../../types/tracker";
 import { TRACKER_STATUS_ORDER } from "../../types/tracker";
 import { MissingSignals } from "../../features/analyzer/components/MissingSignals";
 import { ActionsList } from "../../features/analyzer/components/ActionsList";
+import { SkillGapHelper } from "../../features/analyzer/components/SkillGapHelper";
 import { extractTextFromPdf } from "../../lib/pdf";
 import { API_BASE } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
@@ -51,6 +52,40 @@ export function RoleDetailDrawer({
   const alignment = snap?.alignment ?? item.alignment;
   const missingSignals = snap?.missingSignals ?? [];
   const actions = snap?.actions ?? [];
+  const missingRequiredSkills = (snap?.skills ?? [])
+    .filter((s) => s.status === "miss" && (s.importance ?? "required") === "required")
+    .map((s) => s.name);
+
+  // "Ask about this role" (career advice, Phase 6a Task 4) state — transient
+  // UI/request state, not persisted.
+  const [askQuestion, setAskQuestion] = useState("");
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+  const [askAnswer, setAskAnswer] = useState<string | null>(null);
+
+  async function runAskAboutRole() {
+    const question = askQuestion.trim();
+    if (!question) return;
+    setAskLoading(true);
+    setAskError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/career-advice`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ question, roleId: item.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Failed to get an answer"));
+      setAskAnswer(data.answer);
+    } catch (e) {
+      setAskError(e instanceof Error ? e.message : "Failed to get an answer");
+    } finally {
+      setAskLoading(false);
+    }
+  }
 
   // Cover letter generation state (kept here rather than in useTracker since
   // it's transient UI/request state, not persisted tracker data).
@@ -272,6 +307,8 @@ export function RoleDetailDrawer({
             </Panel>
           )}
 
+          <SkillGapHelper missingRequiredSkills={missingRequiredSkills} />
+
           {actions.length > 0 && (
             <Panel
               title="Suggested improvements"
@@ -289,6 +326,39 @@ export function RoleDetailDrawer({
               </p>
             </Panel>
           )}
+
+          <Panel
+            title="Ask about this role"
+            subtitle="Grounded in your real fit score and skills for this specific role."
+          >
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={askQuestion}
+                onChange={(e) => setAskQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !askLoading) runAskAboutRole();
+                }}
+                placeholder="e.g. Should I apply to this job?"
+                maxLength={500}
+                className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-900/[0.04] px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={runAskAboutRole}
+                disabled={askLoading || !askQuestion.trim()}
+                className="btn-press shrink-0 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {askLoading ? "Asking…" : "Ask"}
+              </button>
+            </div>
+            {askError && <p className="mt-3 text-sm text-red-600">{askError}</p>}
+            {askAnswer && !askError && (
+              <p className="mt-3 animate-fade-in rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 text-sm leading-relaxed text-slate-800">
+                {askAnswer}
+              </p>
+            )}
+          </Panel>
 
           <Panel
             title="Cover letter"

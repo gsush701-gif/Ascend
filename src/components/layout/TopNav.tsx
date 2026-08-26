@@ -34,6 +34,7 @@ const NAV_LINKS = [
   { to: "/roles", label: "Roles" },
   { to: "/goals", label: "Goals" },
   { to: "/analytics", label: "Analytics" },
+  { to: "/report", label: "Report" },
   { to: "/contacts", label: "Contacts" },
   { to: "/analyzer", label: "Analyze" },
   { to: "/resume-lab", label: "Resume Lab" },

@@ -17,6 +17,7 @@ import { Textarea } from "../components/ui/Textarea";
 import { Button } from "../components/ui/Button";
 import { pageHeader, pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
 import { useAnalyzer } from "../features/analyzer/hooks/useAnalyzer";
+import { SkillGapHelper } from "../features/analyzer/components/SkillGapHelper";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { useResumes } from "../features/resumes/hooks/useResumes";
 import { useAuth } from "../context/AuthContext";
@@ -253,6 +254,15 @@ export function Analyzer() {
   const skillImportanceByName = new Map(
     (report?.skills ?? []).map((s) => [s.name, s.importance])
   );
+  // Missing skills the JD language marks as required (not just "preferred"
+  // bucket membership above, which is really "missing" regardless of
+  // importance) — drives the "Close your skill gaps" roadmap/project panel.
+  // Only meaningful with a real backend report; the JD-only mode's
+  // core/preferred split is a cosmetic array-position bucket, not a real
+  // required/preferred classification (see parseJd.ts), so it's excluded.
+  const missingRequiredSkills = report
+    ? preferredSkills.filter((s) => (skillImportanceByName.get(s) ?? "required") === "required")
+    : [];
   const experienceLevel = parsedJdData?.experienceLevel ?? (report ? "See job description" : "");
   const derivedSignals = report
     ? [
@@ -618,6 +628,14 @@ export function Analyzer() {
                     </div>
                   )}
                 </div>
+
+                {report && (
+                  <SkillGapHelper
+                    missingRequiredSkills={missingRequiredSkills}
+                    resumeText={resumeText || undefined}
+                    context={parsedJdData?.experienceLevel || undefined}
+                  />
+                )}
 
                 {/* B) Preparation Signals */}
                 {(preparedness || preparationSignals.length > 0) && (

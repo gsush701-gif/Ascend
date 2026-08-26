@@ -37,7 +37,7 @@ export type RolePriority = "high" | "medium" | "low";
 export type SavedReportSnapshot = {
   alignment: number;
   coverage: number;
-  skills: { name: string; status: "hit" | "miss" }[];
+  skills: { name: string; status: "hit" | "miss"; importance?: "required" | "preferred" }[];
   missingSignals: string[];
   actions: string[];
   meta?: {

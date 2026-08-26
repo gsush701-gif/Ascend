@@ -32,6 +32,11 @@ const PLANS = {
       "ai.generate_interview_questions": 10,
       "ai.interview_feedback": 20,
       "ai.improve_linkedin": 10,
+      "ai.skill_roadmap": 20,
+      "ai.recommend_project": 10,
+      "ai.cold_email": 15,
+      "ai.career_advice": 20,
+      "ai.report_summary": 10,
     },
   },
   pro: {
@@ -55,6 +60,11 @@ const PLANS = {
       "ai.generate_interview_questions": 100,
       "ai.interview_feedback": 200,
       "ai.improve_linkedin": 100,
+      "ai.skill_roadmap": 200,
+      "ai.recommend_project": 100,
+      "ai.cold_email": 150,
+      "ai.career_advice": 200,
+      "ai.report_summary": 100,
     },
   },
 };
@@ -72,6 +82,11 @@ const USAGE_LABELS = {
   "ai.generate_interview_questions": "Interview question sets",
   "ai.interview_feedback": "Interview answer critiques",
   "ai.improve_linkedin": "LinkedIn rewrites",
+  "ai.skill_roadmap": "Skill roadmaps",
+  "ai.recommend_project": "Project recommendations",
+  "ai.cold_email": "Outreach messages",
+  "ai.career_advice": "Career advice questions",
+  "ai.report_summary": "Career report summaries",
 };
 
 /** Returns the plan config for a plan key, falling back to `free` for an unknown/missing key. */

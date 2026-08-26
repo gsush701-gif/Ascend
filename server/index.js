@@ -58,6 +58,8 @@ const { PLANS, DEFAULT_PLAN, USAGE_LABELS } = require("./lib/plans");
 const groq = require("./lib/groq");
 const { stripe, isStripeConfigured } = require("./lib/stripe");
 const billing = require("./lib/billing");
+const { fetchOwnedRow } = require("./lib/supabaseUser");
+const { isUuid } = require("./lib/validation");
 
 const app = express();
 
@@ -271,6 +273,15 @@ async function callGroq(req, eventType, fn) {
  * GroqNotConfiguredError falls back to the route's generic message so no
  * raw upstream/unexpected error text ever reaches the client.
  */
+/** Extracts the raw bearer token from the Authorization header, same parsing
+ * `optionalAuth` uses — needed by routes that do an ownership-checked lookup
+ * via server/lib/supabaseUser.js's RLS-scoped client, since optionalAuth
+ * itself only exposes the verified `req.user`, not the raw token. */
+function getBearerToken(req) {
+  const header = req.headers.authorization || "";
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : null;
+}
+
 function respondAiError(req, res, err, fallbackMessage) {
   captureException(err, { requestId: req.requestId, route: req.path });
   if (err && err.name === "GroqNotConfiguredError") {
@@ -872,6 +883,288 @@ app.post("/api/interview-feedback", aiLimiter, optionalAuth, async (req, res) =>
   } catch (err) {
     console.error("interview-feedback failed:", err);
     return respondAiError(req, res, err, "Failed to generate interview feedback");
+  }
+});
+
+// --- Phase 6a: skill roadmap, project recommendation, cold email, career
+// advice, weekly report summary. All follow the established pattern: an
+// optionalAuth + aiLimiter route, a quota check before the Groq call, and
+// the same validation/error-response discipline as every other /api/* route
+// above.
+
+app.post("/api/skill-roadmap", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.skill !== undefined && typeof req.body.skill !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'skill' must be a string");
+    }
+    if (req.body?.context !== undefined && typeof req.body.context !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'context' must be a string");
+    }
+
+    const skill = (req.body?.skill || "").trim();
+    const context = (req.body?.context || "").trim() || undefined;
+
+    if (!skill) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'skill' is required");
+    }
+    if (skill.length > 200) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'skill' is too long (max 200 characters)");
+    }
+    if (context && context.length > 500) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'context' is too long (max 500 characters)");
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.skill_roadmap"))) return;
+
+    const result = await callGroq(req, "ai.skill_roadmap", () => groq.generateSkillRoadmap(skill, context));
+    return res.json(result);
+  } catch (err) {
+    console.error("skill-roadmap failed:", err);
+    return respondAiError(req, res, err, "Failed to generate a skill roadmap");
+  }
+});
+
+app.post("/api/recommend-project", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.missingSkills !== undefined && !Array.isArray(req.body.missingSkills)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'missingSkills' must be an array of strings");
+    }
+    if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' must be a string");
+    }
+
+    const missingSkillsRaw = req.body?.missingSkills || [];
+    if (
+      missingSkillsRaw.length === 0 ||
+      !missingSkillsRaw.every((s) => typeof s === "string" && s.trim().length > 0 && s.length <= 100)
+    ) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        "Field 'missingSkills' must be a non-empty array of non-empty strings (max 100 characters each)",
+      );
+    }
+    if (missingSkillsRaw.length > 20) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'missingSkills' is too long (max 20 skills)");
+    }
+    const missingSkills = missingSkillsRaw.map((s) => s.trim());
+
+    const resumeText = (req.body?.resumeText || "").trim() || undefined;
+    if (resumeText && resumeText.length > 50000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' is too long (max 50000 characters)");
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.recommend_project"))) return;
+
+    const result = await callGroq(req, "ai.recommend_project", () => groq.recommendProject(missingSkills, resumeText));
+    return res.json(result);
+  } catch (err) {
+    console.error("recommend-project failed:", err);
+    return respondAiError(req, res, err, "Failed to recommend a project");
+  }
+});
+
+app.post("/api/generate-cold-email", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (!req.user) {
+      return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+    }
+    if (req.body?.contactId !== undefined && typeof req.body.contactId !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'contactId' must be a string");
+    }
+    if (req.body?.roleId !== undefined && typeof req.body.roleId !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleId' must be a string");
+    }
+    if (!isUuid(req.body?.contactId)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'contactId' must be a valid id");
+    }
+    if (req.body?.roleId !== undefined && !isUuid(req.body.roleId)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleId' must be a valid id");
+    }
+
+    const token = getBearerToken(req);
+    const contactId = req.body.contactId.trim();
+    const roleId = req.body.roleId ? req.body.roleId.trim() : null;
+
+    const { row: contact, error: contactErr } = await fetchOwnedRow({
+      table: "contacts",
+      id: contactId,
+      userId: req.user.id,
+      token,
+    });
+    if (contactErr) {
+      console.error("generate-cold-email: contact lookup failed:", contactErr);
+      return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to look up contact");
+    }
+    if (!contact) {
+      return sendError(req, res, 404, ErrorCodes.NOT_FOUND, "Contact not found");
+    }
+
+    let role = null;
+    if (roleId) {
+      const { row, error: roleErr } = await fetchOwnedRow({ table: "roles", id: roleId, userId: req.user.id, token });
+      if (roleErr) {
+        console.error("generate-cold-email: role lookup failed:", roleErr);
+        return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to look up role");
+      }
+      if (!row) {
+        return sendError(req, res, 404, ErrorCodes.NOT_FOUND, "Role not found");
+      }
+      role = row;
+    }
+
+    let profileRow = null;
+    if (supabaseAdmin) {
+      const { data } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, major, target_role")
+        .eq("id", req.user.id)
+        .maybeSingle();
+      profileRow = data || null;
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.cold_email"))) return;
+
+    const contactInfo = {
+      name: contact.name,
+      title: contact.title || undefined,
+      company: contact.company || undefined,
+      relationship: contact.relationship || undefined,
+      source: contact.source || undefined,
+    };
+    const jobContext = role
+      ? {
+          company: role.company || undefined,
+          roleTitle: role.role || undefined,
+          jobDescription: role.job_description || undefined,
+        }
+      : null;
+    const candidateProfile = {
+      fullName: profileRow?.full_name || undefined,
+      major: profileRow?.major || undefined,
+      targetRole: profileRow?.target_role || undefined,
+    };
+
+    const result = await callGroq(req, "ai.cold_email", () =>
+      groq.generateColdEmail(contactInfo, jobContext, candidateProfile),
+    );
+    return res.json(result);
+  } catch (err) {
+    console.error("generate-cold-email failed:", err);
+    return respondAiError(req, res, err, "Failed to generate outreach message");
+  }
+});
+
+app.post("/api/career-advice", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (!req.user) {
+      return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+    }
+    if (req.body?.question !== undefined && typeof req.body.question !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'question' must be a string");
+    }
+    if (req.body?.roleId !== undefined && typeof req.body.roleId !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleId' must be a string");
+    }
+
+    const question = (req.body?.question || "").trim();
+    if (!question) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'question' is required");
+    }
+    if (question.length > 500) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'question' is too long (max 500 characters)");
+    }
+    if (req.body?.roleId !== undefined && !isUuid(req.body.roleId)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleId' must be a valid id");
+    }
+
+    const token = getBearerToken(req);
+    const roleId = req.body?.roleId ? req.body.roleId.trim() : null;
+
+    let role = null;
+    if (roleId) {
+      const { row, error: roleErr } = await fetchOwnedRow({ table: "roles", id: roleId, userId: req.user.id, token });
+      if (roleErr) {
+        console.error("career-advice: role lookup failed:", roleErr);
+        return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to look up role");
+      }
+      if (!row) {
+        return sendError(req, res, 404, ErrorCodes.NOT_FOUND, "Role not found");
+      }
+      role = row;
+    }
+
+    let profileRow = null;
+    if (supabaseAdmin) {
+      const { data } = await supabaseAdmin
+        .from("profiles")
+        .select("major, target_role")
+        .eq("id", req.user.id)
+        .maybeSingle();
+      profileRow = data || null;
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.career_advice"))) return;
+
+    // Assembled entirely from real, just-fetched rows — never client-supplied
+    // numbers — so the model has no path to inventing a fit score or skill
+    // list that isn't this user's actual data.
+    const contextLines = [];
+    if (profileRow?.target_role) contextLines.push(`Profile target role: ${profileRow.target_role}`);
+    if (profileRow?.major) contextLines.push(`Profile major: ${profileRow.major}`);
+    if (role) {
+      contextLines.push(`Role in question: ${role.role} at ${role.company} (status: ${role.status})`);
+      contextLines.push(`This role's fit/alignment score: ${role.alignment}%`);
+      const snap = role.report_snapshot;
+      if (snap?.skills?.length) {
+        const matched = snap.skills.filter((s) => s.status === "hit").map((s) => s.name);
+        const missing = snap.skills.filter((s) => s.status === "miss").map((s) => s.name);
+        if (matched.length) contextLines.push(`Matched skills: ${matched.join(", ")}`);
+        if (missing.length) contextLines.push(`Missing skills: ${missing.join(", ")}`);
+      }
+      if (snap?.missingSignals?.length) {
+        contextLines.push(`Missing resume signals: ${snap.missingSignals.join(", ")}`);
+      }
+    } else if (roleId) {
+      // Shouldn't normally happen (404'd above), kept as a defensive note.
+      contextLines.push("(Requested role could not be loaded.)");
+    }
+
+    const userContext = contextLines.length > 0 ? contextLines.join("\n") : "(No specific role or profile data available for this question.)";
+
+    const result = await callGroq(req, "ai.career_advice", () => groq.careerAdvice(question, userContext));
+    return res.json(result);
+  } catch (err) {
+    console.error("career-advice failed:", err);
+    return respondAiError(req, res, err, "Failed to generate career advice");
+  }
+});
+
+app.post("/api/report-summary", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    const stats = req.body?.stats;
+    if (typeof stats !== "object" || stats === null || Array.isArray(stats)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'stats' must be a JSON object");
+    }
+    let serialized;
+    try {
+      serialized = JSON.stringify(stats);
+    } catch {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'stats' must be JSON-serializable");
+    }
+    if (serialized.length > 4000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'stats' is too large");
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.report_summary"))) return;
+
+    const summary = await callGroq(req, "ai.report_summary", () => groq.summarizeCareerReport(stats));
+    return res.json({ summary });
+  } catch (err) {
+    console.error("report-summary failed:", err);
+    return respondAiError(req, res, err, "Failed to generate report summary");
   }
 });
 
