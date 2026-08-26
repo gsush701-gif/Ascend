@@ -8,9 +8,17 @@ function isOverdue(dateIso?: string) {
   return new Date(dateIso).getTime() <= Date.now();
 }
 
+/**
+ * Formats the calendar date the user picked, independent of the viewer's
+ * timezone. Date-only values (e.g. "2026-08-20") are parsed as UTC per the
+ * ECMAScript spec, so formatting with `toLocaleDateString` directly would
+ * shift the displayed day backwards for any viewer west of UTC. Reading the
+ * Y-M-D components and building a local `Date` from them avoids that shift.
+ */
 function formatDate(dateIso?: string) {
   if (!dateIso) return null;
-  return new Date(dateIso).toLocaleDateString(undefined, {
+  const [y, m, d] = dateIso.slice(0, 10).split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",
