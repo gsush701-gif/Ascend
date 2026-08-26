@@ -1,4 +1,18 @@
-export type SkillRow = { name: string; status: "hit" | "miss" };
+export type SkillImportance = "required" | "preferred";
+
+export type SkillRow = {
+  name: string;
+  status: "hit" | "miss";
+  /** Classified from proximity to required/preferred language in the JD text. Optional for older cached reports saved before this field existed. */
+  importance?: SkillImportance;
+};
+
+export type ScoreBreakdown = {
+  requiredSkills: number;
+  technicalStack: number;
+  resumeEvidence: number;
+  ats: number;
+};
 
 export type SignalState = "linked" | "mentioned_only" | "absent";
 
@@ -24,6 +38,8 @@ export type Report = {
   actions: string[];
   /** AI-generated recruiter-style read on the resume/JD fit. Absent if the AI call wasn't configured or failed. */
   aiSummary?: string;
+  /** Explainable components behind `alignment`. Absent for older cached/saved reports from before this field existed. */
+  breakdown?: ScoreBreakdown;
   meta?: {
     jdSkillsCount?: number;
     resumeSkillsFound?: number;

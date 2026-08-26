@@ -205,6 +205,12 @@ export function Analyzer() {
   const preferredSkills = report
     ? report.skills.filter((s) => s.status === "miss").map((s) => s.name)
     : parsedJdData?.preferredSkills ?? [];
+  // Real required-vs-preferred classification (from JD language, not hit/miss
+  // status above) — used only to badge each skill, since the hit/miss split
+  // already drives which of the two lists a skill appears in.
+  const skillImportanceByName = new Map(
+    (report?.skills ?? []).map((s) => [s.name, s.importance])
+  );
   const experienceLevel = parsedJdData?.experienceLevel ?? (report ? "See job description" : "");
   const derivedSignals = report
     ? [
@@ -378,6 +384,28 @@ export function Analyzer() {
                   </p>
                 )}
 
+                {/* Score breakdown */}
+                {report?.breakdown && (
+                  <div className={cn(cardAlt, "p-4")}>
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">
+                      Score breakdown
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {[
+                        { label: "Required skills", value: report.breakdown.requiredSkills },
+                        { label: "Technical stack", value: report.breakdown.technicalStack },
+                        { label: "Resume evidence", value: report.breakdown.resumeEvidence },
+                        { label: "ATS friendliness", value: report.breakdown.ats },
+                      ].map((c) => (
+                        <div key={c.label} className="text-center">
+                          <div className="text-lg font-semibold text-slate-900">{c.value}%</div>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500">{c.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* AI take */}
                 {report?.aiSummary && (
                   <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
@@ -419,6 +447,11 @@ export function Analyzer() {
                           <li key={s} className="flex items-center gap-2 text-sm text-slate-800">
                             <CheckCircle2 className="h-4 w-4 text-cyan-500/80 shrink-0" />
                             {s}
+                            {skillImportanceByName.get(s) === "preferred" && (
+                              <span className="rounded-full border border-slate-200 bg-slate-900/[0.04] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-slate-400">
+                                Nice-to-have
+                              </span>
+                            )}
                           </li>
                         ))}
                         {coreSkills.length > MAX_VISIBLE && !collapsedSections.core && (
@@ -458,6 +491,11 @@ export function Analyzer() {
                           <li key={s} className="flex items-center gap-2 text-sm text-slate-700">
                             <span className="h-1.5 w-1.5 rounded-full bg-slate-400 shrink-0" />
                             {s}
+                            {skillImportanceByName.get(s) === "required" && (
+                              <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-700">
+                                Required
+                              </span>
+                            )}
                           </li>
                         ))}
                         {preferredSkills.length > MAX_VISIBLE && !collapsedSections.preferred && (

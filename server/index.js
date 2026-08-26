@@ -24,6 +24,14 @@ const morgan = require("morgan");
 const multer = require("multer");
 const rateLimit = require("express-rate-limit");
 const { extractPdfText } = require("./lib/pdfText");
+const {
+  norm,
+  extractSkills,
+  makeActions,
+  missingSignals,
+  classifySkillsImportance,
+  computeScoreBreakdown,
+} = require("./lib/scoring");
 
 const { optionalAuth } = require("./middleware/auth");
 const { supabaseAdmin } = require("./lib/supabaseAdmin");
@@ -96,111 +104,6 @@ const upload = multer({
   },
 });
 
-// --- Skill dictionary: canonical (lowercase, singular) + patterns to match ---
-// One canonical name per concept; patterns can be plural/variants. Output is normalized and deduplicated.
-const SKILL_ENTRIES = [
-  { canonical: "python", patterns: ["python"] },
-  { canonical: "java", patterns: ["java"] },
-  { canonical: "javascript", patterns: ["javascript"] },
-  { canonical: "typescript", patterns: ["typescript"] },
-  { canonical: "c++", patterns: ["c++"] },
-  { canonical: "c#", patterns: ["c#"] },
-  { canonical: "sql", patterns: ["sql"] },
-  { canonical: "rest api", patterns: ["rest api", "rest apis", "api"] },
-  { canonical: "node", patterns: ["node", "node.js"] },
-  { canonical: "express", patterns: ["express"] },
-  { canonical: "react", patterns: ["react"] },
-  { canonical: "next.js", patterns: ["next.js", "next js"] },
-  { canonical: "aws", patterns: ["aws"] },
-  { canonical: "azure", patterns: ["azure"] },
-  { canonical: "gcp", patterns: ["gcp"] },
-  { canonical: "docker", patterns: ["docker"] },
-  { canonical: "kubernetes", patterns: ["kubernetes", "k8s"] },
-  { canonical: "git", patterns: ["git"] },
-  { canonical: "linux", patterns: ["linux"] },
-  {
-    canonical: "data structures",
-    patterns: ["data structures", "data structure"],
-  },
-  { canonical: "algorithms", patterns: ["algorithms", "algorithm"] },
-  { canonical: "testing", patterns: ["testing", "tests"] },
-  { canonical: "pytest", patterns: ["pytest"] },
-  { canonical: "jest", patterns: ["jest"] },
-  { canonical: "ci/cd", patterns: ["ci/cd", "cicd", "ci cd"] },
-];
-
-function norm(s) {
-  return (s || "")
-    .toLowerCase()
-    .replace(/\u00A0/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function unique(arr) {
-  return [...new Set(arr)];
-}
-
-function extractSkills(text) {
-  const t = norm(text);
-  const hits = [];
-  for (const { canonical, patterns } of SKILL_ENTRIES) {
-    const matched = patterns.some((p) => {
-      const key = norm(p);
-      return key.length > 0 && t.includes(key);
-    });
-    if (matched) hits.push(canonical);
-  }
-  return unique(hits);
-}
-
-function makeActions(missing) {
-  const actions = [];
-  const m = missing.map((x) => x.toLowerCase());
-
-  if (m.some((x) => x.includes("rest")))
-    actions.push("Build one REST API project");
-  if (
-    m.some((x) => x.includes("aws") || x.includes("azure") || x.includes("gcp"))
-  )
-    actions.push("Deploy a project to a cloud platform (AWS/Render/Vercel)");
-  if (m.some((x) => x.includes("testing")))
-    actions.push("Add tests (unit/integration) to one project");
-  if (m.some((x) => x.includes("docker")))
-    actions.push("Containerize one project with Docker");
-  if (m.some((x) => x.includes("sql")))
-    actions.push("Add a SQL-backed feature to a project");
-
-  if (actions.length === 0)
-    actions.push("Add metrics + impact to 2 strongest bullet points");
-  return actions.slice(0, 5);
-}
-
-function missingSignals(resumeText) {
-  const t = norm(resumeText);
-  const signals = [];
-
-  const hasDeploy = [
-    "deployed",
-    "deployment",
-    "vercel",
-    "render",
-    "aws",
-    "azure",
-    "gcp",
-    "netlify",
-  ].some((k) => t.includes(k));
-  if (!hasDeploy) signals.push("No deployment/hosting experience mentioned");
-
-  const hasNumbers = /\b\d+(\.\d+)?%?\b/.test(t);
-  if (!hasNumbers) signals.push("No quantified impact (numbers/metrics) found");
-
-  const hasGitHub = t.includes("github");
-  if (!hasGitHub) signals.push("No GitHub link/mention detected");
-
-  return signals;
-}
-
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
@@ -261,20 +164,34 @@ app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
     const resumeSkills = extractSkills(resumeText);
 
     const resumeSet = new Set(resumeSkills.map((s) => norm(s)));
+    const importanceBySkill = classifySkillsImportance(jd, jdSkills);
 
     const skills = jdSkills.map((s) => ({
       name: s,
       status: resumeSet.has(norm(s)) ? "hit" : "miss",
+      importance: importanceBySkill[s] || "required",
     }));
 
+    // Kept for backward compatibility with existing frontend reads
+    // (comparison diffs, saved report snapshots) — unweighted hit ratio
+    // across every matched JD skill, required or preferred.
     const hits = skills.filter((x) => x.status === "hit").length;
     const total = Math.max(skills.length, 1);
-
     const coverage = Math.round((hits / total) * 100);
 
     const signals = missingSignals(resumeText);
-    const penalty = Math.min(signals.length * 5, 15);
-    const alignment = Math.max(0, coverage - penalty);
+
+    const { overallScore, breakdown } = computeScoreBreakdown({
+      skills,
+      resumeText,
+      numPages,
+      signals,
+    });
+    // `alignment` stays the top-level "overall score" field existing
+    // frontend code already reads (Dashboard, Roles tracker, RoleDetail),
+    // but its value now comes from the weighted breakdown below instead of
+    // the old flat coverage-minus-penalty calculation.
+    const alignment = overallScore;
 
     const missingSkillNames = skills
       .filter((x) => x.status === "miss")
@@ -284,6 +201,7 @@ app.post("/analyze", aiLimiter, upload.single("resume"), async (req, res) => {
     const report = {
       alignment,
       coverage,
+      breakdown,
       roleTitle: "Job Alignment",
       skills,
       missingSignals: signals,
