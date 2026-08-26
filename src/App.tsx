@@ -8,6 +8,7 @@ import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
 import { Roles } from "./routes/Roles";
 import { RoleDetail } from "./routes/RoleDetail";
+import { InterviewPrep } from "./routes/InterviewPrep";
 import { Profile } from "./routes/Profile";
 import { ResumeLab } from "./routes/ResumeLab";
 import { Login } from "./routes/Login";
@@ -74,6 +75,7 @@ export default function App() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
       <Route path="/roles/:id" element={<ProtectedRoute><RoleDetail /></ProtectedRoute>} />
+      <Route path="/roles/:id/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
       <Route path="/tracker" element={<Navigate to="/roles" replace />} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

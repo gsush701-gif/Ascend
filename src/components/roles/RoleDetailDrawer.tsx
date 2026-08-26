@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Copy, FileText, Sparkles } from "lucide-react";
+import { X, Copy, FileText, Sparkles, MessageSquare } from "lucide-react";
 import { alignmentToPreparedness } from "../../lib/preparedness";
 import { Panel } from "../ui/Panel";
 import type { TrackerItem, TrackerStatus } from "../../types/tracker";
@@ -352,6 +352,56 @@ export function RoleDetailDrawer({
                     this can take up to a minute.
                   </p>
                 )}
+              </div>
+            )}
+          </Panel>
+
+          <Panel
+            title="Interview prep"
+            subtitle="AI mock interview questions tailored to this role."
+          >
+            {!item.jobDescription ? (
+              <p className="text-sm text-slate-500">
+                This role needs a job description before interview questions
+                can be generated. Add one via Analyze or Re-analyze this role.
+              </p>
+            ) : item.interviewPrep ? (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-500">
+                  {item.interviewPrep.questions.length} questions generated
+                  {item.interviewPrep.generatedAt
+                    ? ` · ${new Date(item.interviewPrep.generatedAt).toLocaleDateString()}`
+                    : ""}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/roles/${item.id}/interview-prep`);
+                  }}
+                  className="btn-press w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] py-2.5 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                >
+                  Continue practicing
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-500">
+                  Generate a mix of behavioral and technical questions
+                  grounded in this role&apos;s job description, then practice
+                  answers and get feedback.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    navigate(`/roles/${item.id}/interview-prep`);
+                  }}
+                  className="btn-press inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-2.5 px-4 text-sm font-semibold text-black transition hover:bg-cyan-400"
+                >
+                  <MessageSquare size={16} />
+                  Start interview prep
+                </button>
               </div>
             )}
           </Panel>

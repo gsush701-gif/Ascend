@@ -21,6 +21,7 @@ type RoleRow = {
   priority: RolePriority | null;
   report_snapshot: SavedReportSnapshot | null;
   cover_letter: string | null;
+  interview_prep: TrackerItem["interviewPrep"] | null;
   created_at: string;
   updated_at: string;
 };
@@ -41,6 +42,7 @@ function rowToItem(row: RoleRow): TrackerItem {
     priority: row.priority ?? undefined,
     jobDescription: row.job_description ?? undefined,
     coverLetter: row.cover_letter ?? undefined,
+    interviewPrep: row.interview_prep ?? undefined,
   };
 }
 
@@ -238,6 +240,10 @@ export function useTracker(reportAlignment: number | undefined) {
     applyUpdate(id, { coverLetter }, { cover_letter: coverLetter });
   }
 
+  function updateInterviewPrep(id: string, interviewPrep: TrackerItem["interviewPrep"]) {
+    applyUpdate(id, { interviewPrep }, { interview_prep: interviewPrep ?? null });
+  }
+
   function updateReportSnapshot(id: string, snapshot: SavedReportSnapshot) {
     applyUpdate(
       id,
@@ -269,5 +275,6 @@ export function useTracker(reportAlignment: number | undefined) {
     updatePriority,
     updateReportSnapshot,
     updateCoverLetter,
+    updateInterviewPrep,
   };
 }

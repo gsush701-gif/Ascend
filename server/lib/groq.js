@@ -136,6 +136,55 @@ Respond with ONLY a JSON object of this exact shape:
 }
 
 /**
+ * Generate a realistic mock-interview question set grounded in a specific
+ * job description, mixing behavioral and technical/role-specific questions.
+ */
+async function generateInterviewQuestions(jobDescription, companyName, roleTitle) {
+  const system = `You are an experienced technical interviewer preparing mock interview questions for a software engineering internship/new-grad candidate.
+Given a target job description${companyName ? `, for a role at ${companyName}` : ""}${roleTitle ? ` titled "${roleTitle}"` : ""}, write a realistic set of interview questions grounded in the actual responsibilities, requirements, and technologies named in the job description — not generic filler questions that could apply to any job.
+Rules:
+- Produce 6-8 questions total.
+- Include a mix of "behavioral" questions (past experience, teamwork, conflict, ownership — phrased so a STAR-method answer fits naturally) and "technical" questions (role-specific technical knowledge, the actual stack/tools/domain named in the job description, or realistic problem-solving scenarios for that role).
+- Each question must be tagged with exactly one category: "behavioral" or "technical".
+- Do not invent employers, companies, or credentials for the candidate; the questions should be things an interviewer would ask, not statements about the candidate.
+Respond with ONLY a JSON object of this exact shape:
+{"questions": [{"question": string, "category": "behavioral" | "technical"}]}`;
+
+  const user = `Target job description:\n"""${jobDescription.slice(0, 8000)}"""${
+    companyName ? `\n\nCompany: ${companyName.slice(0, 200)}` : ""
+  }${roleTitle ? `\n\nRole title: ${roleTitle.slice(0, 200)}` : ""}`;
+
+  return chatJson(system, user, 2000);
+}
+
+/**
+ * Critique a candidate's answer to a single mock interview question, checked
+ * against STAR structure (behavioral) or technical accuracy/depth
+ * (technical), plus general clarity/conciseness.
+ */
+async function generateInterviewFeedback(question, answer, jobDescription) {
+  const system = `You are an experienced technical interviewer giving direct, constructive feedback on one mock interview answer for a software engineering internship/new-grad candidate.
+Given the interview question, the candidate's answer${jobDescription ? ", and the target job description for context" : ""}, write a genuinely useful critique — not generic praise.
+Rules:
+- If the question is behavioral, check whether the answer follows a clear STAR structure (Situation, Task, Action, Result) and call out what's missing.
+- If the question is technical, assess accuracy, depth, and whether the answer actually addresses what was asked.
+- Always consider clarity and conciseness.
+- Be honest about weaknesses as well as strengths; do not just flatter the candidate.
+Respond with ONLY a JSON object of this exact shape:
+{
+  "feedback": string (2-4 sentences of direct, specific critique),
+  "strengths": string[] (1-3 short bullets on what the answer did well),
+  "improvements": string[] (1-3 short, concrete, actionable bullets on what to fix)
+}`;
+
+  const user = `Interview question:\n"""${question.slice(0, 1000)}"""\n\nCandidate's answer:\n"""${answer.slice(0, 4000)}"""${
+    jobDescription ? `\n\nTarget job description:\n"""${jobDescription.slice(0, 4000)}"""` : ""
+  }`;
+
+  return chatJson(system, user, 1200);
+}
+
+/**
  * One short natural-language summary layered on top of the deterministic
  * /analyze keyword-match score. Best-effort — callers should catch and
  * degrade gracefully if this throws.
@@ -153,6 +202,8 @@ module.exports = {
   improveBullet,
   improveResume,
   generateCoverLetter,
+  generateInterviewQuestions,
+  generateInterviewFeedback,
   summarizeAlignment,
   isGroqConfigured: configured,
   GroqNotConfiguredError,

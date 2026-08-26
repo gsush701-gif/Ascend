@@ -444,6 +444,95 @@ app.post("/api/generate-cover-letter", aiLimiter, optionalAuth, async (req, res)
   }
 });
 
+app.post("/api/generate-interview-questions", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
+      return res.status(400).json({ error: "Field 'jobDescription' must be a string" });
+    }
+    if (req.body?.companyName !== undefined && typeof req.body.companyName !== "string") {
+      return res.status(400).json({ error: "Field 'companyName' must be a string" });
+    }
+    if (req.body?.roleTitle !== undefined && typeof req.body.roleTitle !== "string") {
+      return res.status(400).json({ error: "Field 'roleTitle' must be a string" });
+    }
+
+    const jobDescription = (req.body?.jobDescription || "").trim();
+    const companyName = (req.body?.companyName || "").trim() || undefined;
+    const roleTitle = (req.body?.roleTitle || "").trim() || undefined;
+
+    if (jobDescription.length < 20) {
+      return res.status(400).json({ error: "Field 'jobDescription' is required and must have real content" });
+    }
+    if (jobDescription.length > 20000) {
+      return res.status(400).json({ error: "Field 'jobDescription' is too long (max 20000 characters)" });
+    }
+    if (companyName && companyName.length > 200) {
+      return res.status(400).json({ error: "Field 'companyName' is too long (max 200 characters)" });
+    }
+    if (roleTitle && roleTitle.length > 200) {
+      return res.status(400).json({ error: "Field 'roleTitle' is too long (max 200 characters)" });
+    }
+
+    const result = await groq.generateInterviewQuestions(jobDescription, companyName, roleTitle);
+    return res.json(result);
+  } catch (err) {
+    console.error("generate-interview-questions failed:", err);
+    const safeMessage =
+      err.name === "GroqNotConfiguredError" || process.env.NODE_ENV !== "production"
+        ? err.message
+        : null;
+    return res.status(err.statusCode || 500).json({ error: safeMessage || "Failed to generate interview questions" });
+  }
+});
+
+app.post("/api/interview-feedback", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.question !== undefined && typeof req.body.question !== "string") {
+      return res.status(400).json({ error: "Field 'question' must be a string" });
+    }
+    if (req.body?.answer !== undefined && typeof req.body.answer !== "string") {
+      return res.status(400).json({ error: "Field 'answer' must be a string" });
+    }
+    if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
+      return res.status(400).json({ error: "Field 'jobDescription' must be a string" });
+    }
+
+    const question = (req.body?.question || "").trim();
+    const answer = (req.body?.answer || "").trim();
+    const jobDescription = (req.body?.jobDescription || "").trim() || undefined;
+
+    if (!question) {
+      return res.status(400).json({ error: "Field 'question' is required" });
+    }
+    if (question.length > 1000) {
+      return res.status(400).json({ error: "Field 'question' is too long (max 1000 characters)" });
+    }
+    // An interview answer is spoken/typed on the fly, nowhere near resume- or
+    // job-description-sized text — 4000 chars (~700-800 words) comfortably
+    // covers even a long, detailed answer while still catching accidental
+    // pastes of unrelated documents before spending an API call on them.
+    if (answer.length < 10) {
+      return res.status(400).json({ error: "Field 'answer' is required and must have real content" });
+    }
+    if (answer.length > 4000) {
+      return res.status(400).json({ error: "Field 'answer' is too long (max 4000 characters)" });
+    }
+    if (jobDescription && jobDescription.length > 20000) {
+      return res.status(400).json({ error: "Field 'jobDescription' is too long (max 20000 characters)" });
+    }
+
+    const result = await groq.generateInterviewFeedback(question, answer, jobDescription);
+    return res.json(result);
+  } catch (err) {
+    console.error("interview-feedback failed:", err);
+    const safeMessage =
+      err.name === "GroqNotConfiguredError" || process.env.NODE_ENV !== "production"
+        ? err.message
+        : null;
+    return res.status(err.statusCode || 500).json({ error: safeMessage || "Failed to generate interview feedback" });
+  }
+});
+
 app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: "Login required" });

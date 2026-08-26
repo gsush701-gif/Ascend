@@ -45,6 +45,11 @@ export type TrackerItem = {
   jobDescription?: string;
   /** AI-generated cover letter for this role; overwritten on regenerate. */
   coverLetter?: string;
+  /** Last generated mock interview question set for this role; overwritten on regenerate. */
+  interviewPrep?: {
+    questions: { question: string; category: string }[];
+    generatedAt: string;
+  };
 };
 
 export const LS_KEY = "internos_tracker_v1";
