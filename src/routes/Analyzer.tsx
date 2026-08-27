@@ -18,6 +18,7 @@ import { Button } from "../components/ui/Button";
 import { pageHeader, pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
 import { useAnalyzer } from "../features/analyzer/hooks/useAnalyzer";
 import { SkillGapHelper } from "../features/analyzer/components/SkillGapHelper";
+import { AtsChecker } from "../features/analyzer/components/AtsChecker";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { useResumes } from "../features/resumes/hooks/useResumes";
 import { useAuth } from "../context/AuthContext";
@@ -486,6 +487,13 @@ export function Analyzer() {
                       ))}
                     </div>
                   </div>
+                )}
+
+                {/* Dedicated, deeper ATS compatibility check — user-triggered,
+                    separate metered feature from /analyze itself. Needs real
+                    extracted resume text, so it's hidden in JD-only mode. */}
+                {report && resumeText && (
+                  <AtsChecker resumeText={resumeText} jobDescriptionText={jd} />
                 )}
 
                 {/* Salary (regex-extracted from the JD text; never fabricated) */}

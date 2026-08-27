@@ -39,6 +39,12 @@ const PLANS = {
       "ai.report_summary": 10,
       "ai.parse_resume": 15,
       "ai.resume_suggestions": 20,
+      // Not actually a Groq call (server/lib/scoring.js's
+      // computeDetailedAtsAnalysis is deterministic regex/heuristic, same
+      // philosophy as the rest of that module) — still metered like every
+      // other feature route in this app, since it's real compute this app
+      // provides, not because it costs an upstream API call.
+      "ai.ats_check": 30,
     },
   },
   pro: {
@@ -69,6 +75,7 @@ const PLANS = {
       "ai.report_summary": 100,
       "ai.parse_resume": 150,
       "ai.resume_suggestions": 200,
+      "ai.ats_check": 300,
     },
   },
 };
@@ -93,6 +100,7 @@ const USAGE_LABELS = {
   "ai.report_summary": "Career report summaries",
   "ai.parse_resume": "Resume parses",
   "ai.resume_suggestions": "Resume suggestion sets",
+  "ai.ats_check": "ATS compatibility checks",
 };
 
 /** Returns the plan config for a plan key, falling back to `free` for an unknown/missing key. */

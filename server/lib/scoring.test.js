@@ -5,6 +5,7 @@ import {
   computeScoreBreakdown,
   missingSignals,
   extractSalary,
+  computeDetailedAtsAnalysis,
 } from "./scoring.js";
 
 describe("extractSkills — word-boundary matching (Task 1)", () => {
@@ -278,5 +279,229 @@ describe("extractSalary — regex salary detection (Task 4)", () => {
   it("never fabricates a currency other than USD (only $ is supported)", () => {
     const result = extractSalary("Salary: $80,000 - $100,000 per year.");
     expect(result.currency).toBe("USD");
+  });
+});
+
+describe("computeDetailedAtsAnalysis — standalone ATS check (Phase 7)", () => {
+  const STRONG_RESUME = `
+Jane Doe
+jane.doe@example.com | (555) 123-4567
+
+Professional Summary
+Backend engineer with 5 years of experience building scalable APIs.
+
+Experience
+Software Engineer, Acme Corp, 2021 - Present
+Increased API throughput by 45% by redesigning the caching layer using Redis.
+Led a team of 4 engineers to migrate the platform to AWS, cutting infra costs by $120,000 annually.
+Built a REST API used by over 200,000 daily active users.
+
+Education
+B.S. Computer Science, State University, 2017 - 2021
+
+Skills
+Python, JavaScript, React, Node, AWS, Docker, SQL, Git
+`;
+
+  const WEAK_RESUME = `
+Experience
+Responsible for helping the team.
+Worked on various client projects.
+Worked on internal tooling as well.
+Hard worker and team player.
+`;
+
+  const JD_TEXT = `
+We are looking for a Backend Engineer.
+Requirements: must have strong Python and AWS experience. SQL is required.
+Preferred qualifications: familiarity with Docker is a plus.
+`;
+
+  describe("keyword matching", () => {
+    it("finds matched and missing keywords, with high coverage for a well-matched resume", () => {
+      const result = computeDetailedAtsAnalysis(STRONG_RESUME, JD_TEXT);
+      expect(result.keywords.matched).toEqual(
+        expect.arrayContaining(["python", "aws", "sql", "docker"]),
+      );
+      expect(result.keywords.missing).toEqual([]);
+      expect(result.keywords.coveragePercent).toBe(100);
+      expect(result.breakdown.keywordMatch).toBe(100);
+    });
+
+    it("reports every JD skill as missing when the resume shares none of them", () => {
+      const result = computeDetailedAtsAnalysis(
+        "I enjoy hiking, painting, and playing the guitar on weekends.",
+        JD_TEXT,
+      );
+      expect(result.keywords.matched).toEqual([]);
+      expect(result.keywords.missing.length).toBeGreaterThan(0);
+      expect(result.keywords.coveragePercent).toBe(0);
+      expect(result.breakdown.keywordMatch).toBe(0);
+    });
+
+    it("never fabricates a coverage percentage when no job description is given", () => {
+      const result = computeDetailedAtsAnalysis(STRONG_RESUME, "");
+      expect(result.keywords.matched).toEqual([]);
+      expect(result.keywords.missing).toEqual([]);
+      expect(result.keywords.coveragePercent).toBe(100);
+    });
+
+    it("weighs required-classified JD skills more heavily in skillsMatch than raw keyword coverage", () => {
+      const jd = "Requirements: must have Python and SQL. Preferred qualifications: Docker is a plus.";
+      const resume = "Backend engineer with hands-on experience in Python and SQL.";
+      const result = computeDetailedAtsAnalysis(resume, jd);
+      expect(result.keywords.matched).toEqual(expect.arrayContaining(["python", "sql"]));
+      expect(result.keywords.missing).toContain("docker");
+      // Both required-classified skills (python, sql) are present, so
+      // skillsMatch is perfect even though the missing preferred skill
+      // (docker) drags the overall keyword coverage below 100.
+      expect(result.breakdown.skillsMatch).toBe(100);
+      expect(result.breakdown.keywordMatch).toBeLessThan(100);
+    });
+  });
+
+  describe("structure detection", () => {
+    it("detects all standard sections present in a well-formed resume", () => {
+      const { structure } = computeDetailedAtsAnalysis(STRONG_RESUME, JD_TEXT);
+      expect(structure.hasContactInfo).toBe(true);
+      expect(structure.hasSummary).toBe(true);
+      expect(structure.hasExperience).toBe(true);
+      expect(structure.hasEducation).toBe(true);
+      expect(structure.hasSkillsSection).toBe(true);
+      expect(structure.issues).toEqual([]);
+    });
+
+    it("flags every missing whole section on a bare-bones resume", () => {
+      const { structure } = computeDetailedAtsAnalysis(WEAK_RESUME, JD_TEXT);
+      expect(structure.hasContactInfo).toBe(false);
+      expect(structure.hasSummary).toBe(false);
+      expect(structure.hasExperience).toBe(true);
+      expect(structure.hasEducation).toBe(false);
+      expect(structure.hasSkillsSection).toBe(false);
+      expect(structure.issues).toEqual(
+        expect.arrayContaining([
+          "No email address or phone number detected",
+          "No professional summary detected",
+          "No education section detected",
+          "No dedicated skills section detected",
+          "No employment dates detected in the experience section",
+        ]),
+      );
+    });
+
+    it("does not flag a missing-dates issue when the experience section has date ranges", () => {
+      const { structure } = computeDetailedAtsAnalysis(STRONG_RESUME, JD_TEXT);
+      expect(structure.issues).not.toContain("No employment dates detected in the experience section");
+    });
+  });
+
+  describe("content quality — weak bullets, generic statements, repeated phrases", () => {
+    it("flags vague/passive filler bullets with no measurable outcome", () => {
+      const { content } = computeDetailedAtsAnalysis(WEAK_RESUME, JD_TEXT);
+      const flagged = content.weakBullets.map((b) => b.text.toLowerCase());
+      expect(flagged.some((t) => t.includes("responsible for helping the team"))).toBe(true);
+      const match = content.weakBullets.find((b) =>
+        b.text.toLowerCase().includes("responsible for helping the team"),
+      );
+      expect(match.reason).toMatch(/passive|vague/i);
+    });
+
+    it("does NOT flag strong, quantified bullets as weak", () => {
+      const { content } = computeDetailedAtsAnalysis(STRONG_RESUME, JD_TEXT);
+      const flaggedTexts = content.weakBullets.map((b) => b.text.toLowerCase());
+      expect(flaggedTexts.some((t) => t.includes("increased api throughput by 45%"))).toBe(false);
+      expect(flaggedTexts.some((t) => t.includes("led a team of 4 engineers"))).toBe(false);
+      expect(flaggedTexts.some((t) => t.includes("built a rest api used by over 200,000"))).toBe(false);
+    });
+
+    it("detects a generic self-description cliché", () => {
+      const { content } = computeDetailedAtsAnalysis(WEAK_RESUME, JD_TEXT);
+      expect(content.genericStatements.some((s) => s.toLowerCase().includes("hard worker"))).toBe(true);
+    });
+
+    it("does not flag a strong resume for generic clichés it doesn't contain", () => {
+      const { content } = computeDetailedAtsAnalysis(STRONG_RESUME, JD_TEXT);
+      expect(content.genericStatements).toEqual([]);
+    });
+
+    it("detects an exact filler phrase repeated across multiple bullets", () => {
+      const { content } = computeDetailedAtsAnalysis(WEAK_RESUME, JD_TEXT);
+      expect(content.repeatedPhrases).toContain("worked on");
+    });
+
+    it("reports no repeated filler phrases for a resume that doesn't repeat any", () => {
+      const { content } = computeDetailedAtsAnalysis(STRONG_RESUME, JD_TEXT);
+      expect(content.repeatedPhrases).toEqual([]);
+    });
+  });
+
+  describe("overall scoring", () => {
+    it("scores a strong, well-matched resume clearly higher than a weak, unmatched one", () => {
+      const strong = computeDetailedAtsAnalysis(STRONG_RESUME, JD_TEXT);
+      const weak = computeDetailedAtsAnalysis(WEAK_RESUME, JD_TEXT);
+      expect(strong.overallScore).toBeGreaterThan(weak.overallScore);
+    });
+
+    it("keeps every score bounded 0-100 and finite, including on empty input", () => {
+      for (const [resume, jd] of [
+        [STRONG_RESUME, JD_TEXT],
+        [WEAK_RESUME, JD_TEXT],
+        ["", ""],
+        [undefined, undefined],
+      ]) {
+        const result = computeDetailedAtsAnalysis(resume, jd);
+        const values = [
+          result.overallScore,
+          result.breakdown.keywordMatch,
+          result.breakdown.formatting,
+          result.breakdown.experienceRelevance,
+          result.breakdown.skillsMatch,
+        ];
+        for (const v of values) {
+          expect(Number.isFinite(v)).toBe(true);
+          expect(v).toBeGreaterThanOrEqual(0);
+          expect(v).toBeLessThanOrEqual(100);
+        }
+      }
+    });
+
+    it("does not crash on completely empty input and returns empty keyword/content arrays", () => {
+      const result = computeDetailedAtsAnalysis("", "");
+      expect(result.keywords.matched).toEqual([]);
+      expect(result.keywords.missing).toEqual([]);
+      expect(result.content.weakBullets).toEqual([]);
+      expect(result.content.genericStatements).toEqual([]);
+      expect(result.content.repeatedPhrases).toEqual([]);
+    });
+  });
+});
+
+describe("computeScoreBreakdown — now sourced from computeDetailedAtsAnalysis (Phase 7)", () => {
+  it("still returns a bounded ats score when jobDescriptionText is omitted (backward compatible call shape)", () => {
+    const skills = [{ name: "python", status: "hit", importance: "required" }];
+    const { breakdown } = computeScoreBreakdown({
+      skills,
+      resumeText: "Experience: built things with Python. Skills: Python.",
+      numPages: 1,
+      signals: [],
+    });
+    expect(breakdown.ats).toBeGreaterThanOrEqual(0);
+    expect(breakdown.ats).toBeLessThanOrEqual(100);
+  });
+
+  it("produces a different (JD-aware) ats score when jobDescriptionText is provided vs. omitted", () => {
+    const skills = [{ name: "python", status: "hit", importance: "required" }];
+    const resumeText = "I enjoy hiking and painting on weekends.";
+    const withoutJd = computeScoreBreakdown({ skills, resumeText, numPages: 1, signals: [] });
+    const withJd = computeScoreBreakdown({
+      skills,
+      resumeText,
+      numPages: 1,
+      signals: [],
+      jobDescriptionText: "Requirements: must have Python, AWS, and SQL experience.",
+    });
+    // No JD skills to miss => full marks; a JD whose required skills are
+    // entirely absent from the resume should score meaningfully lower.
+    expect(withJd.breakdown.ats).toBeLessThan(withoutJd.breakdown.ats);
   });
 });

@@ -43,6 +43,7 @@ const {
   missingSignals,
   classifySkillsImportance,
   computeScoreBreakdown,
+  computeDetailedAtsAnalysis,
   extractSalary,
 } = require("./lib/scoring");
 
@@ -511,6 +512,7 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
       resumeText,
       numPages,
       signals,
+      jobDescriptionText: jd,
     });
     // `alignment` stays the top-level "overall score" field existing
     // frontend code already reads (Dashboard, Roles tracker, RoleDetail),
@@ -668,6 +670,80 @@ app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
   } catch (err) {
     console.error("improve-resume failed:", err);
     return respondAiError(req, res, err, "Failed to improve resume");
+  }
+});
+
+// Dedicated, deeper ATS compatibility check (Phase 7) — same
+// resumeText/jobDescription-as-raw-text input convention as
+// /api/improve-resume and /api/generate-cover-letter above, rather than an
+// id-based lookup: there is no plain-text column on `resumes` to look up
+// (saved resumes store a PDF + optional structured_content JSONB for the
+// Resume Editor, not extracted text), so every text-input AI-adjacent route
+// in this app already takes the text directly from the client, which
+// already has it (freshly extracted from the uploaded PDF, or already in
+// the Analyzer's state). `computeDetailedAtsAnalysis` itself is
+// deterministic/regex-based (no Groq call) — see server/lib/scoring.js's
+// header comment on that function for why this is still quota-gated
+// despite that: it's a real compute feature this app provides, metered the
+// same as every other feature route, not because of upstream API cost.
+//
+// This is Ascend's own compatibility analysis, not a simulation of any
+// specific real-world ATS's parsing behavior — the response shape and any
+// UI built on it should keep framing it that way.
+app.post("/api/ats-check", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' must be a string");
+    }
+    if (req.body?.jobDescriptionText !== undefined && typeof req.body.jobDescriptionText !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescriptionText' must be a string");
+    }
+
+    const resumeText = (req.body?.resumeText || "").trim();
+    const jobDescriptionText = (req.body?.jobDescriptionText || "").trim();
+
+    if (resumeText.length < 30) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        "Field 'resumeText' is required and must have real content",
+      );
+    }
+    if (resumeText.length > 50000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' is too long (max 50000 characters)");
+    }
+    if (jobDescriptionText.length > 20000) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        "Field 'jobDescriptionText' is too long (max 20000 characters)",
+      );
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.ats_check"))) return;
+
+    const result = computeDetailedAtsAnalysis(resumeText, jobDescriptionText);
+
+    // Not routed through callGroq — this never calls Groq, so recording a
+    // fabricated ai_model/latency for it would be misleading. Recorded
+    // directly instead, same fire-and-forget usage_events insert callGroq
+    // uses under the hood.
+    recordUsageEvent({
+      eventType: "ai.ats_check",
+      userId: req.user && req.user.id,
+      requestId: req.requestId,
+      metadata: { success: true },
+    });
+
+    return res.json(result);
+  } catch (err) {
+    console.error("ats-check failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to run ATS check");
   }
 });
 

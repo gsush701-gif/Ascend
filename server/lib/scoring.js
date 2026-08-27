@@ -338,12 +338,338 @@ function computeResumeEvidenceScore(signals) {
   return Math.round((present / totalPossible) * 100);
 }
 
+// --- Detailed, standalone ATS analysis (Phase 7) --------------------------
+//
+// Ascend's own compatibility analysis — deterministic, regex/heuristic
+// based, built entirely from signals this module can already extract
+// (word-boundary skill matching, required/preferred JD classification,
+// section-header presence). This is explicitly NOT a claim to reproduce the
+// exact parsing behavior of any specific real-world Applicant Tracking
+// System — there is no single standard ATS algorithm, and every real ATS
+// parses differently. Any copy (API responses, UI, comments) built around
+// this function's output must keep framing it as "Ascend's own
+// compatibility analysis", never as "how every ATS will read this resume".
+//
+// `computeAtsScore` above is the original rough single-number proxy;
+// `computeScoreBreakdown`'s `ats` component now sources its value from this
+// function's `overallScore` instead, since this covers the same ground
+// (section presence, text density) plus real JD-aware keyword/skill
+// signals `computeAtsScore` never had access to. `computeAtsScore` is kept
+// around (and exported) rather than deleted, since nothing about it is
+// wrong — it's just superseded for this purpose.
+
+const CONTACT_EMAIL_RE = /[a-z0-9][a-z0-9._%+-]*@[a-z0-9.-]+\.[a-z]{2,}/i;
+const CONTACT_PHONE_RE = /(\+?\d[\d\-.\s()]{8,}\d)/;
+
+const SECTION_PATTERNS = {
+  summary: ["professional summary", "summary", "objective", "profile"],
+  experience: [
+    "professional experience",
+    "work experience",
+    "employment history",
+    "work history",
+    "experience",
+  ],
+  education: ["education", "academic background"],
+  skills: ["technical skills", "core competencies", "areas of expertise", "skills"],
+};
+const ALL_SECTION_HEADER_KEYWORDS = [
+  ...SECTION_PATTERNS.summary,
+  ...SECTION_PATTERNS.experience,
+  ...SECTION_PATTERNS.education,
+  ...SECTION_PATTERNS.skills,
+  "projects",
+  "certifications",
+  "certification",
+];
+
+const DATE_TOKEN_RE = /\b(19|20)\d{2}\b|\bpresent\b|\bcurrent(ly)?\b/i;
+
+// Passive/vague filler phrases that describe a duty without describing an
+// outcome. Flagged as a "weak bullet" only when the statement ALSO has no
+// number anywhere in it — the same phrase attached to a real metric
+// ("Responsible for a $2M budget across 3 teams") is weaker style but not
+// the same "says nothing concrete" problem this check targets.
+const FILLER_PASSIVE_PHRASES = [
+  "responsible for",
+  "duties included",
+  "duties include",
+  "worked on",
+  "helped with",
+  "assisted with",
+  "in charge of",
+  "tasked with",
+  "involved in",
+];
+
+// Generic self-description clichés — provide no concrete, checkable signal
+// regardless of whether a number happens to be nearby.
+const GENERIC_CLICHE_PHRASES = [
+  "hard worker",
+  "team player",
+  "results-oriented",
+  "results oriented",
+  "detail-oriented",
+  "detail oriented",
+  "highly motivated",
+  "fast learner",
+  "self-starter",
+  "self starter",
+  "go-getter",
+  "excellent communication skills",
+  "proven track record",
+  "think outside the box",
+  "outside the box",
+  "go above and beyond",
+];
+
+/**
+ * Splits resume text into bullet/sentence-sized "statements" for the
+ * content-quality checks below. PDF text extraction in this codebase
+ * (server/lib/pdfText.js, src/lib/pdf.ts) joins each page's text items with
+ * plain spaces, so real line/bullet breaks are usually already lost by the
+ * time text reaches here — this can't recover true bullet boundaries, only
+ * approximate them:
+ *   1) split on bullet glyphs (•, ‣, ▪, …) when the PDF's text stream
+ *      preserved them as literal characters (common), or
+ *   2) fall back to sentence-boundary splitting when no bullet glyphs
+ *      survived at all.
+ */
+function splitIntoStatements(resumeText) {
+  const text = typeof resumeText === "string" ? resumeText : "";
+  const BULLET_GLYPHS_RE = /[•‣▪●○◦∙▸►]/g;
+  let parts = text
+    .split(BULLET_GLYPHS_RE)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length <= 1) {
+    // Require at least 2 alphanumeric characters immediately before the
+    // terminal punctuation, not just any single character — otherwise a
+    // two-letter degree abbreviation like "B.S. Computer Science" gets
+    // misread as two sentences ("...B." / "S. Computer Science...") purely
+    // because "S." happens to be followed by a space and a capital letter.
+    parts = text
+      .split(/(?<=[A-Za-z0-9]{2}[.!?])\s+(?=[A-Z0-9])/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+  }
+  // Bullets/sentences are short, punchy lines. Anything far longer than a
+  // normal one is more likely several statements the split above failed to
+  // separate — skip it rather than flag a paragraph-sized run as "one weak
+  // bullet". Anything far shorter is more likely a stray header/label.
+  return parts.filter((p) => p.length >= 8 && p.length <= 400);
+}
+
+/** Is this one bullet/sentence-sized statement "weak" — vague/passive with
+ * no measurable outcome, or too short to convey any impact at all? */
+function isWeakStatement(statement) {
+  const lower = statement.toLowerCase();
+  const hasNumber = /\d/.test(statement);
+  const fillerHit = FILLER_PASSIVE_PHRASES.find((p) => lower.includes(p));
+  if (fillerHit && !hasNumber) {
+    return { weak: true, reason: "Passive/vague phrasing, no measurable outcome" };
+  }
+  const wordCount = statement.trim().split(/\s+/).filter(Boolean).length;
+  if (!hasNumber && wordCount > 0 && wordCount <= 6) {
+    return { weak: true, reason: "Too brief to convey measurable impact" };
+  }
+  return { weak: false, reason: null };
+}
+
+function findGenericStatements(statements) {
+  const hits = [];
+  for (const s of statements) {
+    const lower = s.toLowerCase();
+    if (GENERIC_CLICHE_PHRASES.some((p) => lower.includes(p))) hits.push(s);
+  }
+  return unique(hits).slice(0, 15);
+}
+
+/** Exact-phrase repetition across the resume, restricted to the same
+ * filler/cliché watchlists above — a phrase repeated 2+ times is a strong
+ * sign of copy-pasted boilerplate bullets. */
+function findRepeatedPhrases(resumeText) {
+  const t = norm(resumeText);
+  const watchList = unique([...FILLER_PASSIVE_PHRASES, ...GENERIC_CLICHE_PHRASES]);
+  const repeated = [];
+  for (const phrase of watchList) {
+    const re = new RegExp(escapeRegExp(phrase), "gi");
+    const count = (t.match(re) || []).length;
+    if (count >= 2) repeated.push(phrase);
+  }
+  return repeated;
+}
+
+/** Slices out the substring of normalized text between the earliest match of
+ * `startKeywords` and whichever OTHER header keyword appears next — i.e. one
+ * resume section's block of text. Returns "" if none of `startKeywords` is
+ * found at all. */
+function extractSectionBlock(normalizedText, startKeywords, allHeaderKeywords) {
+  let startIdx = -1;
+  for (const kw of startKeywords) {
+    const idx = normalizedText.indexOf(kw);
+    if (idx !== -1 && (startIdx === -1 || idx < startIdx)) startIdx = idx;
+  }
+  if (startIdx === -1) return "";
+  const searchFrom = startIdx + 1;
+  let endIdx = normalizedText.length;
+  for (const kw of allHeaderKeywords) {
+    if (startKeywords.includes(kw)) continue;
+    const idx = normalizedText.indexOf(kw, searchFrom);
+    if (idx !== -1 && idx < endIdx) endIdx = idx;
+  }
+  return normalizedText.slice(startIdx, endIdx);
+}
+
+/**
+ * Detects standard resume sections + a couple of structural red flags.
+ * Section-header detection is a simple substring check (same convention as
+ * `SECTION_HEADER_KEYWORDS`/`computeAtsScore` above) — good enough to tell
+ * "is there a Skills section at all", not a real layout parser.
+ */
+function detectStructure(resumeText) {
+  const original = typeof resumeText === "string" ? resumeText : "";
+  const t = norm(original);
+  const hasHeader = (keywords) => keywords.some((k) => t.includes(k));
+
+  const hasContactInfo = CONTACT_EMAIL_RE.test(original) || CONTACT_PHONE_RE.test(original);
+  const hasSummary = hasHeader(SECTION_PATTERNS.summary);
+  const hasExperience = hasHeader(SECTION_PATTERNS.experience);
+  const hasEducation = hasHeader(SECTION_PATTERNS.education);
+  const hasSkillsSection = hasHeader(SECTION_PATTERNS.skills);
+
+  const issues = [];
+  if (!hasContactInfo) issues.push("No email address or phone number detected");
+  if (!hasSummary) issues.push("No professional summary detected");
+  if (!hasExperience) issues.push("No experience section detected");
+  if (!hasEducation) issues.push("No education section detected");
+  if (!hasSkillsSection) issues.push("No dedicated skills section detected");
+
+  if (hasExperience) {
+    const block = extractSectionBlock(t, SECTION_PATTERNS.experience, ALL_SECTION_HEADER_KEYWORDS);
+    if (block && !DATE_TOKEN_RE.test(block)) {
+      issues.push("No employment dates detected in the experience section");
+    }
+  }
+
+  return { hasContactInfo, hasSummary, hasExperience, hasEducation, hasSkillsSection, issues };
+}
+
+function computeFormattingScore(structure, resumeText) {
+  let score = 40;
+  if (structure.hasContactInfo) score += 15;
+  if (structure.hasExperience) score += 15;
+  if (structure.hasEducation) score += 10;
+  if (structure.hasSkillsSection) score += 10;
+  if (structure.hasSummary) score += 10;
+
+  // Text-length sanity check, carried over in spirit from the original
+  // rough ATS proxy (`computeAtsScore` above) but without page-count
+  // awareness — this function's signature (resumeText, jobDescriptionText)
+  // has no page count to divide by, unlike /analyze's PDF-upload flow.
+  const length = (resumeText || "").trim().length;
+  if (length > 0 && length < 200) score -= 20; // likely a scanned/very sparse PDF
+  else if (length > 15000) score -= 10; // likely a dense multi-column layout
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function computeExperienceRelevanceScore(hasExperience, statements) {
+  let score = hasExperience ? 40 : 10;
+  if (statements.length > 0) {
+    const withNumbers = statements.filter((s) => /\d/.test(s)).length;
+    score += Math.round((withNumbers / statements.length) * 40);
+    const nonWeak = statements.filter((s) => !isWeakStatement(s).weak).length;
+    score += Math.round((nonWeak / statements.length) * 20);
+  } else {
+    // No bullet/sentence-sized statements could be detected at all —
+    // neutral partial credit rather than fabricating 0 or 100 from data
+    // that isn't there.
+    score += 30;
+  }
+  return Math.max(0, Math.min(100, score));
+}
+
+/**
+ * Ascend's own deterministic, explainable ATS compatibility analysis —
+ * see the header comment above this section for what it is and isn't.
+ * Pure/deterministic: same inputs always produce the same output, no
+ * network calls, no Groq.
+ */
+function computeDetailedAtsAnalysis(resumeText, jobDescriptionText) {
+  const resume = typeof resumeText === "string" ? resumeText : "";
+  const jd = typeof jobDescriptionText === "string" ? jobDescriptionText : "";
+
+  const jdSkills = extractSkills(jd);
+  const resumeSkills = extractSkills(resume);
+  const resumeSkillSet = new Set(resumeSkills.map((s) => norm(s)));
+  const matched = jdSkills.filter((s) => resumeSkillSet.has(norm(s)));
+  const missing = jdSkills.filter((s) => !resumeSkillSet.has(norm(s)));
+
+  // No JD skills to compare against (no JD given, or the JD's text doesn't
+  // mention anything in this module's skill dictionary) — there's nothing
+  // to penalize the resume for missing, so default to full marks instead of
+  // fabricating a percentage from an empty comparison set.
+  const coveragePercent = jdSkills.length > 0 ? Math.round((matched.length / jdSkills.length) * 100) : 100;
+
+  const importanceBySkill = classifySkillsImportance(jd, jdSkills);
+  const requiredJdSkills = jdSkills.filter((s) => (importanceBySkill[s] || "required") === "required");
+  const requiredMatched = requiredJdSkills.filter((s) => resumeSkillSet.has(norm(s)));
+  // Same "never compute a percentage from an empty set" fallback used by
+  // computeScoreBreakdown's requiredSkills score above.
+  const skillsMatchScore =
+    requiredJdSkills.length > 0
+      ? Math.round((requiredMatched.length / requiredJdSkills.length) * 100)
+      : coveragePercent;
+
+  const structure = detectStructure(resume);
+  const formattingScore = computeFormattingScore(structure, resume);
+
+  const statements = splitIntoStatements(resume);
+  const experienceRelevanceScore = computeExperienceRelevanceScore(structure.hasExperience, statements);
+
+  const weakBullets = [];
+  for (const s of statements) {
+    const { weak, reason } = isWeakStatement(s);
+    if (weak) weakBullets.push({ text: s, reason });
+  }
+
+  const content = {
+    weakBullets: weakBullets.slice(0, 15),
+    genericStatements: findGenericStatements(statements),
+    repeatedPhrases: findRepeatedPhrases(resume),
+  };
+
+  const breakdown = {
+    keywordMatch: coveragePercent,
+    formatting: formattingScore,
+    experienceRelevance: experienceRelevanceScore,
+    skillsMatch: skillsMatchScore,
+  };
+
+  const weights = { keywordMatch: 0.35, skillsMatch: 0.25, formatting: 0.2, experienceRelevance: 0.2 };
+  const overallScore = Math.round(
+    breakdown.keywordMatch * weights.keywordMatch +
+      breakdown.skillsMatch * weights.skillsMatch +
+      breakdown.formatting * weights.formatting +
+      breakdown.experienceRelevance * weights.experienceRelevance,
+  );
+
+  return {
+    overallScore: Math.max(0, Math.min(100, overallScore)),
+    breakdown,
+    keywords: { matched, missing, coveragePercent },
+    structure,
+    content,
+  };
+}
+
 /**
  * Build the explainable score breakdown + overall (backward-compatible
  * "alignment") score from already-computed skills/signals.
  * `skills` entries must each have { status: "hit"|"miss", importance: "required"|"preferred" }.
  */
-function computeScoreBreakdown({ skills, resumeText, numPages, signals }) {
+function computeScoreBreakdown({ skills, resumeText, numPages, signals, jobDescriptionText = "" }) {
   const requiredSkills = skills.filter((s) => s.importance === "required");
   const requiredHits = requiredSkills.filter((s) => s.status === "hit").length;
   const requiredTotal = requiredSkills.length;
@@ -358,7 +684,14 @@ function computeScoreBreakdown({ skills, resumeText, numPages, signals }) {
     requiredTotal > 0 ? Math.round((requiredHits / requiredTotal) * 100) : technicalStackScore;
 
   const resumeEvidenceScore = computeResumeEvidenceScore(signals);
-  const atsScore = computeAtsScore(resumeText, numPages);
+  // Sourced from the new, more thorough computeDetailedAtsAnalysis (below)
+  // instead of the old rough computeAtsScore proxy — see that function's
+  // header comment for why. `numPages` is accepted here for backward
+  // compatibility with existing callers but is no longer used: the detailed
+  // analysis's signature (resumeText, jobDescriptionText) has no page count
+  // to divide by, since the standalone /api/ats-check route it also powers
+  // never receives one (it takes raw resume/JD text, not an uploaded PDF).
+  const atsScore = computeDetailedAtsAnalysis(resumeText, jobDescriptionText).overallScore;
 
   const weights = { requiredSkills: 0.5, technicalStack: 0.2, resumeEvidence: 0.2, ats: 0.1 };
   const overallScore = Math.round(
@@ -510,6 +843,7 @@ module.exports = {
   computeScoreBreakdown,
   computeAtsScore,
   computeResumeEvidenceScore,
+  computeDetailedAtsAnalysis,
   extractSalary,
   REQUIRED_SIGNAL_PHRASES,
   PREFERRED_SIGNAL_PHRASES,
