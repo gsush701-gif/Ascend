@@ -13,6 +13,7 @@ import { Jobs } from "./routes/Jobs";
 import { Report } from "./routes/Report";
 import { RoleDetail } from "./routes/RoleDetail";
 import { InterviewPrep } from "./routes/InterviewPrep";
+import { VoiceInterview } from "./routes/VoiceInterview";
 import { Profile } from "./routes/Profile";
 import { Admin } from "./routes/Admin";
 import { ResumeLab } from "./routes/ResumeLab";
@@ -51,6 +52,7 @@ export default function App() {
       <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
       <Route path="/roles/:id" element={<ProtectedRoute><RoleDetail /></ProtectedRoute>} />
       <Route path="/roles/:id/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
+      <Route path="/roles/:id/voice-interview" element={<ProtectedRoute><VoiceInterview /></ProtectedRoute>} />
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
       <Route path="/tracker" element={<Navigate to="/roles" replace />} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />

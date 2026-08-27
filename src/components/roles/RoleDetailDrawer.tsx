@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Copy, FileText, Sparkles, MessageSquare, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
+import { X, Copy, FileText, Sparkles, MessageSquare, Mic, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { alignmentToPreparedness } from "../../lib/preparedness";
 import { Panel } from "../ui/Panel";
 import type { TrackerItem, TrackerStatus } from "../../types/tracker";
@@ -19,6 +19,7 @@ import { getCompatibilityNotes } from "../../features/preferences/compatibility"
 import { useCoverLetterVersions } from "../../features/coverLetters/hooks/useCoverLetterVersions";
 import { resolveDisplayName } from "../../features/coverLetters/versionLogic";
 import type { CoverLetterVersion } from "../../types/coverLetter";
+import { isSpeechRecognitionSupported } from "../../features/voiceInterview/useSpeechRecognition";
 
 const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
@@ -58,6 +59,12 @@ export function RoleDetailDrawer({
   const missingRequiredSkills = (snap?.skills ?? [])
     .filter((s) => s.status === "miss" && (s.importance ?? "required") === "required")
     .map((s) => s.name);
+
+  // Voice interview mode (Phase 7 Task 12) needs the browser's native Web
+  // Speech API — gate the entry point so it's never shown as a prominent,
+  // clickable-but-broken option in browsers that don't support it (Firefox,
+  // most Safari versions). See src/features/voiceInterview/useSpeechRecognition.ts.
+  const voiceInterviewSupported = isSpeechRecognitionSupported();
 
   // "Ask about this role" (career advice, Phase 6a Task 4) state — transient
   // UI/request state, not persisted.
@@ -778,6 +785,23 @@ export function RoleDetailDrawer({
                 >
                   Continue practicing
                 </button>
+                {voiceInterviewSupported ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/roles/${item.id}/voice-interview`);
+                    }}
+                    className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-transparent py-2.5 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                  >
+                    <Mic size={16} />
+                    Try voice mode
+                  </button>
+                ) : (
+                  <p className="text-center text-xs text-slate-400">
+                    Voice mode needs Chrome or Edge — not available in this browser.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -797,6 +821,23 @@ export function RoleDetailDrawer({
                   <MessageSquare size={16} />
                   Start interview prep
                 </button>
+                {voiceInterviewSupported ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/roles/${item.id}/voice-interview`);
+                    }}
+                    className="btn-press flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-transparent py-2.5 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                  >
+                    <Mic size={16} />
+                    Try voice mode
+                  </button>
+                ) : (
+                  <p className="text-center text-xs text-slate-400">
+                    Voice mode needs Chrome or Edge — not available in this browser.
+                  </p>
+                )}
               </div>
             )}
           </Panel>
