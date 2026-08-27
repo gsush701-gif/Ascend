@@ -6,6 +6,7 @@ import { Input } from "../components/ui/Input";
 import { card } from "../lib/ui";
 import { cn } from "../lib/cn";
 import { useAuth } from "../context/AuthContext";
+import { OAuthButtons } from "../components/auth/OAuthButtons";
 
 export function Signup() {
   const { user, loading: authLoading, signUp } = useAuth();
@@ -140,6 +141,8 @@ export function Signup() {
         <Button type="submit" variant="primary" className="w-full" disabled={submitting}>
           {submitting ? "Creating account…" : "Get started"}
         </Button>
+
+        <OAuthButtons />
 
         <p className="text-center text-xs text-slate-400">
           Already have an account?{" "}

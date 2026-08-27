@@ -73,6 +73,7 @@ const { computeJobMatch } = require("./lib/jobMatching");
 const github = require("./lib/github");
 const { encryptToken, decryptToken } = require("./lib/tokenCrypto");
 const { computeProjectMatch } = require("./lib/projectMatching");
+const recoveryCodes = require("./lib/recoveryCodes");
 const crypto = require("crypto");
 
 const app = express();
@@ -269,6 +270,19 @@ const adminLimiter = createRateLimiter({
   max: 300,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "admin",
+});
+
+// MFA recovery-code routes (Phase 7 Task 10). Generation happens once right
+// after TOTP enrollment (infrequent); verify-recovery-code is on the login
+// challenge screen, so it's rate-limited more like a login attempt — codes
+// are high-entropy (32^10 possibilities) so brute force is impractical
+// regardless, but this bounds request volume the same way every other
+// mutating/sensitive route in this file does.
+const mfaLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "mfa",
 });
 
 // POST /api/cron/send-weekly-reports (Phase 7 Task 7) is protected by
@@ -1557,6 +1571,126 @@ app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) =
     console.error("account delete failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to delete account");
+  }
+});
+
+// MFA recovery codes (Phase 7 Task 10). Supabase's native TOTP MFA API
+// (auth.mfa.*) is called directly from the frontend with the user's own
+// session — there is no backend involvement in enroll/challenge/verify/
+// unenroll themselves. These three routes exist only for the recovery-code
+// complement described in server/lib/recoveryCodes.js and
+// supabase/migrations/022_mfa_recovery_codes.sql, because comparing a
+// submitted code against a stored hash must happen server-side (the client
+// must never be able to read `code_hash` to compare locally) and because
+// only the service-role client is allowed to write that table at all.
+//
+// All three require a logged-in user (checked manually, same
+// optionalAuth + `if (!req.user)` pattern as every other auth-gated route in
+// this file) — including verify-recovery-code, which runs after the user
+// has already completed signInWithPassword (an AAL1 session exists) but
+// before they've cleared the MFA challenge.
+app.post("/api/mfa/recovery-codes/generate", mfaLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "MFA recovery codes are not configured on the server");
+  }
+
+  try {
+    // Regenerating replaces the whole set — any codes from a previous
+    // enrollment (used or not) stop working. This matches standard
+    // recovery-code UX (GitHub, Google, etc.): re-enabling 2FA, or
+    // explicitly regenerating, invalidates the old batch rather than
+    // silently accumulating multiple live sets per user.
+    const { error: deleteError } = await supabaseAdmin
+      .from("mfa_recovery_codes")
+      .delete()
+      .eq("user_id", req.user.id);
+    if (deleteError) throw deleteError;
+
+    const codes = recoveryCodes.generateRecoveryCodes();
+    const rows = codes.map((code) => ({
+      user_id: req.user.id,
+      code_hash: recoveryCodes.hashRecoveryCode(code),
+    }));
+
+    const { error: insertError } = await supabaseAdmin.from("mfa_recovery_codes").insert(rows);
+    if (insertError) throw insertError;
+
+    // Plaintext codes are returned exactly once, here, and never stored —
+    // only their hashes exist in the database from this point on.
+    return res.json({ codes });
+  } catch (err) {
+    console.error("mfa recovery-code generation failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path, userId: req.user.id });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to generate recovery codes");
+  }
+});
+
+app.post("/api/mfa/recovery-codes/clear", mfaLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "MFA recovery codes are not configured on the server");
+  }
+
+  try {
+    const { error } = await supabaseAdmin.from("mfa_recovery_codes").delete().eq("user_id", req.user.id);
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("mfa recovery-code clear failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path, userId: req.user.id });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to clear recovery codes");
+  }
+});
+
+app.post("/api/mfa/verify-recovery-code", mfaLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "MFA recovery codes are not configured on the server");
+  }
+  const { code } = req.body || {};
+  if (typeof code !== "string" || !code.trim()) {
+    return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'code' is required");
+  }
+
+  try {
+    const { data: rows, error: selectError } = await supabaseAdmin
+      .from("mfa_recovery_codes")
+      .select("id, code_hash, used_at")
+      .eq("user_id", req.user.id);
+    if (selectError) throw selectError;
+
+    const matchedId = recoveryCodes.findMatchingUnusedCode(rows || [], code);
+    if (!matchedId) {
+      return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "That recovery code is invalid or has already been used");
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("mfa_recovery_codes")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", matchedId);
+    if (updateError) throw updateError;
+
+    // NOTE: this confirms possession of a valid, unused recovery code and
+    // satisfies Ascend's own app-level MFA gate for this login. It does NOT
+    // elevate the Supabase-issued session JWT's real `aal` claim to aal2 —
+    // only supabase.auth.mfa.verify()/challengeAndVerify() (TOTP) does that,
+    // since aal is set by Supabase's own auth server, not by this app. If a
+    // future feature ever gates access via Postgres RLS keyed on the JWT's
+    // aal claim (not the case anywhere in this codebase today), a recovery
+    // code alone would not satisfy that check — flagged here rather than
+    // silently assumed away.
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("mfa recovery-code verification failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path, userId: req.user.id });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to verify recovery code");
   }
 });
 

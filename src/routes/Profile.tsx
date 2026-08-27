@@ -15,6 +15,8 @@ import { API_BASE } from "../config/api";
 import { getApiErrorMessage } from "../lib/apiError";
 import { usePublicProfile } from "../features/publicProfile/hooks/usePublicProfile";
 import { GithubPanel } from "../features/integrations/components/GithubPanel";
+import { MfaSettingsPanel } from "../features/mfa/components/MfaSettingsPanel";
+import { useMfaFactors } from "../features/mfa/hooks/useMfaFactors";
 
 /**
  * Reads one table for the "Export data" panel, RLS-scoped like every other
@@ -47,12 +49,25 @@ async function fetchExportTable<T = Record<string, unknown>>(
 
 export function Profile() {
   const navigate = useNavigate();
-  const { session, signOut } = useAuth();
+  const { user, session, signOut } = useAuth();
   const tracker = useTracker(undefined);
   const items = tracker.tracker;
   const { profile } = useProfile();
   const publicProfile = usePublicProfile(profile?.fullName);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const { mfaEnabled, verifiedFactorId } = useMfaFactors();
+  // Delete-account flow, gated behind a re-authentication step before the
+  // irreversible backend call: 'idle' -> (click) -> 'confirm' -> (click Yes)
+  // -> 'password' -> (correct password) -> 'mfa' (only if 2FA is enabled) ->
+  // (correct code) -> actually calls DELETE. Re-entering the password (via
+  // signInWithPassword, same approach used to disable 2FA in
+  // MfaSettingsPanel) confirms identity within a short window rather than
+  // trusting the existing session alone for something this permanent; a
+  // fresh TOTP challenge is required in addition when 2FA is on, since
+  // knowing the password alone is exactly what 2FA exists to not be enough.
+  const [deleteStep, setDeleteStep] = useState<"idle" | "confirm" | "password" | "mfa">("idle");
+  const [reauthPassword, setReauthPassword] = useState("");
+  const [reauthCode, setReauthCode] = useState("");
+  const [reauthError, setReauthError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
   const planInfo = usePlanUsage(session?.user?.id);
@@ -210,11 +225,7 @@ export function Profile() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
+  const performAccountDeletion = async () => {
     if (!session?.access_token) return;
     setDeleting(true);
     try {
@@ -234,8 +245,60 @@ export function Profile() {
         description: e instanceof Error ? e.message : "Could not delete your account.",
       });
       setDeleting(false);
-      setConfirmDelete(false);
+      setDeleteStep("idle");
     }
+  };
+
+  const handleReauthPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.email) return;
+    if (!reauthPassword) {
+      setReauthError("Enter your password to confirm.");
+      return;
+    }
+    setReauthError(null);
+    setDeleting(true);
+    // Re-authentication step (task spec): re-confirm identity by calling
+    // signInWithPassword again immediately before an irreversible action,
+    // rather than trusting the existing session alone. If the account also
+    // has 2FA enabled, that alone isn't treated as sufficient — a stolen or
+    // idle-but-unlocked session already satisfies "is logged in", so we
+    // still require a fresh MFA challenge next in that case, same principle
+    // as re-entering a password.
+    const { error } = await supabase.auth.signInWithPassword({ email: user.email, password: reauthPassword });
+    setDeleting(false);
+    if (error) {
+      setReauthError("Incorrect password.");
+      return;
+    }
+    setReauthPassword("");
+    if (mfaEnabled) {
+      setDeleteStep("mfa");
+      return;
+    }
+    await performAccountDeletion();
+  };
+
+  const handleReauthMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verifiedFactorId) return;
+    if (!reauthCode.trim()) {
+      setReauthError("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+    setReauthError(null);
+    setDeleting(true);
+    const { error } = await supabase.auth.mfa.challengeAndVerify({
+      factorId: verifiedFactorId,
+      code: reauthCode.trim(),
+    });
+    if (error) {
+      setDeleting(false);
+      setReauthError(error.message);
+      return;
+    }
+    setReauthCode("");
+    await performAccountDeletion();
   };
 
   return (
@@ -315,6 +378,13 @@ export function Profile() {
         </Panel>
 
         <Panel
+          title="Two-factor authentication"
+          subtitle="Add a code from an authenticator app as a second step when logging in."
+        >
+          <MfaSettingsPanel />
+        </Panel>
+
+        <Panel
           title="Export data"
           subtitle="Download all your Ascend data as a single JSON file."
         >
@@ -336,36 +406,102 @@ export function Profile() {
           title="Delete account"
           subtitle="Permanently remove your account and all your data. This cannot be undone."
         >
-          {confirmDelete ? (
+          {deleteStep === "confirm" && (
             <div className="space-y-3">
               <p className="text-sm text-rose-700/90">
                 Are you sure? Your account, tracked roles, and resume history will be permanently deleted.
               </p>
               <div className="flex gap-2">
-                <Button
-                  type="button"
-                  onClick={handleDeleteAccount}
-                  variant="danger"
-                  disabled={deleting}
-                >
-                  {deleting ? "Deleting…" : "Yes, delete everything"}
+                <Button type="button" onClick={() => setDeleteStep("password")} variant="danger">
+                  Yes, delete everything
+                </Button>
+                <Button type="button" onClick={() => setDeleteStep("idle")} variant="secondary">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {deleteStep === "password" && (
+            <form onSubmit={handleReauthPassword} className="space-y-3">
+              <p className="text-sm text-slate-600">
+                For your security, confirm your password before we delete your account.
+              </p>
+              {reauthError && (
+                <div className="animate-fade-in rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
+                  {reauthError}
+                </div>
+              )}
+              <Input
+                type="password"
+                autoComplete="current-password"
+                value={reauthPassword}
+                onChange={(e) => setReauthPassword(e.target.value)}
+                placeholder="Current password"
+                className="max-w-xs"
+              />
+              <div className="flex gap-2">
+                <Button type="submit" variant="danger" disabled={deleting}>
+                  {deleting ? "Confirming…" : "Confirm password"}
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => setConfirmDelete(false)}
+                  onClick={() => {
+                    setDeleteStep("idle");
+                    setReauthError(null);
+                    setReauthPassword("");
+                  }}
                   variant="secondary"
                   disabled={deleting}
                 >
                   Cancel
                 </Button>
               </div>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              onClick={handleDeleteAccount}
-              variant="dangerOutline"
-            >
+            </form>
+          )}
+
+          {deleteStep === "mfa" && (
+            <form onSubmit={handleReauthMfa} className="space-y-3">
+              <p className="text-sm text-slate-600">
+                Your account has two-factor authentication enabled — enter a code from your authenticator
+                app to finish deleting your account.
+              </p>
+              {reauthError && (
+                <div className="animate-fade-in rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
+                  {reauthError}
+                </div>
+              )}
+              <Input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={reauthCode}
+                onChange={(e) => setReauthCode(e.target.value)}
+                placeholder="123456"
+                className="max-w-[160px]"
+              />
+              <div className="flex gap-2">
+                <Button type="submit" variant="danger" disabled={deleting}>
+                  {deleting ? "Deleting…" : "Verify & delete everything"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setDeleteStep("idle");
+                    setReauthError(null);
+                    setReauthCode("");
+                  }}
+                  variant="secondary"
+                  disabled={deleting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {deleteStep === "idle" && (
+            <Button type="button" onClick={() => setDeleteStep("confirm")} variant="dangerOutline">
               Delete account & data
             </Button>
           )}

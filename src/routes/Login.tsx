@@ -6,9 +6,11 @@ import { Input } from "../components/ui/Input";
 import { card } from "../lib/ui";
 import { cn } from "../lib/cn";
 import { useAuth } from "../context/AuthContext";
+import { OAuthButtons } from "../components/auth/OAuthButtons";
+import { MfaChallengeForm } from "../features/mfa/components/MfaChallengeForm";
 
 export function Login() {
-  const { user, loading: authLoading, signIn } = useAuth();
+  const { user, loading: authLoading, mfaGateOpen, markMfaVerified, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
@@ -25,9 +27,14 @@ export function Login() {
     };
   }, []);
 
+  // Only redirect once a session exists AND the MFA gate is open — a user
+  // with a verified TOTP factor lands here with `user` already set (their
+  // AAL1 session persisted across a refresh) but `mfaGateOpen` false until
+  // they clear the challenge below, matching how ProtectedRoute redirects
+  // an AAL1-only session back to /login instead of rendering.
   useEffect(() => {
-    if (!authLoading && user) navigate(next, { replace: true });
-  }, [authLoading, user, next, navigate]);
+    if (!authLoading && user && mfaGateOpen) navigate(next, { replace: true });
+  }, [authLoading, user, mfaGateOpen, next, navigate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +50,21 @@ export function Login() {
       setError(signInError);
       return;
     }
-    navigate(next, { replace: true });
+    // If the account has MFA enabled, `mfaGateOpen` flips to false right
+    // after this (AuthContext re-checks the AAL on the new session) and the
+    // effect above intentionally does not navigate — the MFA challenge
+    // renders below instead. If MFA isn't enabled, `mfaGateOpen` stays true
+    // and that same effect handles the redirect once `user` updates.
+  }
+
+  if (!authLoading && user && !mfaGateOpen) {
+    return (
+      <PublicShell>
+        <div className={cn("mx-auto max-w-sm p-8", card)}>
+          <MfaChallengeForm onVerified={markMfaVerified} />
+        </div>
+      </PublicShell>
+    );
   }
 
   return (
@@ -104,6 +125,8 @@ export function Login() {
         <Button type="submit" variant="primary" className="w-full" disabled={submitting}>
           {submitting ? "Logging in…" : "Log in"}
         </Button>
+
+        <OAuthButtons next={next} />
 
         <p className="text-center text-xs text-slate-400">
           Don&apos;t have an account?{" "}
