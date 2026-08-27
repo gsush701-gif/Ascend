@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Playwright E2E output (see docs/TESTING.md)
+/playwright-report/
+/test-results/
+/blob-report/
+
+# Playwright E2E test-account credentials (never commit these — see
+# docs/TESTING.md). Copy e2e/.env.example to this file at the repo root.
+.env.e2e
+
 # Environment variables (copy .env.example / server/.env.example instead)
 .env
 server/.env

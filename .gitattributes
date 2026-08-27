@@ -1,0 +1,6 @@
+# The Playwright E2E sample-resume fixture is a hand-built PDF whose byte
+# offsets/stream lengths are exact — Windows' core.autocrlf would otherwise
+# rewrite its \n bytes to \r\n on checkout and silently corrupt it (git
+# guesses it's "text" since it's mostly ASCII). Force it to be treated as
+# binary so it round-trips byte-for-byte.
+*.pdf binary
