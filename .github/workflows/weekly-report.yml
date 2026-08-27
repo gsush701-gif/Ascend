@@ -1,0 +1,34 @@
+name: Weekly career reports
+
+# Free scheduler for the automated weekly report job (Phase 7 Task 7) — this
+# app has no paid Render Cron Job. This workflow only ever calls the
+# secret-protected backend endpoint over HTTPS; all of the actual work
+# (computing stats, upserting weekly_reports rows, sending email via Resend
+# when configured) happens server-side in POST /api/cron/send-weekly-reports
+# (server/index.js) / server/lib/weeklyReport.js.
+#
+# Requires two repository secrets (Settings -> Secrets and variables ->
+# Actions -> New repository secret):
+#   ASCEND_API_URL — the backend's base URL, e.g. https://ascend-1-6lyv.onrender.com
+#   CRON_SECRET    — must be the EXACT SAME value as the backend's own
+#                    CRON_SECRET environment variable (Render dashboard), or
+#                    every run of this workflow gets a 401 from the endpoint.
+#
+# "workflow_dispatch" below lets this be run manually (Actions tab -> this
+# workflow -> "Run workflow") for testing without waiting for the schedule.
+on:
+  schedule:
+    # 13:00 UTC every Monday. GitHub Actions cron times aren't guaranteed to
+    # the minute (can run a few minutes late under load) — fine for a
+    # once-a-week digest, not something that needs second-level precision.
+    - cron: "0 13 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  send-reports:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger weekly report generation
+        run: |
+          curl -sf -X POST "${{ secrets.ASCEND_API_URL }}/api/cron/send-weekly-reports" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"

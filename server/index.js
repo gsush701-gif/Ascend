@@ -66,6 +66,9 @@ const { getResumeStoragePathsToDelete } = require("./lib/accountDeletion");
 const { computePublicProfileStats, filterPublicProfileFields } = require("./lib/publicProfile");
 const { bucketCount, countDistinct, topByCount, computeEventTypeStats } = require("./lib/admin");
 const { parsePagination, buildPageResult } = require("./lib/pagination");
+const { runWeeklyReportJob } = require("./lib/weeklyReport");
+const { sendWeeklyReportEmail } = require("./lib/resend");
+const crypto = require("crypto");
 
 const app = express();
 
@@ -237,6 +240,19 @@ const adminLimiter = createRateLimiter({
   max: 300,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "admin",
+});
+
+// POST /api/cron/send-weekly-reports (Phase 7 Task 7) is protected by
+// CRON_SECRET (below), not user auth — this limiter is a second layer, not
+// the primary defense: even if a secret ever leaked, this bounds how often
+// the batch job (which fans out to every opted-in user) can be re-triggered.
+// The real GitHub Actions schedule calls this once a week; generous headroom
+// here is only for manual workflow_dispatch testing.
+const cronLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "cron",
 });
 
 // Multer: keep uploaded PDF in memory + limit file size
@@ -1978,6 +1994,75 @@ app.get("/api/admin/system", adminLimiter, optionalAuth, requireAdmin, async (re
     console.error("admin/system failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load system data");
+  }
+});
+
+// POST /api/cron/send-weekly-reports (Phase 7 Task 7) — triggered by the
+// scheduled GitHub Actions workflow (.github/workflows/weekly-report.yml),
+// not by a logged-in user, so it can't use optionalAuth/requireAdmin (there
+// is no user session at all). The real security boundary is a shared
+// secret compared with crypto.timingSafeEqual (not `===`, which would leak
+// timing information about how many leading bytes matched) against
+// CRON_SECRET. Three failure states, checked in order:
+//   1. CRON_SECRET isn't configured at all -> 503, and this NEVER falls
+//      through to "anyone can trigger it" -- an unset secret disables the
+//      route entirely rather than defaulting open.
+//   2. Header missing, or present but the wrong length/value -> 401.
+//   3. Header matches -> proceeds to run the batch job.
+app.post("/api/cron/send-weekly-reports", cronLimiter, async (req, res) => {
+  const configuredSecret = process.env.CRON_SECRET;
+  if (!configuredSecret) {
+    console.warn(
+      "[cron] CRON_SECRET is not set — refusing to run POST /api/cron/send-weekly-reports " +
+        "(this endpoint is disabled until a secret is configured, never open-by-default).",
+    );
+    return sendError(
+      req,
+      res,
+      503,
+      ErrorCodes.SERVICE_UNAVAILABLE,
+      "Scheduled report sending is not configured on the server",
+    );
+  }
+
+  const providedSecret = req.get("X-Cron-Secret") || "";
+  const configuredBuf = Buffer.from(configuredSecret);
+  const providedBuf = Buffer.from(providedSecret);
+  // timingSafeEqual throws if the two buffers differ in length, so compare
+  // lengths first (a length mismatch is itself not a secret-dependent
+  // signal — it's just "wrong"), only calling timingSafeEqual once lengths
+  // already match to get a constant-time comparison of the actual bytes.
+  const matches =
+    configuredBuf.length === providedBuf.length && crypto.timingSafeEqual(configuredBuf, providedBuf);
+  if (!matches) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Invalid or missing cron secret");
+  }
+
+  if (!supabaseAdmin) {
+    return sendError(
+      req,
+      res,
+      503,
+      ErrorCodes.SERVICE_UNAVAILABLE,
+      "Weekly reports are not configured on the server",
+    );
+  }
+
+  try {
+    const summary = await runWeeklyReportJob({
+      supabaseAdmin,
+      sendEmail: sendWeeklyReportEmail,
+      frontendUrl: billing.getFrontendUrl(),
+    });
+    console.log(
+      `[cron] Weekly reports run: processed=${summary.processed} created=${summary.created} ` +
+        `skipped=${summary.skipped} emailed=${summary.emailed} errors=${summary.errors.length}`,
+    );
+    return res.json({ ok: true, summary });
+  } catch (err) {
+    console.error("[cron] send-weekly-reports failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to run weekly report job");
   }
 });
 

@@ -242,6 +242,13 @@ export function Profile() {
           <PublicProfilePanel publicProfile={publicProfile} />
         </Panel>
 
+        <Panel
+          title="Notifications"
+          subtitle="Control what Ascend emails you."
+        >
+          <NotificationPreferencesForm />
+        </Panel>
+
         <Panel title="Your stats" subtitle="Usage so far.">
           <div className="flex flex-wrap gap-6 text-sm">
             <div>
@@ -865,6 +872,60 @@ function CareerPreferencesForm() {
       <Button type="button" onClick={handleSave} variant="primary">
         {saved ? "Saved" : "Save preferences"}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Automated weekly career report opt-in (Phase 7 Task 7) — a single toggle
+ * on `profiles.weekly_reports_enabled`, saved instantly on change (no
+ * separate "Save" button needed for one boolean), same direct-Supabase
+ * RLS-scoped write pattern as every other profile field in this file
+ * (via useProfile's updateProfile). The actual generation + send happens
+ * server-side on a schedule (server/lib/weeklyReport.js, triggered weekly by
+ * .github/workflows/weekly-report.yml) — this toggle only controls whether
+ * that job includes this user at all.
+ */
+function NotificationPreferencesForm() {
+  const { profile, loading, updateProfile } = useProfile();
+  const [saving, setSaving] = useState(false);
+
+  const handleToggle = async (checked: boolean) => {
+    setSaving(true);
+    const { error } = await updateProfile({ weeklyReportsEnabled: checked });
+    setSaving(false);
+    if (error) {
+      toast.error({ title: "Couldn't save preference", description: error });
+      return;
+    }
+    toast.success({
+      title: checked ? "Weekly reports enabled" : "Weekly reports disabled",
+      description: checked
+        ? "You'll get an email summarizing your week's activity, once a week."
+        : undefined,
+    });
+  };
+
+  if (loading || !profile) {
+    return <p className="text-sm text-slate-500">Loading…</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-slate-300"
+          checked={profile.weeklyReportsEnabled}
+          disabled={saving}
+          onChange={(e) => handleToggle(e.target.checked)}
+        />
+        Email me a weekly career report
+      </label>
+      <p className="text-xs text-slate-500">
+        A short summary of your applications, interviews, and offers from the past week, plus
+        the same recommendations shown on the Report page — sent once a week if you're opted in.
+      </p>
     </div>
   );
 }

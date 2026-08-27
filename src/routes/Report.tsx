@@ -10,8 +10,55 @@ import { getApiErrorMessage } from "../lib/apiError";
 import { API_BASE } from "../config/api";
 import { getApplicationsSentCount } from "../lib/dashboardStats";
 import { getPeriodStats, getReportRecommendations, type ReportPeriod } from "../features/report/stats";
+import { useWeeklyReports } from "../features/report/useWeeklyReports";
 import { pageHeader, pageTitle, pageSubtitle, card } from "../lib/ui";
 import { cn } from "../lib/cn";
+
+function formatWeekRange(weekStart: string, weekEnd: string): string {
+  const fmt = (d: string) =>
+    new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  return `${fmt(weekStart)} – ${fmt(weekEnd)}`;
+}
+
+function PastReportsPanel() {
+  const { reports, loading } = useWeeklyReports();
+
+  if (loading) {
+    return <p className="text-sm text-slate-500">Loading…</p>;
+  }
+  if (reports.length === 0) {
+    return (
+      <p className="text-sm text-slate-500">
+        No automated reports yet. Turn on "Email me a weekly career report" on your{" "}
+        <a href="/profile" className="underline decoration-dotted hover:text-slate-700">
+          Profile page
+        </a>{" "}
+        to start building a weekly history here.
+      </p>
+    );
+  }
+  return (
+    <ul className="divide-y divide-slate-100">
+      {reports.map((r) => (
+        <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
+          <div>
+            <span className="font-medium text-slate-900">{formatWeekRange(r.weekStart, r.weekEnd)}</span>
+            <span className="ml-2 text-slate-500">
+              {r.content.stats.applications} application{r.content.stats.applications !== 1 ? "s" : ""} ·{" "}
+              {r.content.stats.interviews} interview{r.content.stats.interviews !== 1 ? "s" : ""} ·{" "}
+              {r.content.stats.offers} offer{r.content.stats.offers !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <span className="text-xs text-slate-400">{r.emailSentAt ? "Emailed" : "Generated, not emailed"}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 const PERIOD_TABS: { value: ReportPeriod; label: string }[] = [
   { value: "week", label: "This week" },
@@ -81,8 +128,9 @@ export function Report() {
           <div>
             <h1 className={pageTitle}>Career report</h1>
             <p className={pageSubtitle}>
-              An on-demand snapshot computed live from your own tracked roles — nothing here is
-              emailed or scheduled (that's planned for later; generate it whenever you want).
+              An on-demand snapshot computed live from your own tracked roles, generated whenever
+              you want. You can also opt into an automated weekly version emailed to you — turn
+              it on from your Profile page.
             </p>
           </div>
         </header>
@@ -167,6 +215,13 @@ export function Report() {
               per-event history yet) — so an interview reached this week for a role added last
               month shows up under the period it was added, not this one.
             </div>
+
+            <Panel
+              title="Past reports"
+              subtitle="Automated weekly reports, generated once you opt in from your Profile page — stored as-generated, not recomputed later."
+            >
+              <PastReportsPanel />
+            </Panel>
           </>
         )}
       </div>
