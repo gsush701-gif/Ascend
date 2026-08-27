@@ -6,7 +6,6 @@ import type {
   ResumeStrength,
   AlignmentHistoryItem,
 } from "../../../types/analyzer";
-import { setStoredSharePayload } from "../../../lib/shareProfile";
 import { computeResumeStrength } from "../utils";
 import {
   parseJdRequirements,
@@ -48,8 +47,6 @@ export function useAnalyzer() {
   const [alignmentHistory, setAlignmentHistory] = useState<
     AlignmentHistoryItem[]
   >([]);
-  const [shareSlug, setShareSlug] = useState("");
-  const [shareLinkCopied, setShareLinkCopied] = useState(false);
 
   useEffect(() => {
     try {
@@ -63,18 +60,6 @@ export function useAnalyzer() {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(alignmentHistory));
     } catch {}
   }, [alignmentHistory]);
-
-  useEffect(() => {
-    if (!report) return;
-    setStoredSharePayload({
-      skills: report.skills.slice(0, 12).map((s) => s.name),
-      strength: resumeStrength?.score ?? 0,
-      history: alignmentHistory.slice(0, 10).map((h) => ({
-        alignment: h.alignment,
-        createdAt: h.createdAt,
-      })),
-    });
-  }, [report, resumeStrength?.score, alignmentHistory]);
 
   useEffect(() => {
     if (resume?.name) {
@@ -197,23 +182,6 @@ export function useAnalyzer() {
     }
   }
 
-  function generateShareLink() {
-    const slug = shareSlug.trim() || "profile";
-    const payload = {
-      skills: (report?.skills ?? []).slice(0, 12).map((s) => s.name),
-      strength: resumeStrength?.score ?? 0,
-      history: (alignmentHistory ?? []).slice(0, 10).map((h) => ({
-        alignment: h.alignment,
-        createdAt: h.createdAt,
-      })),
-    };
-    const url = `${window.location.origin}/${slug}?d=${btoa(JSON.stringify(payload))}`;
-    window.navigator.clipboard.writeText(url).then(() => {
-      setShareLinkCopied(true);
-      setTimeout(() => setShareLinkCopied(false), 2000);
-    });
-  }
-
   const lastResumeFilename =
     resume?.name ??
     (typeof window !== "undefined"
@@ -245,9 +213,5 @@ export function useAnalyzer() {
     recruiterSimMode,
     setRecruiterSimMode,
     alignmentHistory,
-    shareSlug,
-    setShareSlug,
-    shareLinkCopied,
-    generateShareLink,
   };
 }

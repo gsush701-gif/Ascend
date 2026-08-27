@@ -73,16 +73,9 @@ export type AlignmentHistoryItem = {
   createdAt: string;
 };
 
-export type SharedProfileData = {
-  skills: string[];
-  strength: number;
-  history: { alignment: number; createdAt: string }[];
-};
-
 export type ConfidenceLevel = "Low" | "Medium" | "High";
 
 export type RoleDifficulty = "Entry-level" | "Competitive" | "Highly competitive";
 
 export const HISTORY_KEY = "internos_alignment_history_v1";
-export const SHARE_PAYLOAD_KEY = "internos_share_payload_v1";
 export const LAST_RESUME_KEY = "internos_last_resume_v1";

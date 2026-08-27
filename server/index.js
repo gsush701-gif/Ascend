@@ -62,6 +62,7 @@ const billing = require("./lib/billing");
 const { fetchOwnedRow } = require("./lib/supabaseUser");
 const { isUuid } = require("./lib/validation");
 const { getResumeStoragePathsToDelete } = require("./lib/accountDeletion");
+const { computePublicProfileStats, filterPublicProfileFields } = require("./lib/publicProfile");
 
 const app = express();
 
@@ -197,6 +198,19 @@ const trackLimiter = createRateLimiter({
   max: 120,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "track",
+});
+
+// GET /api/public-profile/:slug is unauthenticated by design (anyone with a
+// link can view a public profile) and cheap (a couple of indexed reads, no
+// AI call) — same shape of concern as /api/track above, not the Groq-cost
+// concern aiLimiter exists for. Generous enough for legitimate repeat visits
+// to the same profile, bounded enough that scripted slug enumeration/scraping
+// can't run unbounded.
+const publicProfileLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "public-profile",
 });
 
 // Checkout/portal session creation each make a real Stripe API call; a
@@ -1529,6 +1543,91 @@ app.post("/api/track", trackLimiter, optionalAuth, async (req, res) => {
   });
 
   return res.json({ ok: true });
+});
+
+// --- Public shareable profiles (Phase 7 Task 5) ---
+//
+// Replaces the old fully client-side share-link mechanism (src/lib/
+// shareProfile.ts, deleted): a base64-encoded generate-time snapshot
+// embedded in the URL, with no ownership/uniqueness for the slug and no way
+// to make a profile private again. `public_profiles` (supabase/migrations/
+// 017_public_profiles.sql) now stores only the owner's slug + visibility
+// preferences; everything actually displayed is computed live, here,
+// server-side, from that user's current `roles` rows using the
+// service-role client — the only legitimate way to read across users in
+// this codebase, and it's mediated entirely by this one read-only endpoint.
+//
+// Security-critical property: an existing-but-private slug must respond
+// IDENTICALLY to a slug that doesn't exist at all, so a visitor (or a script
+// probing slugs) can never learn "this profile exists but is private" as
+// distinct from "no such profile". Both cases fall through to the exact same
+// sendError(...) call below.
+app.get("/api/public-profile/:slug", publicProfileLimiter, async (req, res) => {
+  const slug = typeof req.params.slug === "string" ? req.params.slug.trim().toLowerCase() : "";
+  const notFound = () => sendError(req, res, 404, ErrorCodes.NOT_FOUND, "Profile not found");
+
+  if (!slug || !supabaseAdmin) {
+    return notFound();
+  }
+
+  try {
+    const { data: profileRow, error: profileError } = await supabaseAdmin
+      .from("public_profiles")
+      .select("user_id, is_public, show_skills, show_alignment_history, show_target_role")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("[public-profile] lookup failed:", profileError.message);
+      return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Internal server error");
+    }
+    // Not found and "found but private" are handled by the exact same
+    // response — see the comment above the route.
+    if (!profileRow || !profileRow.is_public) {
+      return notFound();
+    }
+
+    const flags = {
+      showSkills: Boolean(profileRow.show_skills),
+      showAlignmentHistory: Boolean(profileRow.show_alignment_history),
+      showTargetRole: Boolean(profileRow.show_target_role),
+    };
+
+    const [rolesResult, profileFieldsResult] = await Promise.all([
+      supabaseAdmin
+        .from("roles")
+        .select("alignment, created_at, updated_at, report_snapshot")
+        .eq("user_id", profileRow.user_id),
+      flags.showTargetRole
+        ? supabaseAdmin.from("profiles").select("target_role").eq("id", profileRow.user_id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (rolesResult.error) {
+      console.error("[public-profile] roles fetch failed:", rolesResult.error.message);
+      return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Internal server error");
+    }
+
+    const stats = computePublicProfileStats(rolesResult.data || []);
+    const targetRole = profileFieldsResult?.data?.target_role ?? null;
+    const fields = filterPublicProfileFields(stats, flags, targetRole);
+
+    // Deliberately whitelist the exact response shape rather than spreading
+    // `fields` — makes it structurally impossible for a future field added
+    // to `stats`/`fields` to leak into this response without an explicit
+    // decision here.
+    return res.json({
+      slug,
+      resumeStrength: fields.resumeStrength,
+      ...(fields.skills !== undefined ? { skills: fields.skills } : {}),
+      ...(fields.alignmentHistory !== undefined ? { alignmentHistory: fields.alignmentHistory } : {}),
+      ...(fields.targetRole !== undefined ? { targetRole: fields.targetRole } : {}),
+    });
+  } catch (e) {
+    console.error("[public-profile] unexpected error:", e);
+    captureException(e, { requestId: req.requestId, route: "/api/public-profile/:slug" });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Internal server error");
+  }
 });
 
 app.get("/", (req, res) => {

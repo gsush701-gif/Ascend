@@ -13,12 +13,7 @@ import { useProfile } from "../lib/profile";
 import { supabase } from "../lib/supabaseClient";
 import { API_BASE } from "../config/api";
 import { getApiErrorMessage } from "../lib/apiError";
-import {
-  getStoredSharePayload,
-  getStoredShareSlug,
-  setStoredShareSlug,
-  buildShareUrl,
-} from "../lib/shareProfile";
+import { usePublicProfile } from "../features/publicProfile/hooks/usePublicProfile";
 
 /**
  * Reads one table for the "Export data" panel, RLS-scoped like every other
@@ -54,8 +49,8 @@ export function Profile() {
   const { session, signOut } = useAuth();
   const tracker = useTracker(undefined);
   const items = tracker.tracker;
-  const [shareSlug, setShareSlugState] = useState(() => getStoredShareSlug());
-  const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const { profile } = useProfile();
+  const publicProfile = usePublicProfile(profile?.fullName);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
@@ -64,7 +59,6 @@ export function Profile() {
 
   const applicationsTracked = items.length;
   const rolesAnalyzed = items.filter((i) => i.reportSnapshot).length;
-  const payload = getStoredSharePayload();
 
   // Stripe Checkout redirects back here with ?checkout=success|cancelled
   // (server/index.js's /api/billing/create-checkout-session success_url /
@@ -138,17 +132,6 @@ export function Profile() {
       });
       setBillingBusy(false);
     }
-  };
-
-  const handleGenerateShareLink = () => {
-    const slug = shareSlug.trim().toLowerCase().replace(/[^a-z0-9-_]/g, "") || "profile";
-    setStoredShareSlug(slug);
-    if (!payload) return;
-    const url = buildShareUrl(slug, payload);
-    navigator.clipboard.writeText(url).then(() => {
-      setShareLinkCopied(true);
-      setTimeout(() => setShareLinkCopied(false), 2000);
-    });
   };
 
   const handleExportData = async () => {
@@ -253,31 +236,10 @@ export function Profile() {
         </Panel>
 
         <Panel
-          title="Shareable link"
-          subtitle="Share top skills, resume strength, and alignment history with mentors or peers."
+          title="Shareable profile"
+          subtitle="A public page showing your current skills, resume strength, and alignment history — always live, never a stale snapshot."
         >
-          <Input
-            type="text"
-            value={shareSlug}
-            onChange={(e) =>
-              setShareSlugState(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""))
-            }
-            placeholder="username (e.g. sushil)"
-          />
-          <Button
-            type="button"
-            onClick={handleGenerateShareLink}
-            disabled={!payload}
-            variant="primary"
-            className="mt-3"
-          >
-            {shareLinkCopied ? "Copied!" : "Generate & copy link"}
-          </Button>
-          {!payload && (
-            <p className="mt-2 text-xs text-slate-500">
-              Run an analysis first to generate your share link.
-            </p>
-          )}
+          <PublicProfilePanel publicProfile={publicProfile} />
         </Panel>
 
         <Panel title="Your stats" subtitle="Usage so far.">
@@ -367,6 +329,163 @@ export function Profile() {
         </Panel>
       </div>
     </AppShell>
+  );
+}
+
+/**
+ * Controls for the database-backed shareable profile (Phase 7 Task 5) — see
+ * src/features/publicProfile/hooks/usePublicProfile.ts and
+ * supabase/migrations/017_public_profiles.sql. Replaces the old
+ * "Generate & copy link" flow that base64-encoded a generate-time snapshot
+ * directly into the URL.
+ */
+function PublicProfilePanel({ publicProfile }: { publicProfile: ReturnType<typeof usePublicProfile> }) {
+  const { settings, loading, error, saving, shareUrl, updateSlug, regenerateSlug, setIsPublic, setVisibilityField } =
+    publicProfile;
+  const [slugInput, setSlugInput] = useState("");
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (settings && !initialized) {
+      setSlugInput(settings.slug);
+      setInitialized(true);
+    }
+  }, [settings, initialized]);
+
+  if (loading) {
+    return <p className="text-sm text-slate-500">Loading…</p>;
+  }
+  if (!settings) {
+    return <p className="text-sm text-rose-600">{error ?? "Could not load your shareable profile."}</p>;
+  }
+
+  const handleSaveSlug = async () => {
+    setSlugError(null);
+    const { error: err } = await updateSlug(slugInput);
+    if (err) {
+      setSlugError(err);
+      return;
+    }
+    toast.success({ title: "Slug updated" });
+  };
+
+  const handleRegenerate = async () => {
+    const { error: err, slug } = await regenerateSlug();
+    if (err) {
+      toast.error({ title: "Couldn't regenerate slug", description: err });
+      return;
+    }
+    if (slug) setSlugInput(slug);
+    setSlugError(null);
+    toast.success({ title: "New slug generated", description: "Your old link no longer works." });
+  };
+
+  const handleTogglePublic = async () => {
+    const { error: err } = await setIsPublic(!settings.isPublic);
+    if (err) toast.error({ title: "Couldn't update visibility", description: err });
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-dash-surface px-4 py-3">
+        <div>
+          <div className="text-sm font-medium text-slate-900">{settings.isPublic ? "Public" : "Private"}</div>
+          <div className="text-xs text-slate-500">
+            {settings.isPublic
+              ? "Anyone with the link below can view this profile."
+              : "Only you can see this — the link won't work for anyone else yet."}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant={settings.isPublic ? "secondary" : "primary"}
+          onClick={handleTogglePublic}
+          disabled={saving}
+        >
+          {settings.isPublic ? "Make private" : "Make public"}
+        </Button>
+      </div>
+
+      <div>
+        <label className="block text-xs text-slate-500">Slug</label>
+        <div className="mt-1 flex gap-2">
+          <Input
+            type="text"
+            value={slugInput}
+            onChange={(e) => setSlugInput(e.target.value)}
+            placeholder="your-name"
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleSaveSlug}
+            disabled={saving || slugInput.trim() === settings.slug}
+          >
+            Save
+          </Button>
+        </div>
+        {slugError && <p className="mt-1 text-xs text-rose-600">{slugError}</p>}
+        <button
+          type="button"
+          onClick={handleRegenerate}
+          disabled={saving}
+          className="mt-2 text-xs font-medium text-slate-500 underline decoration-dotted hover:text-slate-800"
+        >
+          Regenerate slug (invalidates the old link)
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-xs font-medium text-slate-500">Shown on your public profile</div>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300"
+            checked={settings.showSkills}
+            onChange={(e) => setVisibilityField("showSkills", e.target.checked)}
+          />
+          Top skills
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300"
+            checked={settings.showAlignmentHistory}
+            onChange={(e) => setVisibilityField("showAlignmentHistory", e.target.checked)}
+          />
+          Alignment history
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-slate-300"
+            checked={settings.showTargetRole}
+            onChange={(e) => setVisibilityField("showTargetRole", e.target.checked)}
+          />
+          Target role
+        </label>
+        <p className="text-xs text-slate-500">Resume strength is always shown when your profile is public.</p>
+      </div>
+
+      <div>
+        <label className="block text-xs text-slate-500">Your link</label>
+        <div className="mt-1 flex gap-2">
+          <Input type="text" value={shareUrl} readOnly className="text-slate-500" />
+          <Button type="button" variant="secondary" onClick={handleCopy}>
+            {copied ? "Copied!" : "Copy"}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

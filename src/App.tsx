@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
-import type { SharedProfileData } from "./types/analyzer";
+import { Routes, Route, Navigate } from "react-router-dom";
 
-import { ProfileView } from "./components/ProfileView";
 import { Landing } from "./routes/Landing";
+import { PublicProfile } from "./routes/PublicProfile";
 import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
 import { Roles } from "./routes/Roles";
@@ -26,51 +24,7 @@ import { NotFound } from "./routes/NotFound";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 export default function App() {
-  const [sharedProfileView, setSharedProfileView] = useState<{
-    username: string;
-    data: SharedProfileData;
-  } | null>(null);
-
-  const location = useLocation();
-
-  useEffect(() => {
-    const pathname = window.location.pathname.replace(/\/$/, "") || "/";
-    const segment = pathname.slice(1).split("/")[0];
-    const params = new URLSearchParams(window.location.search);
-    const d = params.get("d");
-    const isReserved =
-      segment === "analyzer" ||
-      segment === "tracker" ||
-      segment === "insights";
-    if (segment && d && !isReserved) {
-      try {
-        const decoded = JSON.parse(atob(d)) as SharedProfileData;
-        if (
-          decoded &&
-          Array.isArray(decoded.skills) &&
-          typeof decoded.strength === "number" &&
-          Array.isArray(decoded.history)
-        ) {
-          setSharedProfileView({ username: segment, data: decoded });
-          return;
-        }
-      } catch {
-        // ignore
-      }
-    }
-    setSharedProfileView(null);
-  }, [location.pathname, location.search]);
-
-  const mainContent = sharedProfileView ? (
-    <ProfileView
-      username={sharedProfileView.username}
-      data={sharedProfileView.data}
-      onBack={() => {
-        setSharedProfileView(null);
-        window.history.replaceState(null, "", "/");
-      }}
-    />
-  ) : (
+  return (
     <Routes>
       {/* Public */}
       <Route path="/" element={<Landing />} />
@@ -78,6 +32,11 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Public shareable profile — see src/routes/PublicProfile.tsx and
+          supabase/migrations/017_public_profiles.sql. Replaces the old
+          /{slug}?d=<base64> mechanism entirely (no more reserved-segment
+          disambiguation needed since this is a real, fixed route prefix). */}
+      <Route path="/u/:slug" element={<PublicProfile />} />
       {/* Private (app) — requires login */}
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/roles" element={<ProtectedRoute><Roles /></ProtectedRoute>} />
@@ -100,6 +59,4 @@ export default function App() {
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
-
-  return <>{mainContent}</>;
 }
