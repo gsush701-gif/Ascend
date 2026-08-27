@@ -3,7 +3,7 @@ require("dotenv").config();
 // Sentry must be required (and initialized) before anything else that could
 // throw, so it can observe as much of the process lifecycle as possible.
 // Genuinely a no-op (no init, no warning) when SENTRY_DSN isn't set.
-const { captureException } = require("./lib/sentry");
+const { captureException, isSentryConfigured } = require("./lib/sentry");
 
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled rejection:", reason);
@@ -48,6 +48,7 @@ const {
 } = require("./lib/scoring");
 
 const { optionalAuth } = require("./middleware/auth");
+const { requireAdmin } = require("./middleware/requireAdmin");
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
 const { supabaseAdmin } = require("./lib/supabaseAdmin");
@@ -63,6 +64,8 @@ const { fetchOwnedRow } = require("./lib/supabaseUser");
 const { isUuid } = require("./lib/validation");
 const { getResumeStoragePathsToDelete } = require("./lib/accountDeletion");
 const { computePublicProfileStats, filterPublicProfileFields } = require("./lib/publicProfile");
+const { bucketCount, countDistinct, topByCount, computeEventTypeStats } = require("./lib/admin");
+const { parsePagination, buildPageResult } = require("./lib/pagination");
 
 const app = express();
 
@@ -222,6 +225,18 @@ const billingLimiter = createRateLimiter({
   max: 20,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "billing",
+});
+
+// Admin dashboard routes (Phase 7 Task 6) — reachable only by whoever's
+// email is in ADMIN_EMAILS (requireAdmin, below), but still rate-limited
+// like every other route in this file rather than assuming "small trusted
+// audience" is itself a substitute for abuse protection. Generous enough for
+// a dashboard making several requests per page load plus pagination clicks.
+const adminLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "admin",
 });
 
 // Multer: keep uploaded PDF in memory + limit file size
@@ -1627,6 +1642,342 @@ app.get("/api/public-profile/:slug", publicProfileLimiter, async (req, res) => {
     console.error("[public-profile] unexpected error:", e);
     captureException(e, { requestId: req.requestId, route: "/api/public-profile/:slug" });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Internal server error");
+  }
+});
+
+// --- Admin dashboard (Phase 7 Task 6) ---
+//
+// There is no roles/permissions system anywhere in this app — every route
+// below uses `optionalAuth` (to get a verified `req.user`, same as every
+// other route in this file) followed by `requireAdmin`
+// (server/middleware/requireAdmin.js), which independently re-checks the
+// caller's verified email against `ADMIN_EMAILS` on every single request.
+// This is the real, server-side security boundary; the frontend's /admin
+// route only hides its own nav link for non-admins as a UX nicety and relies
+// entirely on the 401/403 these routes actually return.
+//
+// Pagination convention (established here, since none existed before):
+// `?page=<1-indexed>&pageSize=<n>` in, `{ page, pageSize, total, totalPages,
+// items }` out — server/lib/pagination.js.
+
+// Cheap admin-access check with zero DB work — used by the frontend purely
+// to decide whether to show the "Admin" nav link / render the dashboard
+// shell, not as the real enforcement (every route below re-checks
+// independently regardless of what this returns).
+app.get("/api/admin/whoami", adminLimiter, optionalAuth, requireAdmin, (req, res) => {
+  res.json({ isAdmin: true, email: req.user.email });
+});
+
+// GET /api/admin/overview — high-level account/subscription health.
+//
+// "Active users" definition (stated explicitly since there's no single
+// obvious one): a user who has at least one `usage_events` row (any event
+// type — an AI call, an /api/track product event, etc) in the last 30 days.
+// This is the same table/window server/lib/usage.js's monthly-quota counting
+// already relies on, so it's consistent with what "usage" means elsewhere in
+// this codebase, rather than inventing a second definition (e.g. login
+// recency, which this app doesn't even track separately from Supabase Auth's
+// own last-sign-in timestamp).
+//
+// Scale note: the distinct-user count below fetches up to 20,000 `user_id`
+// values from `usage_events` in the last 30 days and dedupes in memory
+// (Supabase's JS client has no server-side `count(distinct ...)` short of a
+// raw SQL RPC, which is out of scope for this pass) — fine at this app's
+// current traffic, and the same "lightweight infra now, revisit if it ever
+// becomes the bottleneck" judgment already applied to the in-memory rate
+// limiter fallback (server/lib/rateLimit.js) and other Phase 3/4 choices.
+app.get("/api/admin/overview", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    const RECENT_SIGNUPS_COUNT = 10;
+    // perPage=1 is enough to read the `total` users count off this response
+    // (see @supabase/auth-js's GoTrueAdminApi.listUsers — it reports the
+    // full total via an x-total-count header regardless of page size).
+    const [totalUsersResult, recentUsersResult] = await Promise.all([
+      supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 }),
+      // Fetched separately (rather than reusing a single larger page) so a
+      // change to RECENT_SIGNUPS_COUNT never has to reconsider the total
+      // count call above. 200 is a generous-but-bounded page to sort
+      // client-side by created_at — see the caveat below.
+      supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 }),
+    ]);
+    if (totalUsersResult.error) throw totalUsersResult.error;
+    if (recentUsersResult.error) throw recentUsersResult.error;
+
+    const totalUsers = totalUsersResult.data.total || 0;
+    // Caveat, stated plainly rather than silently: if there are more than
+    // 200 total users, this sort only considers the first 200 the Auth API
+    // returns for page 1 (its own default order, not guaranteed to be
+    // recency) — "recent signups" could theoretically miss a very recent
+    // signup if the account base has grown past that. Revisit (e.g. an
+    // explicit created_at-sorted admin API call, once available) if/when
+    // this app's user count approaches that scale.
+    const recentSignups = [...recentUsersResult.data.users]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, RECENT_SIGNUPS_COUNT)
+      .map((u) => ({ id: u.id, email: u.email || null, createdAt: u.created_at }));
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentUsageRows, error: usageErr } = await supabaseAdmin
+      .from("usage_events")
+      .select("user_id")
+      .not("user_id", "is", null)
+      .gte("created_at", thirtyDaysAgo)
+      .limit(20000);
+    if (usageErr) throw usageErr;
+    const activeUsers = countDistinct((recentUsageRows || []).map((r) => r.user_id));
+
+    const { data: subscriptionRows, error: subsErr } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan, status");
+    if (subsErr) throw subsErr;
+    const byPlan = bucketCount((subscriptionRows || []).map((r) => r.plan));
+    const byStatus = bucketCount((subscriptionRows || []).map((r) => r.status));
+
+    return res.json({
+      totalUsers,
+      activeUsers,
+      activeUserWindowDays: 30,
+      recentSignups,
+      subscriptions: {
+        // Rows with no subscription row at all are implicitly "free" per
+        // server/lib/plans.js and are NOT counted in either breakdown below
+        // — only users with an explicit `subscriptions` row are reflected
+        // here, consistently with how server/lib/usage.js treats "no row".
+        totalRowsWithSubscription: (subscriptionRows || []).length,
+        byPlan,
+        byStatus,
+      },
+    });
+  } catch (err) {
+    console.error("admin/overview failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load admin overview");
+  }
+});
+
+// GET /api/admin/applications — the `roles` table (this app's job-application
+// tracker; see supabase/schema.sql) from an admin's-eye view: total rows,
+// a status breakdown, and a paginated recent list.
+app.get("/api/admin/applications", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    const { page, pageSize, offset } = parsePagination(req.query);
+
+    const { count: total, error: countErr } = await supabaseAdmin
+      .from("roles")
+      .select("id", { count: "exact", head: true });
+    if (countErr) throw countErr;
+
+    // `roles.status` has no CHECK constraint (any authenticated client can
+    // write an arbitrary string — a known, separately-tracked gap, see
+    // docs/SAAS_AUDIT.md §3/§8) so this bucketing can't assume a fixed
+    // enum. Capped at 20,000 rows for the same current-scale reasoning as
+    // the active-users count above.
+    const { data: statusRows, error: statusErr } = await supabaseAdmin
+      .from("roles")
+      .select("status")
+      .limit(20000);
+    if (statusErr) throw statusErr;
+    const byStatus = bucketCount((statusRows || []).map((r) => r.status));
+
+    const { data: recentRows, error: recentErr } = await supabaseAdmin
+      .from("roles")
+      .select("id, user_id, company, role, status, alignment, created_at, updated_at")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (recentErr) throw recentErr;
+
+    return res.json({
+      total: total || 0,
+      byStatus,
+      recent: buildPageResult({ page, pageSize, total: total || 0, items: recentRows || [] }),
+    });
+  } catch (err) {
+    console.error("admin/applications failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load application data");
+  }
+});
+
+// GET /api/admin/ai-usage — aggregate usage_events for every "ai.*" event
+// type (server/lib/plans.js's limit keys), plus a top-requesters leaderboard.
+//
+// Error-rate honesty (see server/lib/admin.js's computeEventTypeStats for the
+// full explanation): only reliable for event types whose route always
+// records success/failure via `callGroq()` — that's every ai.* type except
+// `ai.ats_check`, which only records a row on success (see the comment on
+// POST /api/ats-check above) and therefore always shows a 0/null error rate
+// here regardless of real failures. This is stated in the response itself
+// (`errorRateReliable`) rather than left for the frontend to guess.
+app.get("/api/admin/ai-usage", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    let windowDays = parseInt(req.query.days, 10);
+    if (!Number.isFinite(windowDays) || windowDays < 1) windowDays = 30;
+    windowDays = Math.min(windowDays, 90);
+    const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("usage_events")
+      .select("event_type, user_id, metadata")
+      .like("event_type", "ai.%")
+      .gte("created_at", since)
+      // Bounds the query for this pass — see the active-users comment above
+      // on GET /api/admin/overview for the same current-scale reasoning.
+      .limit(20000);
+    if (error) throw error;
+
+    const byEventType = computeEventTypeStats(rows || []);
+    const totalAiRequests = (rows || []).length;
+
+    const TOP_USERS_COUNT = 10;
+    const top = topByCount(
+      (rows || []).map((r) => r.user_id),
+      TOP_USERS_COUNT,
+    );
+    const topUsers = await Promise.all(
+      top.map(async ({ key: userId, count }) => {
+        let email = null;
+        try {
+          const { data, error: userErr } = await supabaseAdmin.auth.admin.getUserById(userId);
+          if (!userErr && data?.user) email = data.user.email || null;
+        } catch {
+          // A deleted/unlookupable user shouldn't break the whole response —
+          // fall back to just the id.
+        }
+        return { userId, email, requestCount: count };
+      }),
+    );
+
+    return res.json({
+      windowDays,
+      totalAiRequests,
+      byEventType,
+      errorRateReliable: {
+        // See the route comment: every ai.* type is reliable except
+        // ai.ats_check, whose failures are never recorded at all.
+        note: "errorRatePct is null where no success/failure was ever recorded. ai.ats_check specifically only records successes, so its errorRatePct is not trustworthy even when non-null/0.",
+      },
+      topUsers,
+    });
+  } catch (err) {
+    console.error("admin/ai-usage failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load AI usage data");
+  }
+});
+
+// GET /api/admin/billing — aggregate view of the `subscriptions` table.
+//
+// This reflects webhook-synced Stripe state stored in Postgres (server/
+// lib/billing.js's handleCheckoutSessionCompleted/handleSubscriptionUpdated/
+// handleSubscriptionDeleted, wired to POST /api/billing/webhook above), NOT
+// a live call to the Stripe API — so it's only as fresh as the last
+// successfully-processed webhook for each user. A live Stripe API call
+// (e.g. for real-time revenue/failed-payment data straight from Stripe)
+// would be a reasonable future addition but is out of scope for this pass;
+// this table already has what's needed for a reasonable billing overview.
+app.get("/api/admin/billing", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    const { page, pageSize, offset } = parsePagination(req.query);
+
+    const { data: allRows, error: allErr } = await supabaseAdmin
+      .from("subscriptions")
+      .select("plan, status");
+    if (allErr) throw allErr;
+
+    const activeByPlan = bucketCount(
+      (allRows || []).filter((r) => r.status === "active").map((r) => r.plan),
+    );
+    const byPlanStatus = bucketCount((allRows || []).map((r) => `${r.plan}:${r.status}`));
+
+    const { count: total, error: countErr } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id", { count: "exact", head: true });
+    if (countErr) throw countErr;
+
+    const { data: recentRows, error: recentErr } = await supabaseAdmin
+      .from("subscriptions")
+      .select("id, user_id, plan, status, stripe_customer_id, current_period_end, updated_at")
+      .order("updated_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (recentErr) throw recentErr;
+
+    return res.json({
+      totalSubscriptionRows: (allRows || []).length,
+      activeByPlan,
+      byPlanStatus,
+      isLiveStripeData: false,
+      recent: buildPageResult({ page, pageSize, total: total || 0, items: recentRows || [] }),
+    });
+  } catch (err) {
+    console.error("admin/billing failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load billing data");
+  }
+});
+
+// GET /api/admin/system — recent server errors, from `error_logs`
+// (supabase/migrations/018_error_logs.sql), populated by
+// server/lib/errors.js's sendError() for every 5xx response. See that
+// migration's header comment: before this table existed, there was no
+// queryable error store at all (stdout/Render logs and Sentry-if-configured
+// aren't queryable from inside this app).
+app.get("/api/admin/system", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    const { page, pageSize, offset } = parsePagination(req.query);
+
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [last24hResult, last7dRowsResult, totalResult, recentResult] = await Promise.all([
+      supabaseAdmin.from("error_logs").select("id", { count: "exact", head: true }).gte("created_at", oneDayAgo),
+      supabaseAdmin.from("error_logs").select("route, status_code").gte("created_at", sevenDaysAgo).limit(20000),
+      supabaseAdmin.from("error_logs").select("id", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("error_logs")
+        .select("id, request_id, route, status_code, error_code, message, user_id, created_at")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1),
+    ]);
+    if (last24hResult.error) throw last24hResult.error;
+    if (last7dRowsResult.error) throw last7dRowsResult.error;
+    if (totalResult.error) throw totalResult.error;
+    if (recentResult.error) throw recentResult.error;
+
+    const last7dRows = last7dRowsResult.data || [];
+    const TOP_ROUTES_COUNT = 10;
+
+    return res.json({
+      errorsLast24h: last24hResult.count || 0,
+      errorsLast7d: last7dRows.length,
+      byStatusCode7d: bucketCount(last7dRows.map((r) => r.status_code)),
+      topRoutes7d: topByCount(last7dRows.map((r) => r.route), TOP_ROUTES_COUNT),
+      sentryConfigured: isSentryConfigured,
+      recent: buildPageResult({
+        page,
+        pageSize,
+        total: totalResult.count || 0,
+        items: recentResult.data || [],
+      }),
+    });
+  } catch (err) {
+    console.error("admin/system failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load system data");
   }
 });
 

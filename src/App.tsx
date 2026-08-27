@@ -13,6 +13,7 @@ import { Report } from "./routes/Report";
 import { RoleDetail } from "./routes/RoleDetail";
 import { InterviewPrep } from "./routes/InterviewPrep";
 import { Profile } from "./routes/Profile";
+import { Admin } from "./routes/Admin";
 import { ResumeLab } from "./routes/ResumeLab";
 import { Resumes } from "./routes/Resumes";
 import { ResumeEditor } from "./routes/ResumeEditor";
@@ -51,6 +52,12 @@ export default function App() {
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
       <Route path="/tracker" element={<Navigate to="/roles" replace />} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      {/* Requires login (ProtectedRoute) but the real admin gate is entirely
+          server-side — see server/middleware/requireAdmin.js. A logged-in
+          non-admin sees a clean "Not authorized" state driven by the actual
+          403 from GET /api/admin/overview (src/routes/Admin.tsx), not a
+          client-side guess. */}
+      <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       <Route path="/resume-lab" element={<ProtectedRoute><ResumeLab /></ProtectedRoute>} />
       <Route path="/resumes" element={<ProtectedRoute><Resumes /></ProtectedRoute>} />
       <Route path="/resumes/:id/edit" element={<ProtectedRoute><ResumeEditor /></ProtectedRoute>} />

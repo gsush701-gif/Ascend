@@ -4,6 +4,7 @@ import { Menu, X } from "lucide-react";
 import { AscendLogo } from "./AscendLogo";
 import { NotificationsBell } from "./NotificationsBell";
 import { useAuth } from "../../context/AuthContext";
+import { useIsAdmin } from "../../features/admin/hooks/useIsAdmin";
 
 function NavPill({
   to,
@@ -47,6 +48,11 @@ export function TopNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  // UX-only — see src/features/admin/hooks/useIsAdmin.ts. The real
+  // enforcement is server-side on every /api/admin/* route regardless of
+  // whether this link is shown.
+  const { isAdmin } = useIsAdmin();
+  const navLinks = isAdmin ? [...NAV_LINKS, { to: "/admin", label: "Admin" }] : NAV_LINKS;
 
   async function handleSignOut() {
     setMobileOpen(false);
@@ -81,7 +87,7 @@ export function TopNav() {
         </NavLink>
 
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map(({ to, label }) => (
+          {navLinks.map(({ to, label }) => (
             <NavPill key={to} to={to} label={label} />
           ))}
         </nav>
@@ -119,7 +125,7 @@ export function TopNav() {
       {mobileOpen && (
         <div className="absolute inset-x-0 top-14 border-b border-slate-200 bg-[#F4F5FA] md:hidden animate-fade-in">
           <nav className="flex flex-col gap-1 p-3">
-            {NAV_LINKS.map(({ to, label }) => (
+            {navLinks.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}
