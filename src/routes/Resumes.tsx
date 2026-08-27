@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileText, Star, Pencil, Trash2, Check, X } from "lucide-react";
+import { FileText, Star, Pencil, SquarePen, Trash2, Check, X } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { Input } from "../components/ui/Input";
 import { Modal } from "../components/ui/Modal";
@@ -117,6 +117,13 @@ function ResumeRow({
               Set default
             </button>
           )}
+          <Link
+            to={`/resumes/${resume.id}/edit`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-900/[0.04]"
+          >
+            <SquarePen className="h-3.5 w-3.5" />
+            Edit
+          </Link>
           <button
             type="button"
             onClick={() => setEditing(true)}

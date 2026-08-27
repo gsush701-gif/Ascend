@@ -17,6 +17,7 @@ import { InterviewPrep } from "./routes/InterviewPrep";
 import { Profile } from "./routes/Profile";
 import { ResumeLab } from "./routes/ResumeLab";
 import { Resumes } from "./routes/Resumes";
+import { ResumeEditor } from "./routes/ResumeEditor";
 import { Login } from "./routes/Login";
 import { Signup } from "./routes/Signup";
 import { ForgotPassword } from "./routes/ForgotPassword";
@@ -93,6 +94,7 @@ export default function App() {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/resume-lab" element={<ProtectedRoute><ResumeLab /></ProtectedRoute>} />
       <Route path="/resumes" element={<ProtectedRoute><Resumes /></ProtectedRoute>} />
+      <Route path="/resumes/:id/edit" element={<ProtectedRoute><ResumeEditor /></ProtectedRoute>} />
       <Route path="/insights" element={<Navigate to="/dashboard" replace />} />
       <Route path="/settings" element={<Navigate to="/profile" replace />} />
       <Route path="*" element={<NotFound />} />
