@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Loader2, RefreshCw, Save, Sparkles } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
@@ -15,6 +15,16 @@ import { SkillsSection } from "../features/resumeEditor/components/SkillsSection
 import { CertificationsSection } from "../features/resumeEditor/components/CertificationsSection";
 import { AwardsSection } from "../features/resumeEditor/components/AwardsSection";
 import { SuggestionsPanel } from "../features/resumeEditor/components/SuggestionsPanel";
+
+// Lazy-loaded: `@react-pdf/renderer` is a large dependency (font/layout
+// engine + pdfkit) that only this one panel needs. Importing it eagerly
+// here would ship it in the app's main JS bundle for every route (login,
+// dashboard, etc.) — code-splitting it keeps the rest of the app's load
+// time unaffected; it's only fetched when a user with structured resume
+// content actually reaches this panel.
+const ExportPdfPanel = lazy(() =>
+  import("../features/resumeExport/components/ExportPdfPanel").then((m) => ({ default: m.ExportPdfPanel })),
+);
 
 export function ResumeEditor() {
   const { id } = useParams<{ id: string }>();
@@ -104,6 +114,9 @@ export function ResumeEditor() {
               {editor.parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {editor.parsing ? "Parsing…" : "Parse my resume"}
             </Button>
+            <p className="mt-4 text-xs text-slate-400">
+              PDF export becomes available once this resume has structured, section-by-section content.
+            </p>
           </Panel>
         ) : editor.content ? (
           <div className="grid gap-8 lg:grid-cols-12">
@@ -126,7 +139,10 @@ export function ResumeEditor() {
               />
               <AwardsSection awards={editor.content.awards} onChange={(v) => editor.updateSection("awards", v)} />
             </div>
-            <div className="lg:col-span-4">
+            <div className="space-y-6 lg:col-span-4">
+              <Suspense fallback={<Panel title="Export PDF"><p className="text-sm text-slate-400">Loading…</p></Panel>}>
+                <ExportPdfPanel resumeName={editor.resumeName} content={editor.content} />
+              </Suspense>
               <SuggestionsPanel
                 suggestions={editor.suggestions}
                 loading={editor.suggestionsLoading}
