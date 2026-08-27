@@ -1143,6 +1143,171 @@ app.post("/api/career-advice", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
+// Structured Resume Editor (Phase 7, Task 1). Both routes require login
+// (same reasoning as generate-cold-email/career-advice above: they operate
+// on a specific resume the caller must own) and do an ownership-checked
+// lookup via server/lib/supabaseUser.js's fetchOwnedRow — a resumeId
+// belonging to another user simply 404s, never leaks a row.
+app.post("/api/parse-resume", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (!req.user) {
+      return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+    }
+    if (typeof req.body?.resumeId !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeId' must be a string");
+    }
+    if (!isUuid(req.body.resumeId)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeId' must be a valid id");
+    }
+
+    const token = getBearerToken(req);
+    const resumeId = req.body.resumeId.trim();
+
+    const { row: resume, error: resumeErr } = await fetchOwnedRow({
+      table: "resumes",
+      id: resumeId,
+      userId: req.user.id,
+      token,
+    });
+    if (resumeErr) {
+      console.error("parse-resume: resume lookup failed:", resumeErr);
+      return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to look up resume");
+    }
+    if (!resume) {
+      return sendError(req, res, 404, ErrorCodes.NOT_FOUND, "Resume not found");
+    }
+
+    const extractedText = (resume.extracted_text || "").trim();
+    if (!extractedText) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        "This resume has no extracted text to parse — try re-uploading the file.",
+      );
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.parse_resume"))) return;
+
+    // Never persisted here — the route returns the parsed structure so the
+    // frontend can show it for review before the user chooses to save it
+    // (see src/features/resumeEditor/hooks/useResumeEditor.ts).
+    const result = await callGroq(req, "ai.parse_resume", () => groq.parseResumeToStructured(extractedText));
+    return res.json(result);
+  } catch (err) {
+    console.error("parse-resume failed:", err);
+    return respondAiError(req, res, err, "Failed to parse resume");
+  }
+});
+
+app.post("/api/resume-suggestions", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (!req.user) {
+      return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+    }
+    if (typeof req.body?.resumeId !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeId' must be a string");
+    }
+    if (!isUuid(req.body.resumeId)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeId' must be a valid id");
+    }
+    if (req.body?.section !== undefined && typeof req.body.section !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'section' must be a string");
+    }
+    const section = req.body?.section ? req.body.section.trim() : null;
+    if (section && !groq.RESUME_SECTIONS.includes(section)) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        `Field 'section' must be one of: ${groq.RESUME_SECTIONS.join(", ")}`,
+      );
+    }
+
+    const token = getBearerToken(req);
+    const resumeId = req.body.resumeId.trim();
+
+    const { row: resume, error: resumeErr } = await fetchOwnedRow({
+      table: "resumes",
+      id: resumeId,
+      userId: req.user.id,
+      token,
+    });
+    if (resumeErr) {
+      console.error("resume-suggestions: resume lookup failed:", resumeErr);
+      return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to look up resume");
+    }
+    if (!resume) {
+      return sendError(req, res, 404, ErrorCodes.NOT_FOUND, "Resume not found");
+    }
+    if (!resume.structured_content) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        "This resume has no structured content yet — parse it first.",
+      );
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.resume_suggestions"))) return;
+
+    const result = await callGroq(req, "ai.resume_suggestions", () =>
+      groq.generateResumeSuggestions(resume.structured_content, section),
+    );
+
+    // Defensively re-validate the model's own output shape before it ever
+    // reaches a database insert — same discipline as every other route that
+    // writes AI output to a table (e.g. improve-bullet's resume_improvements
+    // insert), just with more fields to check here.
+    const rawSuggestions = Array.isArray(result?.suggestions) ? result.suggestions : [];
+    const toInsert = rawSuggestions
+      .filter(
+        (s) =>
+          s &&
+          typeof s.section === "string" &&
+          groq.RESUME_SECTIONS.includes(s.section) &&
+          typeof s.proposedText === "string" &&
+          s.proposedText.trim().length > 0 &&
+          typeof s.reason === "string" &&
+          s.reason.trim().length > 0,
+      )
+      .slice(0, 5)
+      .map((s) => ({
+        resume_id: resumeId,
+        user_id: req.user.id,
+        section: s.section,
+        original_text: typeof s.originalText === "string" ? s.originalText : null,
+        proposed_text: s.proposedText,
+        reason: s.reason,
+        status: "pending",
+      }));
+
+    if (toInsert.length === 0) {
+      return res.json({ suggestions: [] });
+    }
+    if (!supabaseAdmin) {
+      return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Database not configured");
+    }
+
+    const { data: inserted, error: insertErr } = await supabaseAdmin
+      .from("resume_suggestions")
+      .insert(toInsert)
+      .select();
+    if (insertErr) {
+      console.error("resume-suggestions: insert failed:", insertErr);
+      return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to save suggestions");
+    }
+
+    return res.json({ suggestions: inserted || [] });
+  } catch (err) {
+    console.error("resume-suggestions failed:", err);
+    return respondAiError(req, res, err, "Failed to generate resume suggestions");
+  }
+});
+
 app.post("/api/report-summary", aiLimiter, optionalAuth, async (req, res) => {
   try {
     const stats = req.body?.stats;

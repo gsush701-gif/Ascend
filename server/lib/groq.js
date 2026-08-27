@@ -394,6 +394,93 @@ Respond with ONLY a JSON object: {"summary": string}`;
   return typeof result.summary === "string" ? result.summary : null;
 }
 
+// The exact top-level keys of `resumes.structured_content`
+// (supabase/migrations/015_resume_structured_content.sql) — shared between
+// the parser prompt below, the suggestions prompt below, and
+// server/index.js's request validation for `/api/resume-suggestions`'
+// optional `section` field, so the three never drift out of sync.
+const RESUME_SECTIONS = [
+  "contact",
+  "summary",
+  "education",
+  "experience",
+  "projects",
+  "skills",
+  "certifications",
+  "awards",
+];
+
+/**
+ * Extract raw resume text (from `resumes.extracted_text`) into the
+ * structured shape documented in
+ * supabase/migrations/015_resume_structured_content.sql (Phase 7, Resume
+ * Editor Task 1). Deliberately conservative: the prompt instructs the model
+ * to leave a field/section empty rather than guess, and this is genuinely
+ * load-bearing — a fabricated degree, employer, or date here would land
+ * directly on a document the candidate might submit to a real employer.
+ * Callers must NOT persist the result automatically; it's returned for the
+ * frontend to show the user for review before the first save (see
+ * src/features/resumeEditor/hooks/useResumeEditor.ts).
+ */
+async function parseResumeToStructured(extractedText) {
+  const system = `You are an expert resume parser. Given raw text extracted from a candidate's resume PDF (formatting/line breaks may be imperfect, columns/tables may have merged awkwardly), extract it into a structured JSON representation.
+Rules:
+- Be conservative: if a section genuinely is not present anywhere in the source text, return it empty ("" for strings, [] for empty array sections) — never invent, guess, or pad content that isn't actually in the text.
+- Never fabricate degrees, schools, employers, job titles, dates, or metrics that don't appear in the source text. If a single field within an entry (e.g. GPA, an end date, a location) isn't stated, leave that field as an empty string rather than guessing at it.
+- Preserve the candidate's actual wording for bullets/summaries/descriptions; light cleanup of obvious OCR or line-break artifacts is fine, rewriting or embellishing content is not — this is extraction, not editing.
+- Every array entry you produce must correspond to one real, distinct item you can point to in the source text (one real job, one real degree, one real project, etc) — do not split or merge entries in ways that don't reflect the source.
+Respond with ONLY a JSON object of this exact shape:
+{
+  "contact": {"name": string, "email": string, "phone": string, "location": string, "linkedin": string, "portfolio": string},
+  "summary": string,
+  "education": [{"school": string, "degree": string, "field": string, "startDate": string, "endDate": string, "gpa": string}],
+  "experience": [{"company": string, "title": string, "location": string, "startDate": string, "endDate": string, "bullets": string[]}],
+  "projects": [{"name": string, "description": string, "technologies": string[], "bullets": string[]}],
+  "skills": string[],
+  "certifications": [{"name": string, "issuer": string, "date": string}],
+  "awards": [{"name": string, "issuer": string, "date": string}]
+}
+Use "" for any string field you cannot find in the source text, and [] for any array section with no real entries — every key must be present even when empty.`;
+
+  const user = `Raw resume text:\n"""${extractedText.slice(0, 18000)}"""`;
+
+  // A full resume's worth of structured JSON (contact + summary + several
+  // education/experience/project entries, each with multiple bullets) runs
+  // well past the 1200-token default other (shorter) callers use — give it
+  // enough headroom to finish instead of truncating mid-document.
+  return chatJson(system, user, 3500);
+}
+
+/**
+ * Propose 2-5 concrete edits to a candidate's already-parsed structured
+ * resume content (Phase 7, Resume Editor Task 1), optionally scoped to one
+ * section. Every suggestion must be grounded in text that's actually present
+ * in `structuredContent` — see the anti-fabrication rules in the prompt.
+ * Suggestions are never applied automatically; the route that calls this
+ * inserts them into `resume_suggestions` with `status: 'pending'` for the
+ * user to accept (optionally edited first) or reject.
+ */
+async function generateResumeSuggestions(structuredContent, section) {
+  const scoped = typeof section === "string" && RESUME_SECTIONS.includes(section);
+
+  const system = `You are an expert technical resume reviewer for software engineering internship/new-grad candidates, proposing concrete edits to a candidate's already-parsed, structured resume content.
+Given the candidate's structured resume data${scoped ? `, focused only on the "${section}" section` : ""}, propose ${scoped ? "2-4" : "2-5"} specific, concrete edits that would make it stronger.
+Rules:
+- Only use content that already appears in the structured data below — do not invent employers, schools, dates, titles, or metrics that aren't there. A quantified metric you add to a bullet should read as natural resume phrasing (e.g. "~30%"), not as a claim of certainty about a number that isn't given.
+- Each suggestion must target ONE specific existing piece of text (a single bullet, the summary, one project's description, etc) and propose a concrete rewrite of it — not vague advice like "add more detail" or "make this stronger".
+- "originalText" must be copied verbatim from the structured data below (the exact bullet/summary/description text being improved). Only use an empty string for "originalText" when proposing genuinely new content for a field that is currently empty (e.g. writing a first draft of an empty summary, or adding a skill that's implied elsewhere but not yet listed) — never fabricate what "originalText" was if you're actually rewriting existing text.
+- "section" must be exactly one of: ${RESUME_SECTIONS.join(", ")} — matching which top-level part of the structured data the suggestion applies to.${
+    scoped ? `\n- Every suggestion's "section" must be "${section}".` : ""
+  }
+Respond with ONLY a JSON object of this exact shape:
+{"suggestions": [{"section": string, "originalText": string, "proposedText": string, "reason": string (1 short sentence on why this is stronger)}]}`;
+
+  const dataToShow = scoped ? { [section]: structuredContent?.[section] } : structuredContent;
+  const user = `Candidate's structured resume data (JSON):\n${JSON.stringify(dataToShow ?? {}).slice(0, 12000)}`;
+
+  return chatJson(system, user, 2000);
+}
+
 module.exports = {
   improveBullet,
   improveResume,
@@ -407,6 +494,9 @@ module.exports = {
   generateColdEmail,
   careerAdvice,
   summarizeCareerReport,
+  parseResumeToStructured,
+  generateResumeSuggestions,
+  RESUME_SECTIONS,
   isGroqConfigured: configured,
   GROQ_MODEL,
   GroqNotConfiguredError,

@@ -37,6 +37,8 @@ const PLANS = {
       "ai.cold_email": 15,
       "ai.career_advice": 20,
       "ai.report_summary": 10,
+      "ai.parse_resume": 15,
+      "ai.resume_suggestions": 20,
     },
   },
   pro: {
@@ -65,6 +67,8 @@ const PLANS = {
       "ai.cold_email": 150,
       "ai.career_advice": 200,
       "ai.report_summary": 100,
+      "ai.parse_resume": 150,
+      "ai.resume_suggestions": 200,
     },
   },
 };
@@ -87,6 +91,8 @@ const USAGE_LABELS = {
   "ai.cold_email": "Outreach messages",
   "ai.career_advice": "Career advice questions",
   "ai.report_summary": "Career report summaries",
+  "ai.parse_resume": "Resume parses",
+  "ai.resume_suggestions": "Resume suggestion sets",
 };
 
 /** Returns the plan config for a plan key, falling back to `free` for an unknown/missing key. */
