@@ -9,6 +9,7 @@ import { Contacts } from "./routes/Contacts";
 import { Goals } from "./routes/Goals";
 import { Analytics } from "./routes/Analytics";
 import { Companies } from "./routes/Companies";
+import { Jobs } from "./routes/Jobs";
 import { Report } from "./routes/Report";
 import { RoleDetail } from "./routes/RoleDetail";
 import { InterviewPrep } from "./routes/InterviewPrep";
@@ -47,6 +48,7 @@ export default function App() {
       <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
       <Route path="/companies" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
       <Route path="/companies/:companyName" element={<ProtectedRoute><Companies /></ProtectedRoute>} />
+      <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
       <Route path="/roles/:id" element={<ProtectedRoute><RoleDetail /></ProtectedRoute>} />
       <Route path="/roles/:id/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />

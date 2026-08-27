@@ -51,7 +51,7 @@ const { optionalAuth } = require("./middleware/auth");
 const { requireAdmin } = require("./middleware/requireAdmin");
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
-const { supabaseAdmin } = require("./lib/supabaseAdmin");
+const { supabaseAdmin, isSupabaseConfigured } = require("./lib/supabaseAdmin");
 const { createRateLimiter } = require("./lib/rateLimit");
 const { ErrorCodes, sendError } = require("./lib/errors");
 const { recordUsageEvent } = require("./lib/usageEvents");
@@ -68,6 +68,8 @@ const { bucketCount, countDistinct, topByCount, computeEventTypeStats } = requir
 const { parsePagination, buildPageResult } = require("./lib/pagination");
 const { runWeeklyReportJob } = require("./lib/weeklyReport");
 const { sendWeeklyReportEmail } = require("./lib/resend");
+const { activeProvider: activeJobProvider, isJobProviderConfigured } = require("./lib/jobProviders");
+const { computeJobMatch } = require("./lib/jobMatching");
 const crypto = require("crypto");
 
 const app = express();
@@ -217,6 +219,17 @@ const publicProfileLimiter = createRateLimiter({
   max: 120,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "public-profile",
+});
+
+// GET /api/jobs/search and GET /api/jobs/recommendations (Phase 7 Task 8) —
+// no Groq call (not aiLimiter's concern) and no per-user quota; a couple of
+// straightforward reads (or, for search, a no-op provider call today).
+// Generous enough for a search/filter UI a user might type into repeatedly.
+const jobsLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "jobs",
 });
 
 // Checkout/portal session creation each make a real Stripe API call; a
@@ -1574,6 +1587,237 @@ app.post("/api/track", trackLimiter, optionalAuth, async (req, res) => {
   });
 
   return res.json({ ok: true });
+});
+
+// --- Job Discovery (Phase 7 Task 8) ---
+//
+// This app has no compliant job-listing data provider configured today (see
+// server/lib/jobProviders/ — architecture only, no scraping, no fabricated
+// postings). GET /api/jobs/search always calls whatever provider JOB_PROVIDER
+// selects (server/lib/jobProviders/index.js); with the shipped default
+// (NullJobProvider) that's an empty, `providerConfigured: false` result —
+// the frontend renders that as "not connected yet", never as "no results
+// matched". GET /api/jobs/recommendations computes real match scores (via
+// server/lib/jobMatching.js, reusing server/lib/scoring.js) against whatever
+// rows already exist in the shared `jobs` table (009_jobs.sql) — honestly
+// empty today, ready the moment real rows exist.
+//
+// saved_jobs/dismissed_jobs (020_job_discovery.sql) are plain per-user
+// RLS-protected tables — every WRITE to them (save, unsave, dismiss, undo
+// dismiss) is a direct Supabase client call from the frontend, the same
+// pattern this app already uses for `contacts` (src/features/contacts/
+// hooks/useContacts.ts) and `roles`; no backend route exists for any of
+// that (also required by this server's CORS config, methods restricted to
+// GET/POST only, above — there's no DELETE route to add here even if we
+// wanted one). The one exception is GET /api/jobs/saved below: rendering a
+// saved job's company/title/etc. needs a join against `jobs`, and `jobs`
+// has zero RLS policies by design (009_jobs.sql — deny-all for anon/
+// authenticated), so that join is only possible server-side.
+
+function parseJobSearchQuery(query) {
+  const q = query || {};
+  const params = {};
+  if (typeof q.keywords === "string" && q.keywords.trim()) params.keywords = q.keywords.trim().slice(0, 200);
+  if (typeof q.location === "string" && q.location.trim()) params.location = q.location.trim().slice(0, 200);
+  if (typeof q.remoteType === "string" && q.remoteType.trim()) params.remoteType = q.remoteType.trim();
+  if (typeof q.sponsorship === "string" && q.sponsorship.trim()) params.sponsorship = q.sponsorship.trim();
+  if (typeof q.experienceLevel === "string" && q.experienceLevel.trim()) params.experienceLevel = q.experienceLevel.trim();
+  if (typeof q.company === "string" && q.company.trim()) params.company = q.company.trim().slice(0, 200);
+  if (typeof q.jobType === "string" && q.jobType.trim()) params.jobType = q.jobType.trim();
+
+  const salaryMin = parseFloat(q.salaryMin);
+  if (Number.isFinite(salaryMin) && salaryMin >= 0) params.salaryMin = salaryMin;
+  const salaryMax = parseFloat(q.salaryMax);
+  if (Number.isFinite(salaryMax) && salaryMax >= 0) params.salaryMax = salaryMax;
+
+  if (typeof q.skills === "string" && q.skills.trim()) {
+    params.skills = q.skills
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 20);
+  }
+
+  const { page, pageSize } = parsePagination(q, { defaultPageSize: 20, maxPageSize: 50 });
+  params.page = page;
+  params.pageSize = pageSize;
+  return params;
+}
+
+app.get("/api/jobs/search", jobsLimiter, optionalAuth, async (req, res) => {
+  try {
+    const params = parseJobSearchQuery(req.query);
+    const result = await activeJobProvider.search(params);
+    return res.json(result);
+  } catch (err) {
+    // search() is contractually never supposed to throw (see
+    // server/lib/jobProviders/types.js), but this route still fails closed
+    // to an honest "not connected" response rather than a 500 if a future
+    // real provider implementation slips up.
+    console.error("[jobs/search] provider threw unexpectedly:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return res.json({ jobs: [], totalCount: 0, page: 1, pageSize: 20, providerConfigured: isJobProviderConfigured });
+  }
+});
+
+/** Row -> camelCase MatchJob shape jobMatching.js's computeJobMatch expects. */
+function jobRowToMatchJob(row) {
+  return {
+    title: row.title,
+    description: row.description ?? undefined,
+    location: row.location ?? undefined,
+    remoteType: row.remote_type ?? undefined,
+    sponsorship: row.sponsorship ?? undefined,
+    salaryMin: row.salary_min ?? undefined,
+    salaryMax: row.salary_max ?? undefined,
+    experienceLevel: row.experience_level ?? undefined,
+  };
+}
+
+app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!isSupabaseConfigured || !supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Database is not configured on the server");
+  }
+
+  try {
+    const userId = req.user.id;
+
+    const [{ data: profileRow, error: profileError }, { data: resumeRow, error: resumeError }, { data: dismissedRows, error: dismissedError }] =
+      await Promise.all([
+        supabaseAdmin
+          .from("profiles")
+          .select("target_role, work_authorization, requires_sponsorship, preferred_locations, remote_preference")
+          .eq("id", userId)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("resumes")
+          .select("extracted_text")
+          .eq("user_id", userId)
+          .is("deleted_at", null)
+          .order("is_default", { ascending: false })
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin.from("dismissed_jobs").select("job_id").eq("user_id", userId),
+      ]);
+
+    if (profileError) throw profileError;
+    if (resumeError) throw resumeError;
+    if (dismissedError) throw dismissedError;
+
+    const resumeSkills = resumeRow?.extracted_text ? extractSkills(resumeRow.extracted_text) : [];
+    const profile = {
+      skills: resumeSkills,
+      targetRole: profileRow?.target_role || undefined,
+      workAuthorization: profileRow?.work_authorization || undefined,
+      requiresSponsorship: profileRow?.requires_sponsorship ?? undefined,
+      preferredLocations: profileRow?.preferred_locations || undefined,
+      remotePreference: profileRow?.remote_preference || undefined,
+    };
+
+    const dismissedJobIds = new Set((dismissedRows || []).map((r) => r.job_id));
+
+    const { page, pageSize } = parsePagination(req.query, { defaultPageSize: 20, maxPageSize: 50 });
+
+    // `jobs` is shared reference data with zero RLS policies (009_jobs.sql)
+    // — reading it via the service-role client is the only way any server
+    // route ever reads it, same as every other admin-client read in this
+    // file. Honestly empty today (no provider has ever written a row here);
+    // this query and everything below it is correct against zero rows.
+    const { data: jobRows, error: jobsError } = await supabaseAdmin
+      .from("jobs")
+      .select(
+        "id, company, title, description, url, source, location, remote_type, employment_type, salary_min, salary_max, salary_currency, sponsorship, experience_level, posted_at, deadline",
+      )
+      .order("posted_at", { ascending: false, nullsFirst: false });
+    if (jobsError) throw jobsError;
+
+    const candidates = (jobRows || []).filter((row) => !dismissedJobIds.has(row.id));
+
+    const scored = candidates.map((row) => {
+      const match = computeJobMatch(profile, jobRowToMatchJob(row));
+      return { ...row, match };
+    });
+
+    scored.sort((a, b) => {
+      const aScore = a.match.overallMatchScore ?? -1;
+      const bScore = b.match.overallMatchScore ?? -1;
+      return bScore - aScore;
+    });
+
+    const total = scored.length;
+    const offset = (page - 1) * pageSize;
+    const items = scored.slice(offset, offset + pageSize);
+
+    return res.json({
+      ...buildPageResult({ page, pageSize, total, items }),
+      hasResumeOnFile: Boolean(resumeRow?.extracted_text),
+    });
+  } catch (err) {
+    console.error("jobs/recommendations failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to compute job recommendations");
+  }
+});
+
+// GET /api/jobs/saved — the one read that genuinely can't be a plain
+// direct-Supabase call from the frontend (unlike save/unsave/dismiss below,
+// which are). `saved_jobs` only stores a `job_id` FK; showing a saved job's
+// company/title/etc. means joining against `jobs`, and `jobs` is enabled
+// with RLS and deliberately ZERO policies (009_jobs.sql) — a `select`
+// there always returns nothing for the anon/authenticated Postgres roles,
+// embed or not, by design (that migration's own comment: "When a future
+// feature needs client access to this table, add a scoped policy here" —
+// this route, not a new client-facing policy, is that access path, so
+// `jobs` stays exactly as locked-down as the last audit left it). This
+// route only ever reads rows the requesting user already owns a
+// `saved_jobs` row for, via the service-role client.
+app.get("/api/jobs/saved", jobsLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!isSupabaseConfigured || !supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Database is not configured on the server");
+  }
+  try {
+    const { data: savedRows, error: savedError } = await supabaseAdmin
+      .from("saved_jobs")
+      .select("job_id, created_at")
+      .eq("user_id", req.user.id)
+      .order("created_at", { ascending: false });
+    if (savedError) throw savedError;
+
+    const jobIds = (savedRows || []).map((r) => r.job_id);
+    if (jobIds.length === 0) {
+      return res.json({ items: [] });
+    }
+
+    const { data: jobRows, error: jobsError } = await supabaseAdmin
+      .from("jobs")
+      .select(
+        "id, company, title, description, url, source, location, remote_type, employment_type, salary_min, salary_max, salary_currency, sponsorship, experience_level, posted_at, deadline",
+      )
+      .in("id", jobIds);
+    if (jobsError) throw jobsError;
+
+    const jobById = new Map((jobRows || []).map((row) => [row.id, row]));
+    const items = (savedRows || [])
+      .map((saved) => {
+        const job = jobById.get(saved.job_id);
+        if (!job) return null; // job row was deleted since being saved
+        return { ...job, savedAt: saved.created_at };
+      })
+      .filter(Boolean);
+
+    return res.json({ items });
+  } catch (err) {
+    console.error("jobs/saved failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load saved jobs");
+  }
 });
 
 // --- Public shareable profiles (Phase 7 Task 5) ---
