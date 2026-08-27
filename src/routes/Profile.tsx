@@ -14,6 +14,7 @@ import { supabase } from "../lib/supabaseClient";
 import { API_BASE } from "../config/api";
 import { getApiErrorMessage } from "../lib/apiError";
 import { usePublicProfile } from "../features/publicProfile/hooks/usePublicProfile";
+import { GithubPanel } from "../features/integrations/components/GithubPanel";
 
 /**
  * Reads one table for the "Export data" panel, RLS-scoped like every other
@@ -81,6 +82,34 @@ export function Profile() {
     // Only ever run this in response to the URL actually carrying the
     // param — re-running on every searchParams identity change would loop
     // (setSearchParams itself changes searchParams).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // GET /api/github/callback (server/index.js) redirects back here with
+  // ?github=connected|denied|invalid_state|not_configured|error once the
+  // OAuth flow (or an attempted one) completes — surface it once, then
+  // strip the param, same pattern as the Stripe checkout redirect above.
+  useEffect(() => {
+    const githubStatus = searchParams.get("github");
+    if (!githubStatus) return;
+    if (githubStatus === "connected") {
+      toast.success({ title: "GitHub connected" });
+    } else if (githubStatus === "denied") {
+      toast.info({ title: "GitHub connection cancelled" });
+    } else if (githubStatus === "not_configured") {
+      toast.error({
+        title: "GitHub isn't configured yet",
+        description: "This Ascend deployment hasn't set up a GitHub OAuth App yet.",
+      });
+    } else if (githubStatus === "invalid_state" || githubStatus === "error") {
+      toast.error({
+        title: "Couldn't connect GitHub",
+        description: "Something went wrong completing the connection — please try again.",
+      });
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete("github");
+    setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -240,6 +269,13 @@ export function Profile() {
           subtitle="A public page showing your current skills, resume strength, and alignment history — always live, never a stale snapshot."
         >
           <PublicProfilePanel publicProfile={publicProfile} />
+        </Panel>
+
+        <Panel
+          title="GitHub"
+          subtitle="Connect your GitHub account to link real projects to your skill gaps."
+        >
+          <GithubPanel />
         </Panel>
 
         <Panel

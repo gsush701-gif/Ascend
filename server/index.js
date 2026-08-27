@@ -70,6 +70,9 @@ const { runWeeklyReportJob } = require("./lib/weeklyReport");
 const { sendWeeklyReportEmail } = require("./lib/resend");
 const { activeProvider: activeJobProvider, isJobProviderConfigured } = require("./lib/jobProviders");
 const { computeJobMatch } = require("./lib/jobMatching");
+const github = require("./lib/github");
+const { encryptToken, decryptToken } = require("./lib/tokenCrypto");
+const { computeProjectMatch } = require("./lib/projectMatching");
 const crypto = require("crypto");
 
 const app = express();
@@ -230,6 +233,19 @@ const jobsLimiter = createRateLimiter({
   max: 120,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "jobs",
+});
+
+// GitHub integration routes (Phase 7 Task 9) — no Groq call, cheap reads/
+// writes plus (when configured) a handful of GitHub API calls per sync.
+// Same generous-but-bounded shape as jobsLimiter. The OAuth callback
+// (GET /api/github/callback) is a browser redirect rather than a frontend
+// fetch, but still shares this limiter as a second layer against someone
+// hammering it with garbage state values.
+const githubLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "github",
 });
 
 // Checkout/portal session creation each make a real Stripe API call; a
@@ -1817,6 +1833,247 @@ app.get("/api/jobs/saved", jobsLimiter, optionalAuth, async (req, res) => {
     console.error("jobs/saved failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load saved jobs");
+  }
+});
+
+// --- GitHub integration (Phase 7 Task 9) ---
+//
+// No GitHub OAuth App is registered for this project — GITHUB_CLIENT_ID/
+// GITHUB_CLIENT_SECRET/GITHUB_REDIRECT_URI don't exist anywhere, and
+// TOKEN_ENCRYPTION_KEY (server/lib/tokenCrypto.js) may not be set either.
+// Every route below checks `github.isGithubConfigured` and returns a clear,
+// honest "not configured" response rather than attempting a broken OAuth
+// redirect. See server/.env.example for the exact setup steps once a real
+// GitHub OAuth App exists.
+
+// GET /api/github/connect — starts the OAuth flow. Returns
+// { configured: false } (200, not an error) when the integration isn't set
+// up, so the frontend can render a calm "not connected yet" state instead
+// of treating this as a failure. `includePrivate=true` is only ever set by
+// an explicit checkbox in the UI (never a silent default) and controls
+// whether the requested GitHub scope includes private repos at all.
+app.get("/api/github/connect", githubLimiter, optionalAuth, (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!github.isGithubConfigured) {
+    return res.json({ configured: false });
+  }
+  try {
+    const includePrivate = req.query.includePrivate === "true";
+    const state = github.generateState(req.user.id);
+    const authorizeUrl = github.buildAuthorizeUrl({
+      state,
+      redirectUri: github.getRedirectUri(),
+      includePrivate,
+    });
+    return res.json({ configured: true, authorizeUrl });
+  } catch (err) {
+    console.error("github/connect failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to start the GitHub connection");
+  }
+});
+
+// GET /api/github/callback — GitHub redirects the user's browser here after
+// they approve (or deny) access. No Authorization header is available (it's
+// a plain browser navigation), so the CSRF `state` token is the only way to
+// know which user initiated this and that it's genuinely GitHub completing
+// a flow this server started (see server/lib/github.js's header comment).
+// Always redirects back to the frontend rather than rendering raw JSON —
+// there's no API caller on the other end of a browser redirect.
+app.get("/api/github/callback", githubLimiter, async (req, res) => {
+  const frontendUrl = billing.getFrontendUrl();
+
+  if (!github.isGithubConfigured) {
+    return res.redirect(`${frontendUrl}/profile?github=not_configured`);
+  }
+  if (req.query.error) {
+    // The user denied access, or GitHub itself errored — not a bug, just an
+    // honest "connection wasn't completed" outcome.
+    return res.redirect(`${frontendUrl}/profile?github=denied`);
+  }
+
+  const code = typeof req.query.code === "string" ? req.query.code : null;
+  const stateParam = typeof req.query.state === "string" ? req.query.state : null;
+  const { valid, userId } = github.verifyState(stateParam);
+  if (!valid || !code) {
+    return res.redirect(`${frontendUrl}/profile?github=invalid_state`);
+  }
+  if (!isSupabaseConfigured || !supabaseAdmin) {
+    return res.redirect(`${frontendUrl}/profile?github=error`);
+  }
+
+  try {
+    const { accessToken, scope } = await github.exchangeCodeForToken(code, github.getRedirectUri());
+    const githubUser = await github.fetchGithubUser(accessToken);
+    const encrypted = encryptToken(accessToken);
+
+    const { error: upsertError } = await supabaseAdmin.from("github_connections").upsert(
+      {
+        user_id: userId,
+        github_username: githubUser.login,
+        github_user_id: githubUser.id,
+        access_token_encrypted: encrypted,
+        scopes: scope,
+        connected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+    if (upsertError) throw upsertError;
+
+    return res.redirect(`${frontendUrl}/profile?github=connected`);
+  } catch (err) {
+    console.error("github/callback failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return res.redirect(`${frontendUrl}/profile?github=error`);
+  }
+});
+
+// POST /api/github/disconnect — removes the user's connection. Also removes
+// their synced `github_repositories` rows: once disconnected, those rows
+// can never be refreshed or re-verified against the real GitHub account
+// (there's no token left to do so), and keeping stale repo metadata around
+// indefinitely after a deliberate disconnect is more likely to mislead
+// (a "connected" looking repo list with no live connection backing it) than
+// to serve as a useful historical record — a clean disconnect removes both.
+app.post("/api/github/disconnect", githubLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!isSupabaseConfigured || !supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Database is not configured on the server");
+  }
+  try {
+    const { error: repoError } = await supabaseAdmin
+      .from("github_repositories")
+      .delete()
+      .eq("user_id", req.user.id);
+    if (repoError) throw repoError;
+
+    const { error: connError } = await supabaseAdmin
+      .from("github_connections")
+      .delete()
+      .eq("user_id", req.user.id);
+    if (connError) throw connError;
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("github/disconnect failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to disconnect GitHub");
+  }
+});
+
+// GET /api/github/repos — syncs the caller's own repos from GitHub (using
+// their decrypted token) and upserts them into `github_repositories`, then
+// returns the current list. Ownership is implicit and absolute: this route
+// only ever looks up `github_connections`/`github_repositories` rows by
+// `req.user.id` from the verified JWT — there is no id parameter a caller
+// could substitute to reach another user's connection.
+app.get("/api/github/repos", githubLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (!isSupabaseConfigured || !supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Database is not configured on the server");
+  }
+  try {
+    const { data: connection, error: connError } = await supabaseAdmin
+      .from("github_connections")
+      .select("access_token_encrypted")
+      .eq("user_id", req.user.id)
+      .maybeSingle();
+    if (connError) throw connError;
+    if (!connection) {
+      return sendError(req, res, 404, ErrorCodes.NOT_FOUND, "GitHub isn't connected yet");
+    }
+
+    const accessToken = decryptToken(connection.access_token_encrypted);
+    const repos = await github.fetchGithubRepos(accessToken);
+
+    if (repos.length > 0) {
+      const now = new Date().toISOString();
+      const { error: upsertError } = await supabaseAdmin.from("github_repositories").upsert(
+        repos.map((r) => ({
+          user_id: req.user.id,
+          github_repo_id: r.githubRepoId,
+          name: r.name,
+          full_name: r.fullName,
+          description: r.description,
+          languages: r.languages,
+          topics: r.topics,
+          is_private: r.isPrivate,
+          pushed_at: r.pushedAt,
+          imported_at: now,
+        })),
+        { onConflict: "user_id,github_repo_id", ignoreDuplicates: false },
+      );
+      if (upsertError) throw upsertError;
+    }
+
+    const { data: rows, error: rowsError } = await supabaseAdmin
+      .from("github_repositories")
+      .select("id, github_repo_id, name, full_name, description, languages, topics, is_private, is_selected, pushed_at, imported_at")
+      .eq("user_id", req.user.id)
+      .order("pushed_at", { ascending: false, nullsFirst: false });
+    if (rowsError) throw rowsError;
+
+    return res.json({ repos: rows || [] });
+  } catch (err) {
+    console.error("github/repos failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    if (err && err.name === "TokenDecryptionError") {
+      return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Could not read the stored GitHub connection — try reconnecting.");
+    }
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to sync GitHub repositories");
+  }
+});
+
+// POST /api/github/project-match — the skill-gap-to-repo matching engine
+// (server/lib/projectMatching.js). Deliberately a backend route rather than
+// a client-side call: the matching function itself is a pure, dependency-
+// free module (no reason it couldn't run in the browser), but it's plain
+// CommonJS under server/lib/ rather than part of the Vite frontend build, so
+// this route is just the thinnest possible I/O shim around it — read the
+// caller's own selected repos, call the pure function, return the result.
+app.post("/api/github/project-match", githubLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  if (req.body?.missingRequiredSkills !== undefined && !Array.isArray(req.body.missingRequiredSkills)) {
+    return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'missingRequiredSkills' must be an array of strings");
+  }
+  const missingRequiredSkills = (req.body?.missingRequiredSkills || []).filter(
+    (s) => typeof s === "string" && s.trim().length > 0,
+  );
+  if (!isSupabaseConfigured || !supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Database is not configured on the server");
+  }
+  try {
+    const { data: rows, error } = await supabaseAdmin
+      .from("github_repositories")
+      .select("id, name, description, languages, topics, pushed_at")
+      .eq("user_id", req.user.id)
+      .eq("is_selected", true);
+    if (error) throw error;
+
+    const repos = (rows || []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      languages: r.languages,
+      topics: r.topics,
+      pushedAt: r.pushed_at,
+    }));
+
+    const result = computeProjectMatch(missingRequiredSkills, repos);
+    return res.json(result);
+  } catch (err) {
+    console.error("github/project-match failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to match GitHub projects to skill gaps");
   }
 });
 

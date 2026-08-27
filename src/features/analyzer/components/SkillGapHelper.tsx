@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { GraduationCap, Lightbulb, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { GraduationCap, Github, Lightbulb, Loader2 } from "lucide-react";
 import { API_BASE } from "../../../config/api";
 import { useAuth } from "../../../context/AuthContext";
 import { getApiErrorMessage } from "../../../lib/apiError";
 import { cn } from "../../../lib/cn";
 import { cardAlt } from "../../../lib/ui";
+import type { ProjectMatchResult } from "../../../types/github";
 
 type ProjectIdea = { title: string; description: string; skillsCovered: string[] };
 
@@ -33,6 +34,44 @@ export function SkillGapHelper({ missingRequiredSkills, resumeText, context }: S
   const [project, setProject] = useState<ProjectIdea | null>(null);
   const [projectLoading, setProjectLoading] = useState(false);
   const [projectError, setProjectError] = useState<string | null>(null);
+
+  // "Your GitHub project already covers this" (Phase 7 Task 9) — only
+  // meaningful for a logged-in user who has connected GitHub and selected
+  // at least one repo; server/lib/projectMatching.js does the actual
+  // matching (reusing extractSkills/classifySkillsImportance), this is
+  // just the thin fetch. Silently shows nothing on any failure (no
+  // connection, no selected repos, network error) — this is a bonus
+  // enrichment on top of the AI project suggestion below, never a blocking
+  // requirement for that suggestion to work.
+  const [githubMatch, setGithubMatch] = useState<ProjectMatchResult | null>(null);
+
+  useEffect(() => {
+    if (!session?.access_token || missingRequiredSkills.length === 0) {
+      setGithubMatch(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${API_BASE}/api/github/project-match`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ missingRequiredSkills }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: ProjectMatchResult | null) => {
+        if (!cancelled) setGithubMatch(data);
+      })
+      .catch(() => {
+        if (!cancelled) setGithubMatch(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // missingRequiredSkills is a derived array (new identity each render in
+    // the caller) — depending on its stable, cheap-to-recompute contents
+    // via a join avoids an infinite fetch loop while still refetching if
+    // the actual skill list changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.access_token, missingRequiredSkills.join("|")]);
 
   if (missingRequiredSkills.length === 0) return null;
 
@@ -72,11 +111,21 @@ export function SkillGapHelper({ missingRequiredSkills, resumeText, context }: S
   async function generateProject() {
     setProjectLoading(true);
     setProjectError(null);
+    // If GitHub matching already found real existing repos covering some
+    // gaps, steer the AI project suggestion at only what's genuinely still
+    // uncovered rather than re-suggesting a project for a skill the user
+    // can already point to on GitHub. Falls back to the full missing-skills
+    // list when there's no GitHub match data yet (not connected, no repos
+    // selected, or everything happens to be covered already — in which
+    // case there'd be nothing left to ask for, so the full list is the
+    // safer fallback).
+    const targetSkills =
+      githubMatch && githubMatch.uncoveredSkills.length > 0 ? githubMatch.uncoveredSkills : missingRequiredSkills;
     try {
       const res = await fetch(`${API_BASE}/api/recommend-project`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({ missingSkills: missingRequiredSkills, resumeText }),
+        body: JSON.stringify({ missingSkills: targetSkills, resumeText }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(getApiErrorMessage(data, "Failed to suggest a project"));
@@ -133,6 +182,20 @@ export function SkillGapHelper({ missingRequiredSkills, resumeText, context }: S
           </li>
         ))}
       </ul>
+
+      {githubMatch && githubMatch.recommendedRepo && (
+        <div className="mt-3 animate-fade-in rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+          <div className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-emerald-700">
+            <Github className="h-3.5 w-3.5" />
+            Already on your GitHub
+          </div>
+          <p className="text-sm text-slate-700">
+            Your project <span className="font-semibold text-slate-900">{githubMatch.recommendedRepo.repoName}</span>{" "}
+            already demonstrates {githubMatch.recommendedRepo.matchedSkills.join(", ")} — worth citing on your
+            resume for this role instead of (or alongside) a new project.
+          </p>
+        </div>
+      )}
 
       <div className="mt-3 border-t border-slate-200 pt-3">
         {!project ? (
