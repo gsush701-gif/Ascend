@@ -43,7 +43,7 @@ Ascend helps high-performing students manage every internship role from analysis
    Fill in `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (root `.env.local`) and `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `GROQ_API_KEY` (`server/.env`) from your Supabase and Groq dashboards.
 
    Resume Lab and Analyzer's AI features degrade gracefully (fall back to a deterministic/offline result) if `GROQ_API_KEY` isn't set — the app still runs without it.
-
+   
 ## Development
 
 ```bash
