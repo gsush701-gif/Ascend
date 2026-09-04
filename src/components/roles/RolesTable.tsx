@@ -23,20 +23,24 @@ const CONVERSION_PCT: Record<TrackerStatus, number> = {
   Withdrawn: 0,
 };
 
-/** Muted pill styles for status dropdown - matches StatusPill */
+/**
+ * Muted pill styles for status dropdown. Border/background keep a per-status
+ * tint; the text color is a single readable slate for every status so the
+ * label stays legible on the light table background.
+ */
 const STATUS_SELECT_STYLES: Record<TrackerStatus, string> = {
-  Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-600",
-  Analyzed: "border-indigo-500/40 bg-indigo-500/20 text-indigo-300",
-  "Ready to Apply": "border-cyan-400/40 bg-cyan-400/20 text-cyan-300",
-  Applied: "border-slate-500/40 bg-slate-500/20 text-slate-300",
-  "Recruiter Contact": "border-violet-400/40 bg-violet-400/20 text-violet-300",
-  Interview: "border-slate-400/40 bg-slate-400/20 text-slate-300",
-  "Technical Interview": "border-violet-500/40 bg-violet-500/20 text-violet-300",
-  "Final Interview": "border-purple-500/40 bg-purple-500/20 text-purple-300",
-  Offer: "border-cyan-500/50 bg-cyan-500/20 text-cyan-700",
-  Accepted: "border-emerald-500/50 bg-emerald-500/20 text-emerald-700",
-  Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-400",
-  Withdrawn: "border-slate-600/30 bg-slate-600/15 text-slate-400",
+  Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-700",
+  Analyzed: "border-indigo-500/40 bg-indigo-500/20 text-slate-700",
+  "Ready to Apply": "border-cyan-400/40 bg-cyan-400/20 text-slate-700",
+  Applied: "border-slate-500/40 bg-slate-500/20 text-slate-700",
+  "Recruiter Contact": "border-violet-400/40 bg-violet-400/20 text-slate-700",
+  Interview: "border-slate-400/40 bg-slate-400/20 text-slate-700",
+  "Technical Interview": "border-violet-500/40 bg-violet-500/20 text-slate-700",
+  "Final Interview": "border-purple-500/40 bg-purple-500/20 text-slate-700",
+  Offer: "border-cyan-500/50 bg-cyan-500/20 text-slate-700",
+  Accepted: "border-emerald-500/50 bg-emerald-500/20 text-slate-700",
+  Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-700",
+  Withdrawn: "border-slate-600/30 bg-slate-600/15 text-slate-700",
 };
 
 export type SortKey =

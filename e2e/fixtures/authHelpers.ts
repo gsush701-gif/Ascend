@@ -50,8 +50,10 @@ export async function loginAsTestUser(page: Page) {
 }
 
 export async function logout(page: Page) {
-  // TopNav renders a plain "Log out" button (desktop) that calls
-  // AuthContext.signOut() directly — see src/components/layout/TopNav.tsx.
+  // TopNav keeps "Log out" inside the top-right menu (it calls
+  // AuthContext.signOut() directly) — open the menu first, then click it.
+  // See src/components/layout/TopNav.tsx.
+  await page.getByRole("button", { name: "Open menu" }).click();
   await page.getByRole("button", { name: "Log out" }).first().click();
   await page.waitForURL((url) => url.pathname === "/" || url.pathname === "/login", { timeout: 15_000 });
 }

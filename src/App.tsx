@@ -4,6 +4,7 @@ import { Landing } from "./routes/Landing";
 import { PublicProfile } from "./routes/PublicProfile";
 import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
+import { Grok } from "./routes/Grok";
 import { Roles } from "./routes/Roles";
 import { Contacts } from "./routes/Contacts";
 import { Goals } from "./routes/Goals";
@@ -54,6 +55,7 @@ export default function App() {
       <Route path="/roles/:id/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
       <Route path="/roles/:id/voice-interview" element={<ProtectedRoute><VoiceInterview /></ProtectedRoute>} />
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
+      <Route path="/grok" element={<ProtectedRoute><Grok /></ProtectedRoute>} />
       <Route path="/tracker" element={<Navigate to="/roles" replace />} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       {/* Requires login (ProtectedRoute) but the real admin gate is entirely

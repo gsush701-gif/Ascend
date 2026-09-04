@@ -4,6 +4,7 @@ import { JobFilters } from "../components/jobs/JobFilters";
 import { JobCard } from "../components/jobs/JobCard";
 import { ProviderNotConfiguredBanner } from "../components/jobs/ProviderNotConfiguredBanner";
 import { EmptyState } from "../components/ui/EmptyState";
+import { CareerPreferencesForm } from "../features/preferences/components/CareerPreferencesForm";
 import { useJobSearch } from "../features/jobs/hooks/useJobSearch";
 import { useJobRecommendations } from "../features/jobs/hooks/useJobRecommendations";
 import { useSavedJobs } from "../features/jobs/hooks/useSavedJobs";
@@ -60,6 +61,7 @@ export function Jobs() {
             </button>
           ))}
         </div>
+        
 
         {tab === "search" && (
           <div className="space-y-4">
@@ -99,6 +101,18 @@ export function Jobs() {
 
         {tab === "recommendations" && (
           <div className="space-y-3">
+            <details className={`${card} group`}>
+              <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+                Career preferences
+                <span className="ml-2 font-normal text-slate-500">
+                  — work authorization, sponsorship, and location, used to score these recommendations
+                </span>
+              </summary>
+              <div className="mt-4">
+                <CareerPreferencesForm />
+              </div>
+            </details>
+
             {recommendations.error && (
               <div className={`${card} border-rose-200 bg-rose-50 text-sm text-rose-700`}>{recommendations.error}</div>
             )}
