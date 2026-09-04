@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
+  ArrowRight,
   Send,
   TrendingUp,
   CalendarCheck,
@@ -186,6 +187,8 @@ export function Dashboard() {
                 onClick: () => setWhyTrackingOpen(true),
               }}
             />
+
+            <GrokEntryCard onOpen={() => navigate("/grok")} />
           </div>
         ) : (
           <div className="animate-fade-in space-y-6">
@@ -302,6 +305,8 @@ export function Dashboard() {
               />
               <KpiCard label="Interviews" value={getInterviewCount(items)} icon={CalendarCheck} accent="emerald" />
             </div>
+
+            <GrokEntryCard onOpen={() => navigate("/grok")} />
 
             <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
               <h2 className="text-sm font-semibold text-slate-900">
@@ -730,6 +735,35 @@ function RecentActivityList({
         </button>
       ))}
     </div>
+  );
+}
+
+/** Dashboard entry point for the AI career advisor (Grok AI). Navigates to
+ * the standalone /grok page — the same feature also lives on every tracked
+ * role. Presentation only; no data or request logic here. */
+function GrokEntryCard({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group flex w-full items-center gap-4 rounded-xl border border-slate-200 bg-dash-card p-6 text-left transition hover:border-cyan-500/40 hover:shadow-md"
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-600">
+        <Sparkles className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-slate-900">Ask Grok AI</span>
+          <span className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-cyan-700">
+            AI advisor
+          </span>
+        </span>
+        <span className="mt-0.5 block text-xs text-slate-500">
+          Direct, honest answers about your fit, applications, and what to do next — grounded in your real data.
+        </span>
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-cyan-600" />
+    </button>
   );
 }
 
