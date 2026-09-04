@@ -1,5 +1,6 @@
 import { BackgroundFX } from "./BackgroundFX";
 import { TopNav } from "./TopNav";
+import { GrokLauncher } from "./GrokLauncher";
 import { pageContainer } from "../../lib/ui";
 
 type AppShellProps = {
@@ -14,6 +15,7 @@ export function AppShell({ children }: AppShellProps) {
       <main className={`relative pb-16 pt-16 ${pageContainer}`}>
         {children}
       </main>
+      <GrokLauncher />
     </div>
   );
 }

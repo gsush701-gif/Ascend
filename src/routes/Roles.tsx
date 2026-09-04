@@ -264,12 +264,7 @@ export function Roles() {
         recentRoles={getRecentRoles(items)}
         existingItems={items}
       />
-      <div
-        className={cn(
-          "space-y-6 transition-[padding] duration-200 ease-out",
-          selectedItem && "pr-[400px]"
-        )}
-      >
+      <div className="space-y-6">
         {!loading && (
           <Toolbar
             searchQuery={searchInput}
@@ -287,6 +282,15 @@ export function Roles() {
             isEmpty={items.length === 0}
           />
         )}
+        {/* Only the table area is inset for the fixed detail drawer (lg+ only,
+            where there's room). The Toolbar above keeps full width so its
+            title/search/actions never reflow when a role is opened. */}
+        <div
+          className={cn(
+            "transition-[padding] duration-200 ease-out",
+            selectedItem && "lg:pr-[400px]"
+          )}
+        >
         {loading ? (
           <RolesTableSkeleton />
         ) : items.length === 0 && !showExample ? (
@@ -370,6 +374,7 @@ export function Roles() {
           updateDeadline={updateDeadline}
         />
         )}
+        </div>
       </div>
     </AppShell>
   );
