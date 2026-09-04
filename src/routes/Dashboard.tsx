@@ -25,16 +25,13 @@ import {
   getResponseRate,
   getRejectionRate,
   getAverageAlignment,
-  getAlignmentTrend,
-  getExpectedInterviewsRange,
   getUpcomingDeadlines,
   getInterviewCount,
-  getTopInsight,
   getFitScoreInsight,
   getPerformanceSentence,
-  getApplicationsByWeek,
   getApplicationsThisWeek,
   getApplicationsLastWeek,
+  getAlignmentTrend,
   getAlignmentHistoryFromTracker,
   getReadinessScores,
   getFocusAction,
@@ -50,7 +47,6 @@ import { TRACKER_STATUS_ORDER } from "../types/tracker";
 import { alignmentToPreparedness } from "../lib/preparedness";
 import { useProfile } from "../lib/profile";
 import { KpiCard } from "../components/dashboard/KpiCard";
-import { OutlookCard } from "../components/dashboard/OutlookCard";
 import { AlignmentChart } from "../components/ui/AlignmentChart";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -101,12 +97,10 @@ export function Dashboard() {
   const interviewRate = getResponseRate(items);
   const funnel = getFunnelCounts(items);
   const avgAlignment = getAverageAlignment(items);
-  const { low: expectedLow, high: expectedHigh } = getExpectedInterviewsRange(
-    totalApplications,
-    interviewRate
-  );
-  const gapTo70 =
-    avgAlignment != null ? Math.max(0, 70 - avgAlignment) : null;
+  // const { low: expectedLow, high: expectedHigh } = getExpectedInterviewsRange(
+  //   totalApplications,
+  //   interviewRate
+  // );
 
   const hasStatusUpdate = items.some((i) => i.status !== "Applied");
   const focusAction = getFocusAction(items);
@@ -224,43 +218,6 @@ export function Dashboard() {
           </div>
         </header>
 
-        <OnboardingChecklist
-          rolesCount={items.length}
-          hasStatusUpdate={hasStatusUpdate}
-          resumeLabUsed={isResumeLabUsed()}
-        />
-
-        {/* Top insight banner */}
-        {(() => {
-          const insight = getTopInsight(
-            items,
-            interviewRate,
-            avgAlignment,
-            gapTo70
-          );
-          if (!insight) return null;
-          const isOverdue = insight.includes("overdue");
-          const content = (
-            <>
-              {insight}
-              {isOverdue && " — Review now →"}
-            </>
-          );
-          return isOverdue ? (
-            <button
-              type="button"
-              onClick={() => navigate("/roles")}
-              className="w-full rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-left text-sm text-cyan-700/90 transition hover:bg-cyan-500/10"
-            >
-              {content}
-            </button>
-          ) : (
-            <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-700/90">
-              {content}
-            </div>
-          );
-        })()}
-
         <div className="grid gap-6 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-7">
             <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-dash-card p-6">
@@ -278,11 +235,22 @@ export function Dashboard() {
               <FitScoreHero
                 avgAlignment={avgAlignment}
                 insight={getFitScoreInsight(items)}
+                trend={getAlignmentTrend(items)}
               />
             </section>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <KpiCard label="Apps sent" value={totalApplications} icon={Send} accent="cyan" />
+              <KpiCard
+                label="Apps sent"
+                value={totalApplications}
+                icon={Send}
+                accent="cyan"
+                badge={
+                  getApplicationsThisWeek(items) > 0
+                    ? `+${getApplicationsThisWeek(items)} this wk`
+                    : undefined
+                }
+              />
               <KpiCard
                 label="Interview rate"
                 value={
@@ -307,6 +275,12 @@ export function Dashboard() {
             </div>
 
             <GrokEntryCard onOpen={() => navigate("/grok")} />
+
+            <OnboardingChecklist
+              rolesCount={items.length}
+              hasStatusUpdate={hasStatusUpdate}
+              resumeLabUsed={isResumeLabUsed()}
+            />
 
             <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
               <h2 className="text-sm font-semibold text-slate-900">
@@ -365,32 +339,6 @@ export function Dashboard() {
           </div>
         </div>
 
-        {totalApplications > 0 && (
-          <>
-            <section className="rounded-xl border border-slate-200 bg-dash-card p-5">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-2">
-                Performance insight
-              </div>
-              <PerformanceInsight
-                interviewRate={interviewRate}
-                gapTo70={gapTo70}
-                trend={getAlignmentTrend(items)}
-              />
-            </section>
-            <OutlookCard
-              metrics={{
-                expectedLow,
-                expectedHigh,
-                avgAlignment,
-                responseRate: interviewRate,
-                gapTo70,
-              }}
-              applicationsByWeek={getApplicationsByWeek(items)}
-              showChart
-            />
-          </>
-        )}
-
         </div>
         )}
       </div>
@@ -401,9 +349,11 @@ export function Dashboard() {
 function FitScoreHero({
   avgAlignment,
   insight,
+  trend,
 }: {
   avgAlignment: number | null;
   insight: string | null;
+  trend: "up" | "down" | "stable" | null;
 }) {
   const pct = avgAlignment ?? 0;
   const level =
@@ -425,6 +375,17 @@ function FitScoreHero({
         </span>
         {qualifier != null && (
           <span className="pb-2 text-sm text-slate-500">{qualifier}</span>
+        )}
+        {trend != null && trend !== "stable" && (
+          <span
+            className={`mb-2 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+              trend === "up"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-rose-200 bg-rose-50 text-rose-700"
+            }`}
+          >
+            {trend === "up" ? "↑ Trending up" : "↓ Trending down"}
+          </span>
         )}
       </div>
       {insight ? (
@@ -472,15 +433,13 @@ function UpcomingDeadlinesList({
               {d.role} at {d.company}
             </span>
           </span>
-          <span
-            className={
-              d.isOverdue
-                ? "text-red-600/90 text-xs font-medium"
-                : "text-slate-500"
-            }
-          >
-            {d.daysText}
-          </span>
+          {d.isOverdue ? (
+            <span className="rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
+              Overdue
+            </span>
+          ) : (
+            <span className="text-slate-500">{d.daysText}</span>
+          )}
         </button>
       ))}
     </div>
@@ -599,44 +558,6 @@ function ReadinessBars({ scores }: { scores: ReadinessScores }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function PerformanceInsight({
-  interviewRate,
-  gapTo70,
-  trend,
-}: {
-  interviewRate: number | null;
-  gapTo70: number | null;
-  trend: "up" | "down" | "stable" | null;
-}) {
-  if (interviewRate == null) {
-    return (
-      <p className="text-sm text-slate-600 leading-relaxed">
-        Apply to more roles to start measuring your interview rate and fit-score
-        trend.
-      </p>
-    );
-  }
-
-  const trendText =
-    trend === "up"
-      ? "Your fit score has been trending up — keep targeting roles that match it."
-      : trend === "down"
-        ? "Your fit score has dipped recently — worth revisiting resume alignment for new roles."
-        : trend === "stable"
-          ? "Your fit score has been steady."
-          : null;
-
-  const hasGap = gapTo70 != null && gapTo70 > 10;
-
-  return (
-    <p className="text-sm text-slate-600 leading-relaxed">
-      Your interview rate is{" "}
-      <span className="font-semibold text-slate-900">{interviewRate}%</span>.{" "}
-      {trendText} {hasGap && `Closing the ${gapTo70}% gap to a 70% fit score could help.`}
-    </p>
   );
 }
 

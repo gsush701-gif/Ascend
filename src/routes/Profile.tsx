@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Pencil, X } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-import { Select } from "../components/ui/Select";
 import { Badge } from "../components/ui/Badge";
 import { pageHeader, pageTitle, pageSubtitle, badgePrimary, cardHeader } from "../lib/ui";
 import { toast } from "../components/ui/toast";
@@ -14,39 +14,10 @@ import { useProfile } from "../lib/profile";
 import { supabase } from "../lib/supabaseClient";
 import { API_BASE } from "../config/api";
 import { getApiErrorMessage } from "../lib/apiError";
-import { usePublicProfile } from "../features/publicProfile/hooks/usePublicProfile";
-import { GithubPanel } from "../features/integrations/components/GithubPanel";
+// import { usePublicProfile } from "../features/publicProfile/hooks/usePublicProfile";
+// import { GithubPanel } from "../features/integrations/components/GithubPanel";
 import { MfaSettingsPanel } from "../features/mfa/components/MfaSettingsPanel";
 import { useMfaFactors } from "../features/mfa/hooks/useMfaFactors";
-
-/**
- * Reads one table for the "Export data" panel, RLS-scoped like every other
- * direct Supabase read in this file. Deliberately never throws: several of
- * the tables it reads (job_analyses, contacts, career_goals, notifications,
- * resumes) were only added in migrations 005+ (see supabase/migrations/),
- * which may not be applied yet in every environment — a missing table
- * should degrade to an empty array in the export, not abort the whole
- * download for the other sections that do have data.
- */
-async function fetchExportTable<T = Record<string, unknown>>(
-  table: string,
-  columns: string,
-): Promise<T[]> {
-  try {
-    const { data, error } = await supabase
-      .from(table)
-      .select(columns)
-      .order("created_at", { ascending: false });
-    if (error) {
-      console.warn(`[export] could not read "${table}": ${error.message}`);
-      return [];
-    }
-    return (data as T[] | null) ?? [];
-  } catch (e) {
-    console.warn(`[export] could not read "${table}":`, e);
-    return [];
-  }
-}
 
 export function Profile() {
   const navigate = useNavigate();
@@ -54,7 +25,7 @@ export function Profile() {
   const tracker = useTracker(undefined);
   const items = tracker.tracker;
   const { profile } = useProfile();
-  const publicProfile = usePublicProfile(profile?.fullName);
+  // const publicProfile = usePublicProfile(profile?.fullName);
   const { mfaEnabled, verifiedFactorId } = useMfaFactors();
   // Delete-account flow, gated behind a re-authentication step before the
   // irreversible backend call: 'idle' -> (click) -> 'confirm' -> (click Yes)
@@ -71,6 +42,7 @@ export function Profile() {
   const [reauthError, setReauthError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [billingBusy, setBillingBusy] = useState(false);
+  const [identityEditOpen, setIdentityEditOpen] = useState(false);
   const planInfo = usePlanUsage(session?.user?.id);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -194,53 +166,6 @@ export function Profile() {
     }
   };
 
-  const handleExportData = async () => {
-    try {
-      const [resumeImprovements, resumes, jobAnalyses, contacts, careerGoals, notifications] =
-        await Promise.all([
-          fetchExportTable("resume_improvements", "*"),
-          // Metadata only — deliberately excludes `storage_path` (an internal
-          // Storage bucket key) and `extracted_text` (the full resume body).
-          // A "download all my resume files" affordance is a separate,
-          // future feature; this export stays JSON-only.
-          fetchExportTable(
-            "resumes",
-            "id, name, version, is_default, created_at, updated_at, deleted_at",
-          ),
-          fetchExportTable(
-            "job_analyses",
-            "id, resume_id, role_id, job_description, result, created_at",
-          ),
-          fetchExportTable("contacts", "*"),
-          fetchExportTable("career_goals", "*"),
-          fetchExportTable("notifications", "*"),
-        ]);
-
-      const data = {
-        exportedAt: new Date().toISOString(),
-        roles: tracker.tracker,
-        resumeImprovements,
-        resumes,
-        jobAnalyses,
-        contacts,
-        careerGoals,
-        notifications,
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ascend-export-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success({ title: "Data exported", description: "Your data has been downloaded." });
-    } catch {
-      toast.error({ title: "Export failed", description: "Could not export your data." });
-    }
-  };
-
   const performAccountDeletion = async () => {
     if (!session?.access_token) return;
     setDeleting(true);
@@ -348,50 +273,56 @@ export function Profile() {
               {user?.email && (
                 <p className="mt-0.5 truncate text-sm text-slate-500">{user.email}</p>
               )}
-              {profileChips.length > 0 && (
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  {profileChips.join(" · ")}
-                </p>
-              )}
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {profileChips.length > 0 && (
+                  <p className="truncate text-xs text-slate-500">
+                    {profileChips.join(" · ")}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIdentityEditOpen((open) => !open)}
+                  aria-label={identityEditOpen ? "Close edit" : "Edit identity"}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-cyan-700 hover:text-cyan-800"
+                >
+                  {identityEditOpen ? (
+                    <>
+                      <X size={12} /> Close
+                    </>
+                  ) : (
+                    <>
+                      <Pencil size={12} /> Edit
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
+
+          {identityEditOpen && (
+            <div className="mt-5 border-t border-slate-200 pt-5">
+              <OnboardingForm />
+            </div>
+          )}
         </Panel>
 
-        <SettingsSection label="Account">
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <Panel
-              title="Identity"
-              subtitle="Your major, target role, and graduation year."
-            >
-              <OnboardingForm />
-            </Panel>
-
-            <Panel
-              title="Career preferences"
-              subtitle="Work authorization and location preferences, used for an honest compatibility note on tracked roles."
-            >
-              <CareerPreferencesForm />
-            </Panel>
-          </div>
-        </SettingsSection>
-
-        <SettingsSection label="Public profile">
+        {/* <SettingsSection label="Public profile">
           <Panel
             title="Shareable profile"
             subtitle="A public page showing your current skills, resume strength, and alignment history — always live, never a stale snapshot."
           >
             <PublicProfilePanel publicProfile={publicProfile} />
           </Panel>
-        </SettingsSection>
+        </SettingsSection> */}
 
-        <SettingsSection label="Integrations">
+        {/* <SettingsSection label="Integrations">
           <Panel
             title="GitHub"
             subtitle="Connect your GitHub account to link real projects to your skill gaps."
           >
             <GithubPanel />
           </Panel>
-        </SettingsSection>
+        </SettingsSection> */}
 
         <SettingsSection label="Plan & usage">
           <Panel title="Plan" subtitle="Your current plan and usage this month.">
@@ -454,24 +385,6 @@ export function Profile() {
 
         <SettingsSection label="Data">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <Panel
-              title="Export data"
-              subtitle="Download all your Ascend data as a single JSON file."
-            >
-              <p className="text-sm text-slate-600">
-                Includes tracked applications, resume improvement history, resume metadata (not the
-                PDF files themselves), past analyses, contacts, career goals, and notifications.
-              </p>
-              <Button
-                type="button"
-                onClick={handleExportData}
-                variant="secondary"
-                className="mt-4"
-              >
-                Export data
-              </Button>
-            </Panel>
-
             <Panel
               title="Delete account"
               subtitle="Permanently remove your account and all your data. This cannot be undone."
@@ -620,6 +533,7 @@ function SettingsSection({
  * "Generate & copy link" flow that base64-encoded a generate-time snapshot
  * directly into the URL.
  */
+/*
 function PublicProfilePanel({ publicProfile }: { publicProfile: ReturnType<typeof usePublicProfile> }) {
   const { settings, loading, error, saving, shareUrl, updateSlug, regenerateSlug, setIsPublic, setVisibilityField } =
     publicProfile;
@@ -769,6 +683,7 @@ function PublicProfilePanel({ publicProfile }: { publicProfile: ReturnType<typeo
     </div>
   );
 }
+*/
 
 type PlanConfig = {
   name: string;
@@ -1042,109 +957,6 @@ function OnboardingForm() {
       </div>
       <Button type="button" onClick={handleSave} variant="primary">
         {saved ? "Saved" : "Save profile"}
-      </Button>
-    </div>
-  );
-}
-
-/**
- * Career preferences (Phase 5, Task 3) — work authorization and location
- * preferences, used only to render an honest textual compatibility note on
- * a role's own sponsorship/location/remote-type fields (RoleDetailDrawer).
- * Never used to fabricate a numeric "match score", and never immigration or
- * legal advice — this is purely pattern-matching against employer-stated
- * fields the user already sees on each tracked role.
- */
-function CareerPreferencesForm() {
-  const { profile, loading, updateProfile } = useProfile();
-  const [workAuthorization, setWorkAuthorization] = useState("");
-  const [requiresSponsorship, setRequiresSponsorship] = useState("");
-  const [preferredLocations, setPreferredLocations] = useState("");
-  const [remotePreference, setRemotePreference] = useState("");
-  const [saved, setSaved] = useState(false);
-  const [initialized, setInitialized] = useState(false);
-
-  useEffect(() => {
-    if (!loading && profile && !initialized) {
-      setWorkAuthorization(profile.workAuthorization);
-      setRequiresSponsorship(
-        profile.requiresSponsorship === true ? "yes" : profile.requiresSponsorship === false ? "no" : ""
-      );
-      setPreferredLocations(profile.preferredLocations);
-      setRemotePreference(profile.remotePreference);
-      setInitialized(true);
-    }
-  }, [loading, profile, initialized]);
-
-  const handleSave = async () => {
-    const { error } = await updateProfile({
-      workAuthorization: workAuthorization.trim(),
-      requiresSponsorship:
-        requiresSponsorship === "yes" ? true : requiresSponsorship === "no" ? false : undefined,
-      preferredLocations: preferredLocations.trim(),
-      remotePreference,
-    });
-    if (error) {
-      toast.error({ title: "Couldn't save preferences", description: error });
-      return;
-    }
-    setSaved(true);
-    toast.success({ title: "Preferences saved" });
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-xs text-slate-500">Work authorization (optional)</label>
-        <Input
-          type="text"
-          value={workAuthorization}
-          onChange={(e) => setWorkAuthorization(e.target.value)}
-          placeholder="e.g. US Citizen, F-1 OPT, H-1B"
-          className="mt-1"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-slate-500">Do you require visa sponsorship?</label>
-        <Select
-          value={requiresSponsorship}
-          onChange={setRequiresSponsorship}
-          placeholder="Not specified"
-          options={[
-            { value: "", label: "Not specified" },
-            { value: "yes", label: "Yes" },
-            { value: "no", label: "No" },
-          ]}
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-slate-500">Preferred location(s)</label>
-        <Input
-          type="text"
-          value={preferredLocations}
-          onChange={(e) => setPreferredLocations(e.target.value)}
-          placeholder="e.g. Seattle, WA; New York, NY"
-          className="mt-1"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-slate-500">Remote preference</label>
-        <Select
-          value={remotePreference}
-          onChange={setRemotePreference}
-          placeholder="Not specified"
-          options={[
-            { value: "", label: "Not specified" },
-            { value: "Remote", label: "Remote" },
-            { value: "Hybrid", label: "Hybrid" },
-            { value: "Onsite", label: "Onsite" },
-            { value: "No preference", label: "No preference" },
-          ]}
-        />
-      </div>
-      <Button type="button" onClick={handleSave} variant="primary">
-        {saved ? "Saved" : "Save preferences"}
       </Button>
     </div>
   );
