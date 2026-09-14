@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { alignmentToPreparedness } from "../lib/preparedness";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
@@ -8,9 +9,135 @@ import type { TrackerStatus } from "../types/tracker";
 import { TRACKER_STATUS_ORDER } from "../types/tracker";
 import { MissingSignals } from "../features/analyzer/components/MissingSignals";
 import { ActionsList } from "../features/analyzer/components/ActionsList";
+import { SkillGapHelper } from "../features/analyzer/components/SkillGapHelper";
 import { ApplicationDetailsPanel } from "../components/roles/ApplicationDetailsPanel";
+import { API_BASE } from "../config/api";
+import { useAuth } from "../context/AuthContext";
+import { getApiErrorMessage } from "../lib/apiError";
+import { useProfile } from "../lib/profile";
+import { getCompatibilityNotes } from "../features/preferences/compatibility";
 
 const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
+
+/**
+ * "Ask AI about this role" — same /api/career-advice request as before,
+ * moved here unchanged from the role detail drawer
+ * (src/components/roles/RoleDetailDrawer.tsx).
+ */
+function AskAboutRolePanel({ roleId }: { roleId: string }) {
+  const { session } = useAuth();
+  const [askQuestion, setAskQuestion] = useState("");
+  const [askLoading, setAskLoading] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+  const [askAnswer, setAskAnswer] = useState<string | null>(null);
+
+  async function runAskAboutRole() {
+    const question = askQuestion.trim();
+    if (!question) return;
+    setAskLoading(true);
+    setAskError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/career-advice`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ question, roleId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(getApiErrorMessage(data, "Failed to get an answer"));
+      setAskAnswer(data.answer);
+    } catch (e) {
+      setAskError(e instanceof Error ? e.message : "Failed to get an answer");
+    } finally {
+      setAskLoading(false);
+    }
+  }
+
+  return (
+    <Panel
+      title={
+        <span className="flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15 text-cyan-700">
+            <Sparkles size={14} />
+          </span>
+          Ask AI about this role
+        </span>
+      }
+      subtitle="Answers are grounded in your real fit score and matched/missing skills for this role."
+    >
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={askQuestion}
+            onChange={(e) => setAskQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !askLoading) runAskAboutRole();
+            }}
+            placeholder="e.g. Should I apply to this job?"
+            maxLength={500}
+            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-900/[0.04] px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-200"
+          />
+          <button
+            type="button"
+            onClick={runAskAboutRole}
+            disabled={askLoading || !askQuestion.trim()}
+            className="btn-press inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {askLoading ? (
+              <>
+                <span className="spinner inline-block h-3.5 w-3.5 rounded-full border-2 border-slate-700 border-t-transparent" />
+                Asking…
+              </>
+            ) : (
+              <>
+                <Sparkles size={14} />
+                Ask
+              </>
+            )}
+          </button>
+        </div>
+
+        {!askAnswer && !askLoading && !askError && (
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              "Should I apply to this role?",
+              "How strong a fit am I?",
+              "What should I improve first?",
+            ].map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => setAskQuestion(q)}
+                className="btn-press rounded-full border border-slate-200 bg-slate-900/[0.03] px-3 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-900/[0.06] hover:text-slate-900"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {askError && (
+          <p className="animate-fade-in rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
+            {askError}
+          </p>
+        )}
+
+        {askAnswer && !askError && (
+          <div className="animate-fade-in rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-3.5">
+            <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-cyan-700">
+              <Sparkles size={12} />
+              AI answer
+            </div>
+            <p className="text-sm leading-relaxed text-slate-800">{askAnswer}</p>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
 
 export function RoleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +151,7 @@ export function RoleDetail() {
     updateRoleFields,
     removeItem,
   } = useTracker(undefined);
+  const { profile } = useProfile();
 
   const item = id ? tracker.find((x) => x.id === id) : null;
 
@@ -48,6 +176,10 @@ export function RoleDetail() {
   const alignment = snap?.alignment ?? item.alignment;
   const missingSignals = snap?.missingSignals ?? [];
   const actions = snap?.actions ?? [];
+  const missingRequiredSkills = (snap?.skills ?? [])
+    .filter((s) => s.status === "miss" && (s.importance ?? "required") === "required")
+    .map((s) => s.name);
+  const compatibilityNotes = profile ? getCompatibilityNotes(item, profile) : [];
 
   return (
     <AppShell>
@@ -55,12 +187,15 @@ export function RoleDetail() {
         <div className="flex items-center gap-4">
           <button
             type="button"
-            onClick={() => navigate("/roles")}
+            onClick={() => navigate("/roles", { state: { openRoleId: item.id } })}
             className="btn-press flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-900/[0.04] px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-900/[0.06]"
           >
             <ArrowLeft size={18} />
-            Roles
+            Back to role
           </button>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Role report
+          </span>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-12">
@@ -82,6 +217,26 @@ export function RoleDetail() {
               </div>
             </Panel>
 
+            <AskAboutRolePanel roleId={item.id} />
+
+            {snap?.salary && (
+              <Panel title="Salary" subtitle="Extracted from this role's job description text.">
+                <p className="text-lg font-semibold text-slate-900">
+                  {snap.salary.currency} {snap.salary.min.toLocaleString()}–{snap.salary.max.toLocaleString()}
+                  <span className="ml-1 text-sm font-normal text-slate-500">
+                    {snap.salary.period === "hourly" ? "/hour" : "/year"}
+                  </span>
+                </p>
+                {snap.salary.estimatedAnnual && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Estimated annual: {snap.salary.currency}{" "}
+                    {snap.salary.estimatedAnnual.min.toLocaleString()}–
+                    {snap.salary.estimatedAnnual.max.toLocaleString()}. {snap.salary.estimatedAnnual.note}
+                  </p>
+                )}
+              </Panel>
+            )}
+
             {missingSignals.length > 0 && (
               <Panel title="Skill gaps" subtitle="Focus on these to improve fit.">
                 <MissingSignals
@@ -90,6 +245,8 @@ export function RoleDetail() {
                 />
               </Panel>
             )}
+
+            <SkillGapHelper missingRequiredSkills={missingRequiredSkills} />
 
             {actions.length > 0 && (
               <Panel title="Suggested improvements" subtitle="From your last analysis.">
@@ -169,6 +326,31 @@ export function RoleDetail() {
                 className="w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none resize-none"
               />
             </Panel>
+
+            {compatibilityNotes.length > 0 && (
+              <Panel
+                title="Compatibility with your preferences"
+                subtitle="A plain comparison of this role's stated info against your profile — not a score, and not legal advice."
+              >
+                <ul className="space-y-2">
+                  {compatibilityNotes.map((note, i) => (
+                    <li
+                      key={i}
+                      className={
+                        "rounded-lg px-3 py-2 text-sm " +
+                        (note.tone === "match"
+                          ? "bg-emerald-500/10 text-emerald-700"
+                          : note.tone === "mismatch"
+                          ? "bg-amber-500/10 text-amber-800"
+                          : "bg-slate-900/[0.04] text-slate-600")
+                      }
+                    >
+                      {note.text}
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
 
             <ApplicationDetailsPanel item={item} updateRoleFields={updateRoleFields} />
 

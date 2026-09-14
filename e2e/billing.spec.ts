@@ -29,7 +29,14 @@ test.describe("Billing", () => {
   test.beforeEach(async ({ page }) => {
     skipIfNoBillingTestEnv();
     await loginAsTestUser(page);
-    await page.goto("/profile");
+    // The Profile page is temporarily disabled (src/App.tsx redirects
+    // /profile to /dashboard) — the Plan panel now lives in the independent
+    // "Plan & billing" modal opened from the account menu
+    // (src/components/layout/TopNav.tsx), same PlanPanelBody component and
+    // billing logic, just a different entry point.
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Open menu" }).click();
+    await page.getByRole("button", { name: "Plan & billing" }).click();
   });
 
   test("Plan panel renders the current plan and usage", async ({ page }) => {
