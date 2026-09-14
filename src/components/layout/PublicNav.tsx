@@ -30,12 +30,15 @@ export function PublicNav() {
             >
               How it works
             </a>
+            {/* Product preview section is temporarily disabled (see
+                src/routes/Landing.tsx) — this link has no target while it's off.
             <a
               href="#preview"
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-900/[0.04] hover:text-slate-900"
             >
               Preview
             </a>
+            */}
           </nav>
 
           <div className="flex items-center gap-2">
