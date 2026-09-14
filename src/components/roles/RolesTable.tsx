@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
 import { DarkSelect } from "../ui/DarkSelect";
 import { Tooltip } from "../ui/Tooltip";
 import { ProgressCell } from "./ProgressCell";
@@ -7,21 +8,6 @@ import type { TrackerItem, TrackerStatus } from "../../types/tracker";
 import { TRACKER_STATUS_ORDER } from "../../types/tracker";
 
 const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
-
-const CONVERSION_PCT: Record<TrackerStatus, number> = {
-  Wishlist: 0,
-  Analyzed: 5,
-  "Ready to Apply": 10,
-  Applied: 25,
-  "Recruiter Contact": 35,
-  Interview: 50,
-  "Technical Interview": 60,
-  "Final Interview": 75,
-  Offer: 100,
-  Accepted: 100,
-  Rejected: 0,
-  Withdrawn: 0,
-};
 
 /**
  * Muted pill styles for status dropdown. Border/background keep a per-status
@@ -63,11 +49,11 @@ type RolesTableProps = {
   editingCell: { id: string; field: string } | null;
   onEditingCellChange: (cell: { id: string; field: string } | null) => void;
   onRowClick: (id: string, e: React.MouseEvent) => void;
+  onOpenRole: (id: string) => void;
   updateStatus: (id: string, status: TrackerStatus) => void;
   updateNotes: (id: string, notes: string) => void;
   updateRole: (id: string, role: string) => void;
   updateCompany: (id: string, company: string) => void;
-  updateDeadline: (id: string, deadline: string) => void;
 };
 
 export function RolesTable({
@@ -79,11 +65,11 @@ export function RolesTable({
   editingCell,
   onEditingCellChange,
   onRowClick,
+  onOpenRole,
   updateStatus,
   updateNotes,
   updateRole,
   updateCompany,
-  updateDeadline,
 }: RolesTableProps) {
   return (
     <div className="animate-fade-in overflow-hidden rounded-xl border border-slate-200 bg-dash-card shadow-sm">
@@ -123,22 +109,9 @@ export function RolesTable({
                 onSort={() => onSort("status")}
                 className="min-w-[100px] py-3 px-3"
               />
-              <SortableTh
-                label="Conversion"
-                sortKey="conversion"
-                currentSort={sortKey}
-                sortDir={sortDir}
-                onSort={() => onSort("conversion")}
-                className="hidden min-w-[90px] py-3 px-3 md:table-cell"
-              />
-              <SortableTh
-                label="Deadline"
-                sortKey="deadline"
-                currentSort={sortKey}
-                sortDir={sortDir}
-                onSort={() => onSort("deadline")}
-                className="hidden min-w-[80px] py-3 px-3 lg:table-cell"
-              />
+              <th className="min-w-[124px] py-3 px-3 font-medium text-slate-500">
+                Actions
+              </th>
               <th className="hidden min-w-[120px] py-3 px-3 font-medium text-slate-500 xl:table-cell">
                 Notes
               </th>
@@ -148,7 +121,7 @@ export function RolesTable({
             {filteredAndSorted.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={6}
                   className="py-12 text-center text-sm text-slate-500"
                 >
                   {items.length === 0
@@ -205,19 +178,20 @@ export function RolesTable({
                       />
                     </div>
                   </td>
-                  <td className="hidden py-2.5 px-3 align-middle md:table-cell">
-                    <ProgressCell
-                      value={CONVERSION_PCT[item.status]}
-                      variant="conversion"
-                    />
+                  <td className="py-2.5 px-3 align-middle">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenRole(item.id);
+                      }}
+                      className="btn-press inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-900/[0.04] hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-1"
+                      aria-label={`View actions for ${item.role} at ${item.company}`}
+                    >
+                      View Actions
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
                   </td>
-                  <DeadlineCell
-                    item={item}
-                    editingCell={editingCell}
-                    onEditingChange={onEditingCellChange}
-                    updateDeadline={updateDeadline}
-                    onClick={(e) => e.stopPropagation()}
-                  />
                   <NotesCell
                     item={item}
                     editingCell={editingCell}
@@ -354,54 +328,6 @@ function CompanyCell({
         >
           {item.company}
         </Link>
-      )}
-    </td>
-  );
-}
-
-function DeadlineCell({
-  item,
-  editingCell,
-  onEditingChange,
-  updateDeadline,
-  onClick,
-}: {
-  item: TrackerItem;
-  editingCell: { id: string; field: string } | null;
-  onEditingChange: (c: { id: string; field: string } | null) => void;
-  updateDeadline: (id: string, deadline: string) => void;
-  onClick: (e: React.MouseEvent) => void;
-}) {
-  const editing =
-    editingCell?.id === item.id && editingCell?.field === "deadline";
-  return (
-    <td
-      className="hidden py-2.5 px-3 align-middle lg:table-cell"
-      onDoubleClick={() => onEditingChange({ id: item.id, field: "deadline" })}
-    >
-      {editing ? (
-        <input
-          autoFocus
-          value={item.deadline ?? ""}
-          onChange={(e) => updateDeadline(item.id, e.target.value)}
-          onBlur={() => onEditingChange(null)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") onEditingChange(null);
-          }}
-          onClick={onClick}
-          placeholder="e.g. Feb 15"
-          className={`${INPUT_CLASS} placeholder:text-slate-400`}
-        />
-      ) : (
-        <span
-          title={!item.deadline ? "Double-click to add" : undefined}
-          className={cn(
-            "transition-colors duration-150",
-            item.deadline ? "text-slate-500" : "italic text-slate-400 group-hover:text-slate-500"
-          )}
-        >
-          {item.deadline || "Set deadline"}
-        </span>
       )}
     </td>
   );
