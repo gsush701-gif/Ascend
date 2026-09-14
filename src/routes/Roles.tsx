@@ -40,13 +40,8 @@ export function Roles() {
     addManualTrackerItem,
     updateStatus,
     updateNotes,
-    updateNextStep,
     updateRole,
     updateCompany,
-    updateDeadline,
-    updateCoverLetter,
-    updateRoleFields,
-    removeItem,
   } = useTracker(undefined);
 
   const [sortKey, setSortKey] = useState<SortKey>(() => {
@@ -207,6 +202,12 @@ export function Roles() {
     []
   );
 
+  // Same mechanism the row-click handler above uses to open the drawer —
+  // reused as-is by the table's "View Actions" button.
+  const handleOpenRole = useCallback((id: string) => {
+    setSelectedRoleId(id);
+  }, []);
+
   const selectedItem = selectedRoleId
     ? items.find((i) => i.id === selectedRoleId)
     : null;
@@ -247,13 +248,6 @@ export function Roles() {
         <RoleDetailDrawer
           item={selectedItem}
           onClose={() => setSelectedRoleId(null)}
-          updateStatus={wrappedUpdateStatus}
-          updateNextStep={updateNextStep}
-          updateNotes={wrappedUpdateNotes}
-          updateDeadline={updateDeadline}
-          updateCoverLetter={updateCoverLetter}
-          updateRoleFields={updateRoleFields}
-          removeItem={removeItem}
         />
       )}
       <QuickAddModal
@@ -367,11 +361,11 @@ export function Roles() {
           editingCell={editingCell}
           onEditingCellChange={setEditingCell}
           onRowClick={handleRowClick}
+          onOpenRole={handleOpenRole}
           updateStatus={wrappedUpdateStatus}
           updateNotes={wrappedUpdateNotes}
           updateRole={updateRole}
           updateCompany={updateCompany}
-          updateDeadline={updateDeadline}
         />
         )}
         </div>

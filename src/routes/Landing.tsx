@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+// useEffect/useState were only used by the disabled product-preview code below.
+// import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -8,15 +9,15 @@ import {
   ClipboardList,
   LineChart,
   Share2,
-  AlertCircle,
-  Clock3,
-  RefreshCw,
+  // AlertCircle, Clock3, RefreshCw were only used by the disabled
+  // product-preview code below.
 } from "lucide-react";
 import { PublicShell } from "../components/layout/PublicShell";
 import { Reveal } from "../components/ui/Reveal";
 import { Button } from "../components/ui/Button";
-import { AlignmentChart } from "../components/ui/AlignmentChart";
-import { AnimatedBar } from "../components/ui/AnimatedBar";
+// AlignmentChart/AnimatedBar were only used by the disabled product-preview code below.
+// import { AlignmentChart } from "../components/ui/AlignmentChart";
+// import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { card } from "../lib/ui";
 import { cn } from "../lib/cn";
 
@@ -53,11 +54,14 @@ export function Landing() {
                   Start free
                 </Button>
               </Link>
+              {/* Product preview temporarily disabled — see the commented-out
+                  "PRODUCT PREVIEW MOCKUP" section and HeroPreview below.
               <a href="#preview" className="w-full sm:w-auto">
                 <Button variant="secondary" className="w-full">
                   See product preview
                 </Button>
               </a>
+              */}
             </div>
           </Reveal>
 
@@ -71,9 +75,11 @@ export function Landing() {
             <div className="animate-blob-3 absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-cyan-300/20 blur-[100px]" />
           </div>
 
+          {/* Product preview temporarily disabled — see note above.
           <Reveal delay={0.24}>
             <HeroPreview />
           </Reveal>
+          */}
         </section>
 
         {/* PROBLEM → SOLUTION */}
@@ -197,7 +203,10 @@ export function Landing() {
           </div>
         </section>
 
-        {/* PRODUCT PREVIEW MOCKUP */}
+        {/* PRODUCT PREVIEW MOCKUP — temporarily disabled, not needed for now.
+            Re-enable by uncommenting this section (and the ProductMock
+            component + its helpers further down), and the "See product
+            preview" hero button / HeroPreview usage above.
         <section id="preview" className="space-y-8">
           <Reveal>
             <div className="text-center">
@@ -213,6 +222,7 @@ export function Landing() {
             <ProductMock />
           </Reveal>
         </section>
+        */}
 
         {/* WHO IT'S FOR */}
         <section className="text-center">
@@ -315,76 +325,76 @@ export function Landing() {
 /* Hero preview: bigger animated visual, built from real product pieces   */
 /* ---------------------------------------------------------------------- */
 
-const HERO_TREND: { alignment: number; createdAt: string }[] = [
-  { alignment: 41, createdAt: "2026-06-02" },
-  { alignment: 48, createdAt: "2026-06-16" },
-  { alignment: 55, createdAt: "2026-06-30" },
-  { alignment: 61, createdAt: "2026-07-14" },
-  { alignment: 69, createdAt: "2026-07-28" },
-  { alignment: 78, createdAt: "2026-08-11" },
-];
+// const HERO_TREND: { alignment: number; createdAt: string }[] = [
+//   { alignment: 41, createdAt: "2026-06-02" },
+//   { alignment: 48, createdAt: "2026-06-16" },
+//   { alignment: 55, createdAt: "2026-06-30" },
+//   { alignment: 61, createdAt: "2026-07-14" },
+//   { alignment: 69, createdAt: "2026-07-28" },
+//   { alignment: 78, createdAt: "2026-08-11" },
+// ];
 
-function HeroPreview() {
-  const fit = useCountUp(78, 1100, 250);
-  const apps = useCountUp(14, 1100, 250);
-  const rate = useCountUp(21, 1100, 250);
-  const interviews = useCountUp(3, 1100, 250);
+// function HeroPreview() {
+//   const fit = useCountUp(78, 1100, 250);
+//   const apps = useCountUp(14, 1100, 250);
+//   const rate = useCountUp(21, 1100, 250);
+//   const interviews = useCountUp(3, 1100, 250);
 
-  return (
-    <div
-      className={cn(
-        "relative mx-auto mt-2 max-w-5xl overflow-hidden p-6 text-left sm:p-10",
-        card
-      )}
-    >
-      {/* inner glow, matches the dashboard's fit-score hero card */}
-      <div
-        className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-cyan-500/10 blur-[70px]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-violet-500/10 blur-[70px]"
-        aria-hidden
-      />
+//   return (
+//     <div
+//       className={cn(
+//         "relative mx-auto mt-2 max-w-5xl overflow-hidden p-6 text-left sm:p-10",
+//         card
+//       )}
+//     >
+//       {/* inner glow, matches the dashboard's fit-score hero card */}
+//       <div
+//         className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-cyan-500/10 blur-[70px]"
+//         aria-hidden
+//       />
+//       <div
+//         className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-violet-500/10 blur-[70px]"
+//         aria-hidden
+//       />
 
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
-          Ascend • Live preview
-        </div>
-        <span className="rounded-full border border-slate-200 bg-slate-900/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-          Sample data
-        </span>
-      </div>
+//       <div className="relative flex items-center justify-between">
+//         <div className="flex items-center gap-2 text-xs text-slate-500">
+//           <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-400" />
+//           Ascend • Live preview
+//         </div>
+//         <span className="rounded-full border border-slate-200 bg-slate-900/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+//           Sample data
+//         </span>
+//       </div>
 
-      <div className="relative mt-6 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500">Fit score</div>
-          <div className="mt-1 flex items-end gap-2">
-            <span className="font-display gradient-text text-6xl font-semibold tracking-tight sm:text-7xl">
-              {fit}%
-            </span>
-            <span className="pb-2 text-sm text-slate-500">Strong</span>
-          </div>
-          <div className="mt-3 w-44">
-            <AnimatedBar pct={fit} gradient="linear-gradient(90deg, #22d3ee, #a78bfa)" />
-          </div>
-        </div>
+//       <div className="relative mt-6 flex flex-wrap items-end justify-between gap-6">
+//         <div>
+//           <div className="text-[10px] uppercase tracking-wide text-slate-500">Fit score</div>
+//           <div className="mt-1 flex items-end gap-2">
+//             <span className="font-display gradient-text text-6xl font-semibold tracking-tight sm:text-7xl">
+//               {fit}%
+//             </span>
+//             <span className="pb-2 text-sm text-slate-500">Strong</span>
+//           </div>
+//           <div className="mt-3 w-44">
+//             <AnimatedBar pct={fit} gradient="linear-gradient(90deg, #22d3ee, #a78bfa)" />
+//           </div>
+//         </div>
 
-        <div className="grid grid-cols-3 gap-3 sm:gap-4">
-          <HeroStat label="Apps sent" value={String(apps)} />
-          <HeroStat label="Interview rate" value={`${rate}%`} />
-          <HeroStat label="Interviews" value={String(interviews)} />
-        </div>
-      </div>
+//         <div className="grid grid-cols-3 gap-3 sm:gap-4">
+//           <HeroStat label="Apps sent" value={String(apps)} />
+//           <HeroStat label="Interview rate" value={`${rate}%`} />
+//           <HeroStat label="Interviews" value={String(interviews)} />
+//         </div>
+//       </div>
 
-      <div className="relative mt-8 border-t border-slate-200 pt-6">
-        <div className="mb-2 text-xs font-medium text-slate-500">Fit score trend</div>
-        <AlignmentChart points={HERO_TREND} height={220} />
-      </div>
-    </div>
-  );
-}
+//       <div className="relative mt-8 border-t border-slate-200 pt-6">
+//         <div className="mb-2 text-xs font-medium text-slate-500">Fit score trend</div>
+//         <AlignmentChart points={HERO_TREND} height={220} />
+//       </div>
+//     </div>
+//   );
+// }
 
 /** Staged, word-by-word tagline reveal — plays once on load since the hero sits above the fold. */
 function AnimatedHeadline() {
@@ -425,42 +435,42 @@ function AnimatedHeadline() {
   );
 }
 
-function HeroStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-dash-surface p-3 text-center shadow-sm">
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
-    </div>
-  );
-}
+// function HeroStat({ label, value }: { label: string; value: string }) {
+//   return (
+//     <div className="rounded-xl border border-slate-200 bg-dash-surface p-3 text-center shadow-sm">
+//       <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+//       <div className="mt-1 text-lg font-semibold text-slate-900">{value}</div>
+//     </div>
+//   );
+// }
 
-/** Counts up to `target` with ease-out on mount, after an optional delay. No new deps — plain interval ticks. */
-function useCountUp(target: number, duration = 1000, delay = 0) {
-  const [value, setValue] = useState(0);
+// /** Counts up to `target` with ease-out on mount, after an optional delay. No new deps — plain interval ticks. */
+// function useCountUp(target: number, duration = 1000, delay = 0) {
+//   const [value, setValue] = useState(0);
 
-  useEffect(() => {
-    const stepMs = 30;
-    let elapsed = 0;
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const timer = setTimeout(() => {
-      interval = setInterval(() => {
-        elapsed += stepMs;
-        const p = Math.min(1, elapsed / duration);
-        const eased = 1 - Math.pow(1 - p, 3);
-        setValue(Math.round(target * eased));
-        if (p >= 1 && interval) {
-          clearInterval(interval);
-        }
-      }, stepMs);
-    }, delay);
-    return () => {
-      clearTimeout(timer);
-      if (interval) clearInterval(interval);
-    };
-  }, [target, duration, delay]);
+//   useEffect(() => {
+//     const stepMs = 30;
+//     let elapsed = 0;
+//     let interval: ReturnType<typeof setInterval> | null = null;
+//     const timer = setTimeout(() => {
+//       interval = setInterval(() => {
+//         elapsed += stepMs;
+//         const p = Math.min(1, elapsed / duration);
+//         const eased = 1 - Math.pow(1 - p, 3);
+//         setValue(Math.round(target * eased));
+//         if (p >= 1 && interval) {
+//           clearInterval(interval);
+//         }
+//       }, stepMs);
+//     }, delay);
+//     return () => {
+//       clearTimeout(timer);
+//       if (interval) clearInterval(interval);
+//     };
+//   }, [target, duration, delay]);
 
-  return value;
-}
+//   return value;
+// }
 
 /* ---------------------------------------------------------------------- */
 
@@ -516,196 +526,196 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   );
 }
 
-function ProductMock() {
-  return (
-    <div className={card}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-dash-surface px-4 py-3">
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-slate-400" />
-          <div className="h-2 w-2 rounded-full bg-slate-300" />
-          <div className="h-2 w-2 rounded-full bg-slate-900/10" />
-          <div className="ml-3 text-xs text-slate-500">Ascend • Dashboard</div>
-        </div>
-        <div className="text-xs text-slate-500">Preview</div>
-      </div>
+// function ProductMock() {
+//   return (
+//     <div className={card}>
+//       {/* Top bar */}
+//       <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-dash-surface px-4 py-3">
+//         <div className="flex items-center gap-2">
+//           <div className="h-2 w-2 rounded-full bg-slate-400" />
+//           <div className="h-2 w-2 rounded-full bg-slate-300" />
+//           <div className="h-2 w-2 rounded-full bg-slate-900/10" />
+//           <div className="ml-3 text-xs text-slate-500">Ascend • Dashboard</div>
+//         </div>
+//         <div className="text-xs text-slate-500">Preview</div>
+//       </div>
 
-      {/* Mock content */}
-      <div className="mt-6 grid gap-6 lg:grid-cols-12">
-        <div className="space-y-4 lg:col-span-7">
-          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6 shadow-sm">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Fit score</div>
-            <div className="mt-3 flex items-end gap-4">
-              <div className="text-5xl font-semibold tracking-tight text-cyan-600">72%</div>
-              <div className="pb-2 text-sm text-slate-900">Strong</div>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              Based on resume vs job requirements
-            </p>
-            <div className="mt-4 h-2 rounded-full bg-dash-card">
-              <div className="h-2 w-[72%] rounded-full bg-cyan-500" />
-            </div>
-          </div>
+//       {/* Mock content */}
+//       <div className="mt-6 grid gap-6 lg:grid-cols-12">
+//         <div className="space-y-4 lg:col-span-7">
+//           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6 shadow-sm">
+//             <div className="text-xs uppercase tracking-wide text-slate-500">Fit score</div>
+//             <div className="mt-3 flex items-end gap-4">
+//               <div className="text-5xl font-semibold tracking-tight text-cyan-600">72%</div>
+//               <div className="pb-2 text-sm text-slate-900">Strong</div>
+//             </div>
+//             <p className="mt-1 text-xs text-slate-500">
+//               Based on resume vs job requirements
+//             </p>
+//             <div className="mt-4 h-2 rounded-full bg-dash-card">
+//               <div className="h-2 w-[72%] rounded-full bg-cyan-500" />
+//             </div>
+//           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <MiniStat label="Apps sent" value="14" />
-            <MiniStat label="Interview rate" value="21%" />
-            <MiniStat label="Interviews" value="3" />
-          </div>
+//           <div className="grid gap-4 sm:grid-cols-3">
+//             <MiniStat label="Apps sent" value="14" />
+//             <MiniStat label="Interview rate" value="21%" />
+//             <MiniStat label="Interviews" value="3" />
+//           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">Fit score trend</div>
-            <div className="mt-4">
-              <AlignmentChart points={HERO_TREND} height={100} />
-            </div>
-          </div>
+//           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
+//             <div className="text-sm font-semibold text-slate-900">Fit score trend</div>
+//             <div className="mt-4">
+//               <AlignmentChart points={HERO_TREND} height={100} />
+//             </div>
+//           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">Upcoming deadlines</div>
-            <div className="mt-4 space-y-3">
-              <Row left="Google SWE Intern" right="3 days" />
-              <Row left="Backend Intern" right="6 days" />
-              <Row left="Data Analyst Intern" right="10 days" />
-            </div>
-          </div>
-        </div>
+//           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
+//             <div className="text-sm font-semibold text-slate-900">Upcoming deadlines</div>
+//             <div className="mt-4 space-y-3">
+//               <Row left="Google SWE Intern" right="3 days" />
+//               <Row left="Backend Intern" right="6 days" />
+//               <Row left="Data Analyst Intern" right="10 days" />
+//             </div>
+//           </div>
+//         </div>
 
-        <div className="space-y-4 lg:col-span-5">
-          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">By status</div>
-            <div className="mt-4 space-y-3">
-              <StatusRow label="Applied" count={4} pct={29} />
-              <StatusRow label="Interview" count={9} pct={64} />
-              <StatusRow label="Rejected" count={1} pct={7} />
-            </div>
-          </div>
+//         <div className="space-y-4 lg:col-span-5">
+//           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
+//             <div className="text-sm font-semibold text-slate-900">By status</div>
+//             <div className="mt-4 space-y-3">
+//               <StatusRow label="Applied" count={4} pct={29} />
+//               <StatusRow label="Interview" count={9} pct={64} />
+//               <StatusRow label="Rejected" count={1} pct={7} />
+//             </div>
+//           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">Resume readiness</div>
-            <div className="mt-4 space-y-3">
-              <ReadinessRow label="Resume strength" pct={72} />
-            </div>
-          </div>
+//           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
+//             <div className="text-sm font-semibold text-slate-900">Resume readiness</div>
+//             <div className="mt-4 space-y-3">
+//               <ReadinessRow label="Resume strength" pct={72} />
+//             </div>
+//           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">Focus next</div>
-            <div className="mt-4">
-              <ActionItem
-                icon={AlertCircle}
-                accent="text-rose-600"
-                title="Backend Intern at Acme is overdue"
-                desc="This deadline has passed — update its status"
-              />
-            </div>
-          </div>
+//           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
+//             <div className="text-sm font-semibold text-slate-900">Focus next</div>
+//             <div className="mt-4">
+//               <ActionItem
+//                 icon={AlertCircle}
+//                 accent="text-rose-600"
+//                 title="Backend Intern at Acme is overdue"
+//                 desc="This deadline has passed — update its status"
+//               />
+//             </div>
+//           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
-            <div className="text-sm font-semibold text-slate-900">Recent activity</div>
-            <div className="mt-4 space-y-2.5">
-              <ActivityRow icon={Clock3} title="Google SWE Intern" meta="Interview • 1 day ago" />
-              <ActivityRow icon={RefreshCw} title="Data Analyst Intern" meta="Applied • 4 days ago" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+//           <div className="rounded-xl border border-slate-200 bg-dash-surface p-6">
+//             <div className="text-sm font-semibold text-slate-900">Recent activity</div>
+//             <div className="mt-4 space-y-2.5">
+//               <ActivityRow icon={Clock3} title="Google SWE Intern" meta="Interview • 1 day ago" />
+//               <ActivityRow icon={RefreshCw} title="Data Analyst Intern" meta="Applied • 4 days ago" />
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm">
-      <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="mt-1 text-xl font-semibold text-slate-900">{value}</div>
-    </div>
-  );
-}
+// function MiniStat({ label, value }: { label: string; value: string }) {
+//   return (
+//     <div className="rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm">
+//       <div className="text-[11px] uppercase tracking-wide text-slate-500">{label}</div>
+//       <div className="mt-1 text-xl font-semibold text-slate-900">{value}</div>
+//     </div>
+//   );
+// }
 
-function Row({ left, right }: { left: string; right: string }) {
-  return (
-    <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-dash-surface p-4 text-sm">
-      <span className="text-slate-900">{left}</span>
-      <span className="text-slate-500">{right}</span>
-    </div>
-  );
-}
+// function Row({ left, right }: { left: string; right: string }) {
+//   return (
+//     <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-dash-surface p-4 text-sm">
+//       <span className="text-slate-900">{left}</span>
+//       <span className="text-slate-500">{right}</span>
+//     </div>
+//   );
+// }
 
-function StatusRow({ label, count, pct }: { label: string; count: number; pct: number }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>{label}</span>
-        <span>{count}</span>
-      </div>
-      <div className="mt-2 h-2 rounded-full bg-dash-card">
-        <div
-          className="h-2 rounded-full bg-cyan-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
+// function StatusRow({ label, count, pct }: { label: string; count: number; pct: number }) {
+//   return (
+//     <div>
+//       <div className="flex items-center justify-between text-xs text-slate-500">
+//         <span>{label}</span>
+//         <span>{count}</span>
+//       </div>
+//       <div className="mt-2 h-2 rounded-full bg-dash-card">
+//         <div
+//           className="h-2 rounded-full bg-cyan-500"
+//           style={{ width: `${pct}%` }}
+//         />
+//       </div>
+//     </div>
+//   );
+// }
 
-function ReadinessRow({ label, pct }: { label: string; pct: number }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between text-xs text-slate-500">
-        <span>{label}</span>
-        <span>{pct}%</span>
-      </div>
-      <div className="mt-2 h-2 rounded-full bg-dash-card">
-        <div
-          className="h-2 rounded-full bg-violet-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
+// function ReadinessRow({ label, pct }: { label: string; pct: number }) {
+//   return (
+//     <div>
+//       <div className="flex items-center justify-between text-xs text-slate-500">
+//         <span>{label}</span>
+//         <span>{pct}%</span>
+//       </div>
+//       <div className="mt-2 h-2 rounded-full bg-dash-card">
+//         <div
+//           className="h-2 rounded-full bg-violet-500"
+//           style={{ width: `${pct}%` }}
+//         />
+//       </div>
+//     </div>
+//   );
+// }
 
-function ActionItem({
-  title,
-  desc,
-  icon: Icon,
-  accent = "text-cyan-600",
-}: {
-  title: string;
-  desc: string;
-  icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  accent?: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm transition hover:bg-slate-900/[0.03]">
-      {Icon && (
-        <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/60", accent)}>
-          <Icon className="h-4 w-4" strokeWidth={2.25} />
-        </span>
-      )}
-      <div>
-        <div className="text-sm font-semibold text-slate-900">{title}</div>
-        <div className="mt-1 text-xs text-slate-500">{desc}</div>
-      </div>
-    </div>
-  );
-}
+// function ActionItem({
+//   title,
+//   desc,
+//   icon: Icon,
+//   accent = "text-cyan-600",
+// }: {
+//   title: string;
+//   desc: string;
+//   icon?: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+//   accent?: string;
+// }) {
+//   return (
+//     <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-dash-surface p-4 shadow-sm transition hover:bg-slate-900/[0.03]">
+//       {Icon && (
+//         <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/60", accent)}>
+//           <Icon className="h-4 w-4" strokeWidth={2.25} />
+//         </span>
+//       )}
+//       <div>
+//         <div className="text-sm font-semibold text-slate-900">{title}</div>
+//         <div className="mt-1 text-xs text-slate-500">{desc}</div>
+//       </div>
+//     </div>
+//   );
+// }
 
-function ActivityRow({
-  title,
-  meta,
-  icon: Icon,
-}: {
-  title: string;
-  meta: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-}) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-dash-surface p-3.5 text-sm">
-      <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2.25} />
-      <div className="min-w-0">
-        <div className="truncate text-slate-900">{title}</div>
-        <div className="text-xs text-slate-500">{meta}</div>
-      </div>
-    </div>
-  );
-}
+// function ActivityRow({
+//   title,
+//   meta,
+//   icon: Icon,
+// }: {
+//   title: string;
+//   meta: string;
+//   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+// }) {
+//   return (
+//     <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-dash-surface p-3.5 text-sm">
+//       <Icon className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2.25} />
+//       <div className="min-w-0">
+//         <div className="truncate text-slate-900">{title}</div>
+//         <div className="text-xs text-slate-500">{meta}</div>
+//       </div>
+//     </div>
+//   );
+// }

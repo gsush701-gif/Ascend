@@ -174,7 +174,7 @@ function AnalysisRow({ analysis, onOpen }: { analysis: JobAnalysisRecord; onOpen
   );
 }
 
-export function Resumes() {
+export function ResumesBody({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
   const { resumes, loading: resumesLoading, setDefaultResume, renameResume, deleteResume } = useResumes();
   const { analyses, loading: analysesLoading } = useJobAnalyses();
@@ -188,19 +188,21 @@ export function Resumes() {
   };
 
   return (
-    <AppShell>
+    <>
       <div className="space-y-8">
-        <div className={pageHeader}>
-          <div>
-            <h1 className={pageTitle}>My Resumes</h1>
-            <p className={pageSubtitle}>
-              Resumes you&apos;ve saved from the Analyzer, and your past job-fit analyses.
-            </p>
+        {!embedded && (
+          <div className={pageHeader}>
+            <div>
+              <h1 className={pageTitle}>My Resumes</h1>
+              <p className={pageSubtitle}>
+                Resumes you&apos;ve saved from the Analyzer, and your past job-fit analyses.
+              </p>
+            </div>
+            <Link to="/analyzer" className="text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors shrink-0">
+              Go to Analyzer →
+            </Link>
           </div>
-          <Link to="/analyzer" className="text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors shrink-0">
-            Go to Analyzer →
-          </Link>
-        </div>
+        )}
 
         <section>
           <h2 className={cn(sectionTitle, "mb-3")}>Saved resumes</h2>
@@ -328,6 +330,14 @@ export function Resumes() {
           </div>
         )}
       </Modal>
+    </>
+  );
+}
+
+export function Resumes() {
+  return (
+    <AppShell>
+      <ResumesBody />
     </AppShell>
   );
 }

@@ -6,7 +6,7 @@ import { Panel } from "../components/ui/Panel";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
-import { pageHeader, pageTitle, pageSubtitle, badgePrimary, cardHeader } from "../lib/ui";
+import { pageHeader, pageTitle, pageSubtitle, cardHeader } from "../lib/ui";
 import { toast } from "../components/ui/toast";
 import { useAuth } from "../context/AuthContext";
 import { useTracker } from "../features/tracker/hooks/useTracker";
@@ -18,6 +18,14 @@ import { getApiErrorMessage } from "../lib/apiError";
 // import { GithubPanel } from "../features/integrations/components/GithubPanel";
 import { MfaSettingsPanel } from "../features/mfa/components/MfaSettingsPanel";
 import { useMfaFactors } from "../features/mfa/hooks/useMfaFactors";
+import {
+  PlanPanelBody,
+  ChangePasswordForm,
+  OnboardingForm,
+  NotificationPreferencesForm,
+} from "../features/profile/components/ProfileSharedForms";
+import { usePlanUsage } from "../features/profile/hooks/usePlanUsage";
+import { useBillingActions } from "../features/profile/hooks/useBillingActions";
 
 export function Profile() {
   const navigate = useNavigate();
@@ -41,10 +49,31 @@ export function Profile() {
   const [reauthCode, setReauthCode] = useState("");
   const [reauthError, setReauthError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [billingBusy, setBillingBusy] = useState(false);
-  const [identityEditOpen, setIdentityEditOpen] = useState(false);
+  const { billingBusy, handleUpgrade, handleManageBilling } = useBillingActions(session);
   const planInfo = usePlanUsage(session?.user?.id);
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // The profile menu in the top nav deep-links here:
+  //   ?edit=1           -> open the identity editor (OnboardingForm) straight away
+  //   ?section=password -> scroll to the Change password panel (effect below)
+  // `edit` is read directly so it works even when already on this page; the
+  // in-page Edit/Close button also flips `identityEditManual`.
+  const editParam = searchParams.get("edit") === "1";
+  const [identityEditManual, setIdentityEditManual] = useState(false);
+  const identityEditOpen = identityEditManual || editParam;
+
+  const toggleIdentityEdit = () => {
+    if (identityEditOpen) {
+      setIdentityEditManual(false);
+      if (editParam) {
+        const next = new URLSearchParams(searchParams);
+        next.delete("edit");
+        setSearchParams(next, { replace: true });
+      }
+    } else {
+      setIdentityEditManual(true);
+    }
+  };
 
   const applicationsTracked = items.length;
   const rolesAnalyzed = items.filter((i) => i.reportSnapshot).length;
@@ -116,55 +145,18 @@ export function Profile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const handleUpgrade = async () => {
-    if (!session?.access_token) return;
-    setBillingBusy(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/billing/create-checkout-session`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(getApiErrorMessage(data, "Failed to start checkout"));
-      }
-      if (typeof data.url !== "string") {
-        throw new Error("Failed to start checkout");
-      }
-      window.location.href = data.url;
-    } catch (e) {
-      toast.error({
-        title: "Couldn't start checkout",
-        description: e instanceof Error ? e.message : "Please try again.",
-      });
-      setBillingBusy(false);
-    }
-  };
-
-  const handleManageBilling = async () => {
-    if (!session?.access_token) return;
-    setBillingBusy(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/billing/create-portal-session`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(getApiErrorMessage(data, "Failed to open billing portal"));
-      }
-      if (typeof data.url !== "string") {
-        throw new Error("Failed to open billing portal");
-      }
-      window.location.href = data.url;
-    } catch (e) {
-      toast.error({
-        title: "Couldn't open billing portal",
-        description: e instanceof Error ? e.message : "Please try again.",
-      });
-      setBillingBusy(false);
-    }
-  };
+  // See the deep-link note above — ?section=<id> jumps to any SettingsSection
+  // below by its `id` (change-password, plan, notifications, data), then
+  // strips the param (same one-shot pattern as the redirect handlers above).
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (!section) return;
+    document.getElementById(section)?.scrollIntoView({ block: "start" });
+    const next = new URLSearchParams(searchParams);
+    next.delete("section");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const performAccountDeletion = async () => {
     if (!session?.access_token) return;
@@ -281,7 +273,7 @@ export function Profile() {
                 )}
                 <button
                   type="button"
-                  onClick={() => setIdentityEditOpen((open) => !open)}
+                  onClick={toggleIdentityEdit}
                   aria-label={identityEditOpen ? "Close edit" : "Edit identity"}
                   className="inline-flex items-center gap-1 text-xs font-medium text-cyan-700 hover:text-cyan-800"
                 >
@@ -324,7 +316,7 @@ export function Profile() {
           </Panel>
         </SettingsSection> */}
 
-        <SettingsSection label="Plan & usage">
+        <SettingsSection label="Plan & usage" id="plan">
           <Panel title="Plan" subtitle="Your current plan and usage this month.">
             <PlanPanelBody
               planInfo={planInfo}
@@ -335,7 +327,7 @@ export function Profile() {
           </Panel>
         </SettingsSection>
 
-        <SettingsSection label="Security">
+        <SettingsSection label="Security" id="change-password">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <Panel
               title="Change password"
@@ -353,7 +345,7 @@ export function Profile() {
           </div>
         </SettingsSection>
 
-        <SettingsSection label="Notifications & activity">
+        <SettingsSection label="Notifications & activity" id="notifications">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <Panel
               title="Notifications"
@@ -383,7 +375,7 @@ export function Profile() {
           </div>
         </SettingsSection>
 
-        <SettingsSection label="Data">
+        <SettingsSection label="Data" id="data">
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <Panel
               title="Delete account"
@@ -513,13 +505,15 @@ export function Profile() {
  */
 function SettingsSection({
   label,
+  id,
   children,
 }: {
   label: string;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <section id={id} className="space-y-4 scroll-mt-24">
       <h2 className={cardHeader}>{label}</h2>
       {children}
     </section>
@@ -685,333 +679,3 @@ function PublicProfilePanel({ publicProfile }: { publicProfile: ReturnType<typeo
 }
 */
 
-type PlanConfig = {
-  name: string;
-  priceMonthly: number;
-  limits: Record<string, number>;
-};
-
-type PlansResponse = {
-  plans: Record<string, PlanConfig>;
-  defaultPlan: string;
-  usageLabels: Record<string, string>;
-};
-
-type PlanInfo = {
-  loading: boolean;
-  plansData: PlansResponse | null;
-  planKey: string;
-  usageByType: Record<string, number>;
-};
-
-/**
- * Loads the central plan config (server/lib/plans.js, via GET /api/plans —
- * static, no auth required) plus this user's current plan and this month's
- * usage per AI operation, so the Plan panel below can show real numbers
- * instead of hardcoded prose.
- *
- * Plan lookup mirrors server/lib/usage.js's getUserPlanKey(): no
- * `subscriptions` row, or a non-'active' status, both mean 'free' — there's
- * no billing yet, so in practice this is always 'free' today, but reading
- * the user's own row (RLS-scoped, same read-only pattern as the rest of
- * this app) keeps the display correct once a later task starts writing
- * real rows there.
- */
-function usePlanUsage(userId: string | undefined): PlanInfo {
-  const [plansData, setPlansData] = useState<PlansResponse | null>(null);
-  const [planKey, setPlanKey] = useState("free");
-  const [usageByType, setUsageByType] = useState<Record<string, number>>({});
-  const [plansLoaded, setPlansLoaded] = useState(false);
-  const [usageLoaded, setUsageLoaded] = useState(!userId);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_BASE}/api/plans`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: PlansResponse | null) => {
-        if (cancelled || !data) return;
-        setPlansData(data);
-        setPlanKey((prev) => prev || data.defaultPlan);
-      })
-      .catch(() => { })
-      .finally(() => {
-        if (!cancelled) setPlansLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    setUsageLoaded(false);
-
-    supabase
-      .from("subscriptions")
-      .select("plan, status")
-      .eq("user_id", userId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled || error || !data) return;
-        if (data.status === "active" && data.plan) setPlanKey(data.plan);
-      });
-
-    const startOfMonth = new Date();
-    startOfMonth.setUTCDate(1);
-    startOfMonth.setUTCHours(0, 0, 0, 0);
-
-    supabase
-      .from("usage_events")
-      .select("event_type")
-      .eq("user_id", userId)
-      .gte("created_at", startOfMonth.toISOString())
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (!error && data) {
-          const counts: Record<string, number> = {};
-          for (const row of data as { event_type: string }[]) {
-            counts[row.event_type] = (counts[row.event_type] || 0) + 1;
-          }
-          setUsageByType(counts);
-        }
-        setUsageLoaded(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  return { loading: !plansLoaded || !usageLoaded, plansData, planKey, usageByType };
-}
-
-function PlanPanelBody({
-  planInfo,
-  billingBusy,
-  onUpgrade,
-  onManageBilling,
-}: {
-  planInfo: PlanInfo;
-  billingBusy: boolean;
-  onUpgrade: () => void;
-  onManageBilling: () => void;
-}) {
-  const { loading, plansData, planKey, usageByType } = planInfo;
-
-  if (!plansData) {
-    return <p className="text-sm text-slate-500">{loading ? "Loading plan…" : "Plan info unavailable."}</p>;
-  }
-
-  const plan = plansData.plans[planKey] ?? plansData.plans[plansData.defaultPlan];
-  const priceLabel =
-    plan.priceMonthly === 0 ? "Free — no paid tiers active yet." : `$${(plan.priceMonthly / 100).toFixed(2)}/month`;
-  const isPro = planKey === "pro";
-
-  return (
-    <>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className={badgePrimary}>{plan.name} plan</span>
-        <span className="text-sm text-slate-500">{priceLabel}</span>
-        {!loading && (
-          <Button
-            type="button"
-            onClick={isPro ? onManageBilling : onUpgrade}
-            variant={isPro ? "secondary" : "primary"}
-            disabled={billingBusy}
-            className="ml-auto"
-          >
-            {billingBusy ? "Redirecting…" : isPro ? "Manage billing" : "Upgrade to Pro"}
-          </Button>
-        )}
-      </div>
-      <ul className="mt-4 space-y-1.5 text-sm">
-        {Object.entries(plan.limits).map(([eventType, limit]) => {
-          const used = usageByType[eventType] || 0;
-          const label = plansData.usageLabels[eventType] || eventType;
-          const overLimit = used >= limit;
-          return (
-            <li key={eventType} className="flex items-center justify-between gap-4 text-slate-600">
-              <span>{label}</span>
-              <span className={overLimit ? "font-medium text-rose-600" : "font-medium text-slate-900"}>
-                {used}/{limit} this month
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-}
-
-function ChangePasswordForm() {
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSave = async () => {
-    if (password.length < 6) {
-      toast.error({ title: "Password too short", description: "Use at least 6 characters." });
-      return;
-    }
-    if (password !== confirmPassword) {
-      toast.error({ title: "Passwords don't match" });
-      return;
-    }
-    setSubmitting(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setSubmitting(false);
-    if (error) {
-      toast.error({ title: "Could not update password", description: error.message });
-      return;
-    }
-    setPassword("");
-    setConfirmPassword("");
-    toast.success({ title: "Password updated" });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-xs text-slate-500">New password</label>
-        <Input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="At least 6 characters"
-          className="mt-1"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-slate-500">Confirm new password</label>
-        <Input
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className="mt-1"
-        />
-      </div>
-      <Button type="button" onClick={handleSave} variant="primary" disabled={submitting}>
-        {submitting ? "Saving…" : "Update password"}
-      </Button>
-    </div>
-  );
-}
-
-function OnboardingForm() {
-  const { profile, loading, updateProfile } = useProfile();
-  const [major, setMajor] = useState("");
-  const [targetRole, setTargetRole] = useState("");
-  const [graduationYear, setGraduationYear] = useState("");
-  const [saved, setSaved] = useState(false);
-  const [initialized, setInitialized] = useState(false);
-
-  useEffect(() => {
-    if (!loading && profile && !initialized) {
-      setMajor(profile.major);
-      setTargetRole(profile.targetRole);
-      setGraduationYear(profile.graduationYear);
-      setInitialized(true);
-    }
-  }, [loading, profile, initialized]);
-
-  const handleSave = async () => {
-    await updateProfile({
-      major: major.trim() || "Not specified",
-      targetRole: targetRole.trim() || "Not specified",
-      graduationYear: graduationYear.trim() || "Not specified",
-    });
-    setSaved(true);
-    toast.success({ title: "Profile saved", description: "Your preferences have been updated." });
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <label className="block text-xs text-slate-500">Major / Field</label>
-        <Input
-          type="text"
-          value={major}
-          onChange={(e) => setMajor(e.target.value)}
-          className="mt-1"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-slate-500">Target role</label>
-        <Input
-          type="text"
-          value={targetRole}
-          onChange={(e) => setTargetRole(e.target.value)}
-          className="mt-1"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-slate-500">Graduation year</label>
-        <Input
-          type="text"
-          value={graduationYear}
-          onChange={(e) => setGraduationYear(e.target.value)}
-          className="mt-1"
-        />
-      </div>
-      <Button type="button" onClick={handleSave} variant="primary">
-        {saved ? "Saved" : "Save profile"}
-      </Button>
-    </div>
-  );
-}
-
-/**
- * Automated weekly career report opt-in (Phase 7 Task 7) — a single toggle
- * on `profiles.weekly_reports_enabled`, saved instantly on change (no
- * separate "Save" button needed for one boolean), same direct-Supabase
- * RLS-scoped write pattern as every other profile field in this file
- * (via useProfile's updateProfile). The actual generation + send happens
- * server-side on a schedule (server/lib/weeklyReport.js, triggered weekly by
- * .github/workflows/weekly-report.yml) — this toggle only controls whether
- * that job includes this user at all.
- */
-function NotificationPreferencesForm() {
-  const { profile, loading, updateProfile } = useProfile();
-  const [saving, setSaving] = useState(false);
-
-  const handleToggle = async (checked: boolean) => {
-    setSaving(true);
-    const { error } = await updateProfile({ weeklyReportsEnabled: checked });
-    setSaving(false);
-    if (error) {
-      toast.error({ title: "Couldn't save preference", description: error });
-      return;
-    }
-    toast.success({
-      title: checked ? "Weekly reports enabled" : "Weekly reports disabled",
-      description: checked
-        ? "You'll get an email summarizing your week's activity, once a week."
-        : undefined,
-    });
-  };
-
-  if (loading || !profile) {
-    return <p className="text-sm text-slate-500">Loading…</p>;
-  }
-
-  return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm text-slate-700">
-        <input
-          type="checkbox"
-          className="h-4 w-4 rounded border-slate-300"
-          checked={profile.weeklyReportsEnabled}
-          disabled={saving}
-          onChange={(e) => handleToggle(e.target.checked)}
-        />
-        Email me a weekly career report
-      </label>
-      <p className="text-xs text-slate-500">
-        A short summary of your applications, interviews, and offers from the past week, plus
-        the same recommendations shown on the Report page — sent once a week if you're opted in.
-      </p>
-    </div>
-  );
-}

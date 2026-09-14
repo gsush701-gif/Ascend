@@ -52,9 +52,19 @@ test.describe("Applications pipeline", () => {
 
     const drawer = page.getByRole("dialog");
 
+    // Next step / Deadline / Notes / status now live on the dedicated Report
+    // page (src/routes/RoleDetail.tsx), reached via the drawer's "Report"
+    // action — the drawer itself only offers the primary actions (Generate
+    // cover letter / Interview prep / Report).
+    await test.step("open the Report page from the drawer", async () => {
+      await drawer.getByRole("button", { name: "Report" }).click();
+      await expect(page.getByRole("dialog")).not.toBeVisible();
+      await expect(page.getByRole("heading", { name: role, exact: true })).toBeVisible();
+    });
+
     await test.step("edit the Next step and Deadline fields", async () => {
-      const nextStepInput = drawer.getByPlaceholder("e.g. Apply by Friday");
-      const deadlineInput = drawer.getByPlaceholder("e.g. Feb 15");
+      const nextStepInput = page.getByPlaceholder("e.g. Apply by Friday");
+      const deadlineInput = page.getByPlaceholder("e.g. Feb 15");
       await nextStepInput.fill("Follow up next week");
       await deadlineInput.fill("Dec 1");
       await expect(nextStepInput).toHaveValue("Follow up next week");
@@ -62,13 +72,13 @@ test.describe("Applications pipeline", () => {
     });
 
     await test.step("edit Notes", async () => {
-      const notes = drawer.getByPlaceholder("Deadlines, contact, follow-ups...");
+      const notes = page.getByPlaceholder("Deadlines, contact, follow-ups...");
       await notes.fill("E2E test note");
       await expect(notes).toHaveValue("E2E test note");
     });
 
     await test.step("move status through the pipeline", async () => {
-      const statusSelect = drawer.locator("select");
+      const statusSelect = page.locator("select");
       await statusSelect.selectOption("Applied");
       await expect(statusSelect).toHaveValue("Applied");
       await statusSelect.selectOption("Interview");
@@ -77,7 +87,9 @@ test.describe("Applications pipeline", () => {
       await expect(statusSelect).toHaveValue("Offer");
     });
 
-    await test.step("close the drawer", async () => {
+    await test.step("back to Roles and close the drawer", async () => {
+      await page.getByRole("button", { name: "Back to role" }).click();
+      await expect(drawer).toBeVisible();
       await drawer.getByRole("button", { name: "Close" }).click();
       await expect(page.getByRole("dialog")).not.toBeVisible();
     });
