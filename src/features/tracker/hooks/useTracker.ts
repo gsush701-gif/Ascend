@@ -29,6 +29,8 @@ type RoleRow = {
   job_id: string | null;
   resume_id: string | null;
   job_url: string | null;
+  job_posting_storage_path: string | null;
+  resume_storage_path: string | null;
   source: string | null;
   location: string | null;
   remote_type: string | null;
@@ -70,6 +72,8 @@ function rowToItem(row: RoleRow): TrackerItem {
     jobId: row.job_id ?? undefined,
     resumeId: row.resume_id ?? undefined,
     jobUrl: row.job_url ?? undefined,
+    jobPostingStoragePath: row.job_posting_storage_path ?? undefined,
+    resumeStoragePath: row.resume_storage_path ?? undefined,
     source: row.source ?? undefined,
     location: row.location ?? undefined,
     remoteType: row.remote_type ?? undefined,
@@ -97,8 +101,16 @@ function rowToItem(row: RoleRow): TrackerItem {
  * fields keep their own dedicated updateX functions below. */
 const APPLICATION_DETAIL_COLUMNS: Partial<Record<keyof TrackerItem, string>> = {
   jobId: "job_id",
+  // Not a Phase 2b field originally, but the same generic setter is the
+  // right fit: lets the Role report page's "Job description" modal
+  // (RoleDetail.tsx) edit this on an *existing* role, which
+  // addManualTrackerItem's own jobDescription option (used only at
+  // creation time) can't do.
+  jobDescription: "job_description",
   resumeId: "resume_id",
   jobUrl: "job_url",
+  jobPostingStoragePath: "job_posting_storage_path",
+  resumeStoragePath: "resume_storage_path",
   source: "source",
   location: "location",
   remoteType: "remote_type",
@@ -181,6 +193,15 @@ export function useTracker(reportAlignment: number | undefined) {
       });
   }
 
+  /**
+   * `onAdded` fires immediately/optimistically (before the insert below has
+   * actually landed) — every existing caller relies on that for instant UI
+   * feedback, so it stays exactly as-is. The returned promise additionally
+   * resolves once the row genuinely exists in the database (or the insert
+   * failed) — for a caller that needs to do something to *this row*
+   * afterward (e.g. attaching a resume) without racing the insert. Callers
+   * that don't need that can simply not await it, same as before.
+   */
   function addManualTrackerItem(
     onAdded: (newItemId: string) => void,
     reportSnapshot?: SavedReportSnapshot,
@@ -192,10 +213,10 @@ export function useTracker(reportAlignment: number | undefined) {
       jobDescription?: string;
       notes?: string;
     },
-  ) {
+  ): Promise<{ id: string | null; error: string | null }> {
     if (!user) {
       setTrackerError("You must be logged in to add a role.");
-      return;
+      return Promise.resolve({ id: null, error: "You must be logged in to add a role." });
     }
 
     const c = (options?.company ?? company).trim() || "Unknown company";
@@ -231,28 +252,32 @@ export function useTracker(reportAlignment: number | undefined) {
     onAdded(id);
     logEvent("role_created", { status });
 
-    supabase
-      .from("roles")
-      .insert({
-        id,
-        user_id: user.id,
-        company: c,
-        role: r,
-        status,
-        alignment,
-        next_step: next,
-        job_description: jobDescription ?? null,
-        notes: notes ?? null,
-        report_snapshot: reportSnapshot ?? null,
-        created_at: now,
-        updated_at: now,
-      })
-      .then(({ error }) => {
-        if (error) {
-          console.error("[useTracker] insert failed:", error);
-          setTrackerError(error.message);
-        }
-      });
+    return Promise.resolve(
+      supabase
+        .from("roles")
+        .insert({
+          id,
+          user_id: user.id,
+          company: c,
+          role: r,
+          status,
+          alignment,
+          next_step: next,
+          job_description: jobDescription ?? null,
+          notes: notes ?? null,
+          report_snapshot: reportSnapshot ?? null,
+          created_at: now,
+          updated_at: now,
+        })
+        .then(({ error }): { id: string | null; error: string | null } => {
+          if (error) {
+            console.error("[useTracker] insert failed:", error);
+            setTrackerError(error.message);
+            return { id: null, error: error.message };
+          }
+          return { id, error: null };
+        }),
+    );
   }
 
   function removeItem(id: string) {

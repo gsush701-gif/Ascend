@@ -39,13 +39,9 @@ export function Roles() {
     tracker: items,
     addManualTrackerItem,
     updateStatus,
-    updateNotes,
-    updateNextStep,
+    updateDeadline,
     updateRole,
     updateCompany,
-    updateDeadline,
-    updateCoverLetter,
-    updateRoleFields,
     removeItem,
   } = useTracker(undefined);
 
@@ -207,6 +203,12 @@ export function Roles() {
     []
   );
 
+  // Same mechanism the row-click handler above uses to open the drawer —
+  // reused as-is by the table's "View Actions" button.
+  const handleOpenRole = useCallback((id: string) => {
+    setSelectedRoleId(id);
+  }, []);
+
   const selectedItem = selectedRoleId
     ? items.find((i) => i.id === selectedRoleId)
     : null;
@@ -222,23 +224,23 @@ export function Roles() {
     [updateStatus]
   );
 
-  const notesToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deadlineToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
-      if (notesToastTimeoutRef.current) clearTimeout(notesToastTimeoutRef.current);
+      if (deadlineToastTimeoutRef.current) clearTimeout(deadlineToastTimeoutRef.current);
     },
     []
   );
-  const wrappedUpdateNotes = useCallback(
-    (id: string, notes: string) => {
-      updateNotes(id, notes);
-      if (notesToastTimeoutRef.current) clearTimeout(notesToastTimeoutRef.current);
-      notesToastTimeoutRef.current = setTimeout(() => {
-        notesToastTimeoutRef.current = null;
-        toast.success({ title: "Note saved", groupId: "notes-update" });
+  const wrappedUpdateDeadline = useCallback(
+    (id: string, deadline: string) => {
+      updateDeadline(id, deadline);
+      if (deadlineToastTimeoutRef.current) clearTimeout(deadlineToastTimeoutRef.current);
+      deadlineToastTimeoutRef.current = setTimeout(() => {
+        deadlineToastTimeoutRef.current = null;
+        toast.success({ title: "Deadline saved", groupId: "deadline-update" });
       }, 600);
     },
-    [updateNotes]
+    [updateDeadline]
   );
 
   return (
@@ -247,12 +249,7 @@ export function Roles() {
         <RoleDetailDrawer
           item={selectedItem}
           onClose={() => setSelectedRoleId(null)}
-          updateStatus={wrappedUpdateStatus}
-          updateNextStep={updateNextStep}
-          updateNotes={wrappedUpdateNotes}
-          updateDeadline={updateDeadline}
-          updateCoverLetter={updateCoverLetter}
-          updateRoleFields={updateRoleFields}
+          updateDeadline={wrappedUpdateDeadline}
           removeItem={removeItem}
         />
       )}
@@ -367,11 +364,10 @@ export function Roles() {
           editingCell={editingCell}
           onEditingCellChange={setEditingCell}
           onRowClick={handleRowClick}
+          onOpenRole={handleOpenRole}
           updateStatus={wrappedUpdateStatus}
-          updateNotes={wrappedUpdateNotes}
           updateRole={updateRole}
           updateCompany={updateCompany}
-          updateDeadline={updateDeadline}
         />
         )}
         </div>

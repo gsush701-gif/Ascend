@@ -92,6 +92,16 @@ export type TrackerItem = {
   resumeId?: string;
   /** Link to the original job posting (distinct from `applicationUrl`). */
   jobUrl?: string;
+  /** Storage path of the actual job-posting PDF, if one was attached on the
+   * Role report page (`job-postings` bucket, supabase/migrations/025_role_job_posting_pdf.sql). */
+  jobPostingStoragePath?: string;
+  /** Storage path of a resume PDF attached to this specific role, if one
+   * was uploaded on the Role report page (`role-resumes` bucket,
+   * supabase/migrations/026_role_resume_pdf.sql) — distinct from the
+   * account-wide saved resumes in the `resumes` table. When set, this is
+   * the resume "Analyze this role" scores against instead of your default
+   * saved resume. */
+  resumeStoragePath?: string;
   /** Where this role was found, e.g. "LinkedIn", "referral". */
   source?: string;
   location?: string;

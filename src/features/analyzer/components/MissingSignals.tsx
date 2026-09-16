@@ -97,7 +97,11 @@ export function MissingSignals({ signals, resumeStrength }: MissingSignalsProps)
               <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs">
                 <span className="text-emerald-600 shrink-0">✅</span>
                 <span className="text-slate-700">
-                  Add: &ldquo;{example}&rdquo;
+                  <span className="text-slate-500">Example phrasing: </span>
+                  <em>&ldquo;{example}&rdquo;</em>
+                  <span className="mt-0.5 block text-[11px] text-slate-400">
+                    A template, not your data — swap in your real numbers.
+                  </span>
                 </span>
               </div>
             </div>

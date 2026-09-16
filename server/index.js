@@ -58,6 +58,7 @@ const { recordUsageEvent } = require("./lib/usageEvents");
 const { checkQuota, enforceUsageQuota } = require("./lib/usage");
 const { PLANS, DEFAULT_PLAN, USAGE_LABELS } = require("./lib/plans");
 const groq = require("./lib/groq");
+const elevenlabs = require("./lib/elevenlabs");
 const { stripe, isStripeConfigured } = require("./lib/stripe");
 const billing = require("./lib/billing");
 const { fetchOwnedRow } = require("./lib/supabaseUser");
@@ -374,7 +375,7 @@ function getBearerToken(req) {
 
 function respondAiError(req, res, err, fallbackMessage) {
   captureException(err, { requestId: req.requestId, route: req.path });
-  if (err && err.name === "GroqNotConfiguredError") {
+  if (err && typeof err.name === "string" && err.name.endsWith("NotConfiguredError")) {
     return sendError(req, res, err.statusCode || 503, ErrorCodes.AI_NOT_CONFIGURED, err.message);
   }
   const safeMessage =
@@ -1048,6 +1049,216 @@ app.post("/api/interview-feedback", aiLimiter, optionalAuth, async (req, res) =>
   } catch (err) {
     console.error("interview-feedback failed:", err);
     return respondAiError(req, res, err, "Failed to generate interview feedback");
+  }
+});
+
+// Text-to-speech for the voice interview's spoken interviewer (Week 2 voice
+// upgrade). Synthesizes one short line — a question or the session's static
+// intro line — via ElevenLabs. See server/lib/elevenlabs.js: when
+// ELEVENLABS_API_KEY isn't set this cleanly 503s (via respondAiError's
+// generic "*NotConfiguredError" handling) and the frontend falls back to
+// the browser's free built-in speechSynthesis voice instead of failing the
+// interview.
+app.post("/api/interview-speech", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.text !== undefined && typeof req.body.text !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'text' must be a string");
+    }
+    const text = (req.body?.text || "").trim();
+    if (!text) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'text' is required");
+    }
+    // A single spoken interview question or intro line never needs to be
+    // longer than this — catches accidental misuse before spending an API call.
+    if (text.length > 600) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'text' is too long (max 600 characters)");
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.interview_tts"))) return;
+
+    const startedAt = Date.now();
+    try {
+      const audio = await elevenlabs.synthesizeSpeech(text);
+      recordUsageEvent({
+        eventType: "ai.interview_tts",
+        userId: req.user && req.user.id,
+        aiModel: elevenlabs.ELEVENLABS_MODEL_ID,
+        aiLatencyMs: Date.now() - startedAt,
+        requestId: req.requestId,
+        metadata: { success: true },
+      });
+      res.set("Content-Type", "audio/mpeg");
+      return res.send(audio);
+    } catch (err) {
+      recordUsageEvent({
+        eventType: "ai.interview_tts",
+        userId: req.user && req.user.id,
+        aiModel: elevenlabs.ELEVENLABS_MODEL_ID,
+        aiLatencyMs: Date.now() - startedAt,
+        requestId: req.requestId,
+        metadata: { success: false, errorName: err && err.name },
+      });
+      throw err;
+    }
+  } catch (err) {
+    console.error("interview-speech failed:", err);
+    return respondAiError(req, res, err, "Failed to synthesize interview speech");
+  }
+});
+
+// Voice interview conversation turn (Week 3 dynamic conversation engine) —
+// generates the next thing the AI interviewer says, given the full
+// transcript so far. Replaces the fixed question-list flow for new voice
+// interview sessions; POST /api/generate-interview-questions and
+// POST /api/interview-feedback above are untouched and still power the
+// separate text-based interview prep page as-is.
+const MAX_INTERVIEW_TURN_COUNT = 20; // hard cap — see server/lib/groq.js's generateInterviewTurn docblock
+app.post("/api/interview-turn", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' must be a string");
+    }
+    if (req.body?.companyName !== undefined && typeof req.body.companyName !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'companyName' must be a string");
+    }
+    if (req.body?.roleTitle !== undefined && typeof req.body.roleTitle !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleTitle' must be a string");
+    }
+    if (req.body?.transcript !== undefined && !Array.isArray(req.body.transcript)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'transcript' must be an array");
+    }
+    if (req.body?.topicsCovered !== undefined && !Array.isArray(req.body.topicsCovered)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'topicsCovered' must be an array");
+    }
+
+    const jobDescription = (req.body?.jobDescription || "").trim();
+    const companyName = (req.body?.companyName || "").trim() || undefined;
+    const roleTitle = (req.body?.roleTitle || "").trim() || undefined;
+    const rawTranscript = Array.isArray(req.body?.transcript) ? req.body.transcript : [];
+    const topicsCovered = Array.isArray(req.body?.topicsCovered)
+      ? req.body.topicsCovered.filter((t) => typeof t === "string").slice(0, 30)
+      : [];
+    const currentTopic =
+      typeof req.body?.currentTopic === "string" ? req.body.currentTopic.slice(0, 200) : null;
+    const followUpCountForTopic = Number.isFinite(req.body?.followUpCountForTopic)
+      ? req.body.followUpCountForTopic
+      : 0;
+    const turnCount = Number.isFinite(req.body?.turnCount) ? req.body.turnCount : 0;
+
+    if (jobDescription.length < 20) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        "Field 'jobDescription' is required and must have real content",
+      );
+    }
+    if (jobDescription.length > 20000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' is too long (max 20000 characters)");
+    }
+    // Cap the transcript itself (turn count and total size) — bounds abuse
+    // (e.g. someone scripting an artificially huge payload) independently
+    // of the per-call slicing already inside generateInterviewTurn.
+    if (rawTranscript.length > 200) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'transcript' is too long (max 200 turns)");
+    }
+    const transcript = [];
+    for (const turn of rawTranscript) {
+      if (
+        !turn ||
+        (turn.speaker !== "interviewer" && turn.speaker !== "candidate") ||
+        typeof turn.text !== "string"
+      ) {
+        return sendError(
+          req,
+          res,
+          400,
+          ErrorCodes.VALIDATION_ERROR,
+          "Field 'transcript' entries must be { speaker: 'interviewer' | 'candidate', text: string }",
+        );
+      }
+      transcript.push({ speaker: turn.speaker, text: turn.text.slice(0, 4000) });
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.interview_turn"))) return;
+
+    // Defensive hard cap, independent of what the model itself decides —
+    // guarantees a session can never run away in length or Groq cost even
+    // if the model doesn't self-pace well.
+    if (turnCount >= MAX_INTERVIEW_TURN_COUNT) {
+      recordUsageEvent({
+        eventType: "ai.interview_turn",
+        userId: req.user && req.user.id,
+        aiModel: "none (hard cap)",
+        aiLatencyMs: 0,
+        requestId: req.requestId,
+        metadata: { success: true, forcedClose: true },
+      });
+      return res.json({
+        action: "CLOSE_INTERVIEW",
+        message:
+          "That's all the time we have for today — thanks so much for walking me through your experience. This wraps up our interview.",
+        topic: currentTopic,
+      });
+    }
+
+    const result = await callGroq(req, "ai.interview_turn", () =>
+      groq.generateInterviewTurn({
+        jobDescription,
+        companyName,
+        roleTitle,
+        transcript,
+        topicsCovered,
+        currentTopic,
+        followUpCountForTopic,
+        turnCount,
+      }),
+    );
+    return res.json(result);
+  } catch (err) {
+    console.error("interview-turn failed:", err);
+    return respondAiError(req, res, err, "Failed to generate the next interview turn");
+  }
+});
+
+app.post("/api/interview-evaluation", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    if (req.body?.transcript !== undefined && typeof req.body.transcript !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'transcript' must be a string");
+    }
+    if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' must be a string");
+    }
+
+    const transcript = (req.body?.transcript || "").trim();
+    const jobDescription = (req.body?.jobDescription || "").trim() || undefined;
+
+    if (transcript.length < 50) {
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        "Field 'transcript' is required and must have real content",
+      );
+    }
+    if (transcript.length > 40000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'transcript' is too long (max 40000 characters)");
+    }
+    if (jobDescription && jobDescription.length > 20000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' is too long (max 20000 characters)");
+    }
+
+    if (!(await enforceUsageQuota(req, res, "ai.interview_evaluation"))) return;
+
+    const result = await callGroq(req, "ai.interview_evaluation", () =>
+      groq.generateInterviewEvaluation(transcript, jobDescription),
+    );
+    return res.json(result);
+  } catch (err) {
+    console.error("interview-evaluation failed:", err);
+    return respondAiError(req, res, err, "Failed to generate the interview evaluation");
   }
 });
 

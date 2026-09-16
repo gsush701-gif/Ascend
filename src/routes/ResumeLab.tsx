@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ChevronDown, ChevronUp, Copy, FileText, Sparkles } from "lucide-react";
 import { cn } from "../lib/cn";
 import { AppShell } from "../components/layout/AppShell";
 import { Textarea } from "../components/ui/Textarea";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
-import { pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
+import { pageHeader, pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
 import {
   getBulletImprovementDetails,
   type BulletImprovementResult,
@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import { extractTextFromPdf } from "../lib/pdf";
 import { supabase } from "../lib/supabaseClient";
 import { getApiErrorMessage } from "../lib/apiError";
+import { ResumesBody } from "./Resumes";
 
 const HISTORY_KEY = "internos_resume_lab_history_v1";
 const HISTORY_MAX = 20;
@@ -86,7 +87,7 @@ type LinkedInImproveResult = {
   why: string;
 };
 
-export function ResumeLab() {
+export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
   const location = useLocation();
   const { session, user } = useAuth();
   const jobDescription = (location.state as { jobDescription?: string } | null)?.jobDescription ?? "";
@@ -346,18 +347,19 @@ export function ResumeLab() {
   }, [result]);
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-2xl space-y-6 pb-12">
-        {/* Hero */}
-        <section className="text-center">
-          <h1 className={pageTitle}>
-            Upgrade your resume impact
-          </h1>
-          <p className={cn(pageSubtitle, "mt-2")}>
-            AI-powered rewriting — improve one bullet or get a full critique of
-            an uploaded resume.
-          </p>
-        </section>
+    <div className="mx-auto max-w-2xl space-y-6 pb-12">
+        {/* Hero — hidden when embedded in the Resume Lab workspace (it has its own header) */}
+        {!embedded && (
+          <section className="text-center">
+            <h1 className={pageTitle}>
+              Upgrade your resume impact
+            </h1>
+            <p className={cn(pageSubtitle, "mt-2")}>
+              AI-powered rewriting — improve one bullet or get a full critique of
+              an uploaded resume.
+            </p>
+          </section>
+        )}
 
         {/* Mode toggle */}
         <section className="flex justify-center">
@@ -823,6 +825,77 @@ export function ResumeLab() {
               </section>
             )}
           </>
+        )}
+    </div>
+  );
+}
+
+/**
+ * Combined "Resume Lab" workspace — the single top-nav entry point. Merges the
+ * former /resumes page (saved resumes + analysis history) and the former
+ * /resume-lab AI tools into one page via a tab switch, reusing both existing
+ * bodies unchanged. Opens on the AI Improve tab when arrived at from the
+ * Analyzer / a role (which pass a jobDescription in navigation state).
+ */
+export function ResumeLab() {
+  const location = useLocation();
+  const fromJob = Boolean(
+    (location.state as { jobDescription?: string } | null)?.jobDescription
+  );
+  const [tab, setTab] = useState<"resumes" | "improve">(
+    fromJob ? "improve" : "resumes"
+  );
+
+  return (
+    <AppShell>
+      <div className="space-y-8">
+        <div className={pageHeader}>
+          <div>
+            <h1 className={pageTitle}>Resume Lab</h1>
+            <p className={pageSubtitle}>
+              Manage your saved resumes and analysis history, and sharpen your
+              wording with AI.
+            </p>
+          </div>
+          <Link
+            to="/analyzer"
+            className="shrink-0 text-sm font-medium text-slate-700 transition-colors hover:text-slate-900"
+          >
+            Go to Analyzer →
+          </Link>
+        </div>
+
+        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-900/[0.04] p-1">
+          <button
+            type="button"
+            onClick={() => setTab("resumes")}
+            className={cn(
+              "rounded-md px-4 py-1.5 text-sm font-medium transition",
+              tab === "resumes"
+                ? "bg-white text-black shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            )}
+          >
+            My Resumes
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("improve")}
+            className={cn(
+              "rounded-md px-4 py-1.5 text-sm font-medium transition",
+              tab === "improve"
+                ? "bg-white text-black shadow-sm"
+                : "text-slate-500 hover:text-slate-900"
+            )}
+          >
+            AI Improve
+          </button>
+        </div>
+
+        {tab === "resumes" ? (
+          <ResumesBody embedded />
+        ) : (
+          <ResumeLabBody embedded />
         )}
       </div>
     </AppShell>

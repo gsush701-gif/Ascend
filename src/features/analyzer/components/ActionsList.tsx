@@ -14,10 +14,13 @@ export function ActionsList({ actions }: ActionsListProps) {
           >
             <span className="text-emerald-600 shrink-0 mt-0.5">✅</span>
             <div className="min-w-0">
-              <span className="text-slate-500">Add: </span>
-              <span className="text-slate-900 font-medium">
+              <span className="text-slate-500">Example phrasing: </span>
+              <span className="text-slate-900 font-medium italic">
                 &ldquo;{example}&rdquo;
               </span>
+              <p className="mt-1 text-xs text-slate-400">
+                A template, not your data — swap in your real project, tools, and numbers.
+              </p>
             </div>
           </div>
         );

@@ -188,6 +188,7 @@ Rules:
 - Include a mix of "behavioral" questions (past experience, teamwork, conflict, ownership — phrased so a STAR-method answer fits naturally) and "technical" questions (role-specific technical knowledge, the actual stack/tools/domain named in the job description, or realistic problem-solving scenarios for that role).
 - Each question must be tagged with exactly one category: "behavioral" or "technical".
 - Do not invent employers, companies, or credentials for the candidate; the questions should be things an interviewer would ask, not statements about the candidate.
+- These questions are spoken aloud by a text-to-speech voice, not just read on screen. Phrase each one exactly as a real interviewer would say it out loud: under 25 words, one single clear ask, plain conversational wording. Never combine two questions into one, never write a long jargon-heavy run-on sentence, and never leave the ask vague or open to multiple interpretations.
 Respond with ONLY a JSON object of this exact shape:
 {"questions": [{"question": string, "category": "behavioral" | "technical"}]}`;
 
@@ -211,9 +212,10 @@ Rules:
 - If the question is technical, assess accuracy, depth, and whether the answer actually addresses what was asked.
 - Always consider clarity and conciseness.
 - Be honest about weaknesses as well as strengths; do not just flatter the candidate.
+- Never give a vague generality like "could be more detailed" or "good effort" on its own. Always name the specific thing that's missing or wrong: for a behavioral answer, name the exact STAR component that's weak or absent (e.g. "no measurable Result was given"); for a technical answer, name the exact concept, term, or step the candidate got wrong or skipped.
 Respond with ONLY a JSON object of this exact shape:
 {
-  "feedback": string (2-4 sentences of direct, specific critique),
+  "feedback": string (2-4 sentences of direct, specific critique that names the exact gap, not a vague generality),
   "strengths": string[] (1-3 short bullets on what the answer did well),
   "improvements": string[] (1-3 short, concrete, actionable bullets on what to fix)
 }`;
@@ -223,6 +225,110 @@ Respond with ONLY a JSON object of this exact shape:
   }`;
 
   return chatJson(system, user, 1200);
+}
+
+/**
+ * Core engine of the dynamic voice interview (Week 3) — generates ONE
+ * conversational turn at a time, replacing the old fixed question-list
+ * model (generateInterviewQuestions above, still used as-is by the
+ * text-based interview prep page). Deliberately combines "decide what to do
+ * next" and "phrase the natural reply" into a single call: two round trips
+ * per turn would double latency/cost in a real-time voice loop for no real
+ * capability gain, since one well-structured JSON response can carry both.
+ *
+ * `transcript` is `[{ speaker: "interviewer" | "candidate", text }]` — an
+ * empty array means this is the very start of the interview (the system
+ * prompt below has an explicit rule for that case, doubling as
+ * "generateOpening()"). `topicsCovered`/`currentTopic`/
+ * `followUpCountForTopic`/`turnCount` are the caller's persisted
+ * conversation state (server/index.js's route is stateless per request —
+ * see src/features/voiceInterview/conversationLogic.ts for how the caller
+ * maintains this across turns).
+ */
+async function generateInterviewTurn({
+  jobDescription,
+  companyName,
+  roleTitle,
+  transcript,
+  topicsCovered,
+  currentTopic,
+  followUpCountForTopic,
+  turnCount,
+}) {
+  const system = `You are an experienced human interviewer conducting a realistic, spoken job interview for the role of ${roleTitle || "the target role"}${companyName ? ` at ${companyName}` : ""}, based on the job description below. Your goal is a natural professional conversation that evaluates the candidate — not a checklist of questions read in order.
+Rules:
+- Listen to what the candidate actually said in the transcript and reference specific things they mentioned earlier when it's natural to do so.
+- Never ask about something the candidate has already answered.
+- Never follow a rigid script — decide the next turn based on the actual conversation so far.
+- Don't praise every answer, and don't use the same acknowledgment twice in a row — vary your wording, or skip acknowledgment entirely and just transition.
+- Never give the candidate the answer, never coach them, never tell them how to improve during the interview itself.
+- Keep every interviewer turn concise (1-3 sentences) and ask exactly one question at a time.
+- Ground every question in this specific job description's actual responsibilities, skills, and domain — never generic filler that could apply to any job.
+- If the transcript is empty, this is the very start of the interview: greet the candidate warmly, briefly explain in one sentence that you'll be asking about their experience and how they approach different situations, then ask an opening question about their background — all as one natural spoken turn.
+- If the candidate's last answer is vague or generic, ask a clarifying follow-up that gets at a concrete specific (action FOLLOW_UP or CLARIFY).
+- If the candidate mentioned an interesting specific detail worth exploring, dig into that detail (action EXPLORE_DETAIL).
+- If the candidate gave a strong, complete answer, briefly acknowledge it (varied wording) and move to a new topic (action TRANSITION_TOPIC) rather than over-interrogating a good answer.
+- Explore any one topic for roughly 1-3 follow-up questions at most based on answer quality, then transition.
+- Aim for the whole interview to run about 12-16 total exchanges. The candidate has had ${turnCount} turns so far, covering: ${topicsCovered && topicsCovered.length ? topicsCovered.join(", ") : "nothing yet"}${currentTopic ? `, currently discussing: ${currentTopic}` : ""}. Once turn count approaches that range and a reasonable spread of topics is covered (background, relevant experience, a problem-solving or behavioral situation grounded in the job, and motivation for the role), wrap up warmly (action CLOSE_INTERVIEW) — thank the candidate, tell them that's all the questions you have, and do not ask anything further.
+Respond with ONLY a JSON object of this exact shape:
+{"action": "FOLLOW_UP" | "CLARIFY" | "EXPLORE_DETAIL" | "TRANSITION_TOPIC" | "CLOSE_INTERVIEW", "message": string (the interviewer's next spoken line — natural, concise, one question at a time unless closing), "topic": string (a short 2-5 word label for what's currently being discussed, e.g. "preventive maintenance experience")}`;
+
+  // Cap both the transcript length and total size sent per call — mirrors
+  // the bounds every other Groq prompt in this file already applies
+  // (jobDescription.slice(0, ...) etc.), scaled for a running conversation
+  // instead of a single document.
+  const recentTranscript = (transcript || []).slice(-20);
+  const transcriptText = recentTranscript
+    .map((t) => `${t.speaker === "interviewer" ? "Interviewer" : "Candidate"}: ${t.text}`)
+    .join("\n")
+    .slice(-12000);
+
+  const user = `Job description:\n"""${(jobDescription || "").slice(0, 8000)}"""${
+    companyName ? `\n\nCompany: ${companyName.slice(0, 200)}` : ""
+  }${roleTitle ? `\n\nRole title: ${roleTitle.slice(0, 200)}` : ""}
+
+Conversation so far${transcriptText ? ":" : " (empty — this is the start)"}
+${transcriptText}`;
+
+  return chatJson(system, user, 500);
+}
+
+/**
+ * Final evaluation for a completed dynamic voice interview (Week 3) —
+ * called once when the conversation closes. Grounded entirely in the
+ * candidate's own transcript, never generic filler (same "no fabricated
+ * placeholder content" ethos as every scored feature in this app).
+ */
+async function generateInterviewEvaluation(transcript, jobDescription) {
+  const system = `You are an experienced hiring manager writing a candid, specific post-interview evaluation of a candidate based on a full interview transcript${jobDescription ? " and the job description they were interviewing for" : ""}.
+Rules:
+- Base every score and every bullet point strictly on what the candidate actually said in the transcript — never invent or assume anything not present in it.
+- Be honest: a mediocre interview should score in the middle of the range and say why, not be inflated.
+- Every string in strongAnswers/weakAnswers/areasForImprovement/suggestedBetterAnswers/struggledFollowUps must reference something specific and concrete from the transcript, quoting or closely paraphrasing it — never a generic statement that could apply to any candidate.
+- suggestedBetterAnswers should show what a stronger answer to a specific weak moment would have included, not just criticize it again.
+Respond with ONLY a JSON object of this exact shape:
+{
+  "overallScore": number (0-100),
+  "communication": number (0-100),
+  "relevance": number (0-100, how relevant the candidate's answers were to the job description),
+  "technicalKnowledge": number (0-100),
+  "problemSolving": number (0-100),
+  "confidence": number (0-100),
+  "completeness": number (0-100, how fully the candidate answered what was asked),
+  "behavioralQuality": number (0-100, STAR-structure quality of behavioral answers),
+  "usedConcreteExamples": boolean,
+  "strongAnswers": string[] (1-4 specific moments that were genuinely strong, referencing what was said),
+  "weakAnswers": string[] (1-4 specific moments that were weak, referencing what was said),
+  "areasForImprovement": string[] (2-5 concrete, actionable bullets),
+  "suggestedBetterAnswers": string[] (1-3 bullets: for one specific weak moment, what a stronger answer would have included),
+  "struggledFollowUps": string[] (0-3 follow-up questions the candidate visibly struggled to answer well, or empty if none)
+}`;
+
+  const user = `Interview transcript:\n"""${transcript.slice(0, 16000)}"""${
+    jobDescription ? `\n\nJob description:\n"""${jobDescription.slice(0, 4000)}"""` : ""
+  }`;
+
+  return chatJson(system, user, 1800);
 }
 
 /**
@@ -488,6 +594,8 @@ module.exports = {
   generateCoverLetter,
   generateInterviewQuestions,
   generateInterviewFeedback,
+  generateInterviewTurn,
+  generateInterviewEvaluation,
   summarizeAlignment,
   generateSkillRoadmap,
   recommendProject,
