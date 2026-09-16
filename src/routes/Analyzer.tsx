@@ -22,6 +22,7 @@ import { AtsChecker } from "../features/analyzer/components/AtsChecker";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { useResumes } from "../features/resumes/hooks/useResumes";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabaseClient";
 import { getRecentCompanies, getRecentRoles } from "../lib/dashboardStats";
 import { findDuplicateRole, formatDuplicateWarning } from "../features/tracker/duplicateDetection";
 import { cn } from "../lib/cn";
@@ -152,7 +153,29 @@ export function Analyzer() {
     }
   };
 
-  const handleAddToRoles = () => {
+  // Whatever resume was actually used for this analysis (freshly uploaded
+  // or picked from saved resumes) also becomes the resume attached to the
+  // role's report page — otherwise a role created/updated from here shows
+  // up with an empty resume viewer, forcing a redundant re-upload for a
+  // file already sitting right here. Best-effort: the role/analysis itself
+  // has already succeeded either way, so a sync failure here just leaves
+  // the viewer empty rather than failing the whole action.
+  const syncResumeToRole = async (roleId: string) => {
+    if (!resume || !user) return;
+    try {
+      const path = `${user.id}/${roleId}-${crypto.randomUUID()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("role-resumes")
+        .upload(path, resume, { contentType: "application/pdf", cacheControl: "0" });
+      if (!uploadError) {
+        tracker.updateRoleFields(roleId, { resumeStoragePath: path });
+      }
+    } catch {
+      // Non-fatal — see comment above.
+    }
+  };
+
+  const handleAddToRoles = async () => {
     const snapshot =
       report && alignmentHistory
         ? {
@@ -183,10 +206,9 @@ export function Analyzer() {
 
     const notesFromSkills =
       skillsToAddToNotes.length > 0 ? `Skills to highlight:\n• ${skillsToAddToNotes.join("\n• ")}` : undefined;
-    tracker.addManualTrackerItem(
-      (newItemId) => {
+    const { id: insertedId, error: insertError } = await tracker.addManualTrackerItem(
+      () => {
         setSkillsToAddToNotes([]);
-        navigate(`/roles/${newItemId}`);
       },
       snapshot,
       {
@@ -198,6 +220,17 @@ export function Analyzer() {
         notes: notesFromSkills,
       }
     );
+    // Wait for the row to actually exist before attaching a resume to it —
+    // attaching immediately (in the onAdded callback above, which fires
+    // before this insert lands) used to silently no-op, since an UPDATE
+    // against a not-yet-existing row matches zero rows. This is also why
+    // navigation now happens after the insert confirms, not before it.
+    if (insertedId && !insertError) {
+      await syncResumeToRole(insertedId);
+      navigate(`/roles/${insertedId}`);
+    } else if (insertedId) {
+      navigate(`/roles/${insertedId}`);
+    }
   };
 
   const handleAddMissingSkillNote = (skill: string) => {
@@ -761,6 +794,7 @@ export function Analyzer() {
                                 resumeStrengthAtSave: resumeStrength?.score,
                               };
                               updateReportSnapshot(reanalyzeRoleId, snapshot);
+                              void syncResumeToRole(reanalyzeRoleId);
                               toast.success({
                                 title: "Preparedness updated",
                                 description: `Now showing ${alignmentToPreparedness(report.alignment)} preparedness.`,

@@ -9,6 +9,8 @@ import { isSpeechRecognitionSupported } from "../../features/voiceInterview/useS
 type RoleDetailDrawerProps = {
   item: TrackerItem;
   onClose: () => void;
+  updateDeadline: (id: string, deadline: string) => void;
+  removeItem: (id: string) => void;
 };
 
 /**
@@ -45,10 +47,22 @@ function ActionRow({
   );
 }
 
-export function RoleDetailDrawer({ item, onClose }: RoleDetailDrawerProps) {
+export function RoleDetailDrawer({ item, onClose, updateDeadline, removeItem }: RoleDetailDrawerProps) {
   const navigate = useNavigate();
   const alignment = item.reportSnapshot?.alignment ?? item.alignment;
   const voiceInterviewSupported = isSpeechRecognitionSupported();
+
+  // Same free-text `deadline` field the Roles table and Dashboard's
+  // "Upcoming deadlines" / "Overdue" pill already read (src/lib/
+  // dashboardStats.ts) — this is the one place it's actually edited, via a
+  // native date picker, one click to open + pick.
+  const rawDeadline = item.deadline?.trim() ?? "";
+  const parsedDeadline = rawDeadline ? new Date(rawDeadline) : null;
+  const isValidDeadline = parsedDeadline != null && !Number.isNaN(parsedDeadline.getTime());
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isOverdue = isValidDeadline && parsedDeadline.getTime() < today.getTime();
+  const deadlineInputValue = isValidDeadline ? parsedDeadline.toISOString().slice(0, 10) : "";
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -100,6 +114,23 @@ export function RoleDetailDrawer({ item, onClose }: RoleDetailDrawerProps) {
               <div className="text-xs text-slate-500">Preparedness</div>
             </div>
           </div>
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
+            <label htmlFor="drawer-deadline" className="text-xs font-medium text-slate-500">
+              Deadline
+              {isOverdue && (
+                <span className="ml-1.5 rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
+                  Overdue
+                </span>
+              )}
+            </label>
+            <input
+              id="drawer-deadline"
+              type="date"
+              value={deadlineInputValue}
+              onChange={(e) => updateDeadline(item.id, e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+            />
+          </div>
         </Panel>
 
         <div>
@@ -139,6 +170,20 @@ export function RoleDetailDrawer({ item, onClose }: RoleDetailDrawerProps) {
             />
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm("Remove this role from your list?")) {
+              removeItem(item.id);
+              onClose();
+              navigate("/roles");
+            }
+          }}
+          className="btn-press w-full rounded-xl border border-rose-300 bg-white py-2.5 px-4 text-sm font-semibold text-rose-600 transition hover:border-rose-500 hover:bg-rose-500 hover:text-white"
+        >
+          Remove role
+        </button>
       </div>
     </aside>
   );

@@ -39,9 +39,10 @@ export function Roles() {
     tracker: items,
     addManualTrackerItem,
     updateStatus,
-    updateNotes,
+    updateDeadline,
     updateRole,
     updateCompany,
+    removeItem,
   } = useTracker(undefined);
 
   const [sortKey, setSortKey] = useState<SortKey>(() => {
@@ -223,23 +224,23 @@ export function Roles() {
     [updateStatus]
   );
 
-  const notesToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const deadlineToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () => () => {
-      if (notesToastTimeoutRef.current) clearTimeout(notesToastTimeoutRef.current);
+      if (deadlineToastTimeoutRef.current) clearTimeout(deadlineToastTimeoutRef.current);
     },
     []
   );
-  const wrappedUpdateNotes = useCallback(
-    (id: string, notes: string) => {
-      updateNotes(id, notes);
-      if (notesToastTimeoutRef.current) clearTimeout(notesToastTimeoutRef.current);
-      notesToastTimeoutRef.current = setTimeout(() => {
-        notesToastTimeoutRef.current = null;
-        toast.success({ title: "Note saved", groupId: "notes-update" });
+  const wrappedUpdateDeadline = useCallback(
+    (id: string, deadline: string) => {
+      updateDeadline(id, deadline);
+      if (deadlineToastTimeoutRef.current) clearTimeout(deadlineToastTimeoutRef.current);
+      deadlineToastTimeoutRef.current = setTimeout(() => {
+        deadlineToastTimeoutRef.current = null;
+        toast.success({ title: "Deadline saved", groupId: "deadline-update" });
       }, 600);
     },
-    [updateNotes]
+    [updateDeadline]
   );
 
   return (
@@ -248,6 +249,8 @@ export function Roles() {
         <RoleDetailDrawer
           item={selectedItem}
           onClose={() => setSelectedRoleId(null)}
+          updateDeadline={wrappedUpdateDeadline}
+          removeItem={removeItem}
         />
       )}
       <QuickAddModal
@@ -363,7 +366,6 @@ export function Roles() {
           onRowClick={handleRowClick}
           onOpenRole={handleOpenRole}
           updateStatus={wrappedUpdateStatus}
-          updateNotes={wrappedUpdateNotes}
           updateRole={updateRole}
           updateCompany={updateCompany}
         />

@@ -1,33 +1,12 @@
-import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { DarkSelect } from "../ui/DarkSelect";
-import { Tooltip } from "../ui/Tooltip";
 import { ProgressCell } from "./ProgressCell";
 import { cn } from "../../lib/cn";
+import { STATUS_SELECT_STYLES } from "../../lib/ui";
 import type { TrackerItem, TrackerStatus } from "../../types/tracker";
 import { TRACKER_STATUS_ORDER } from "../../types/tracker";
 
 const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
-
-/**
- * Muted pill styles for status dropdown. Border/background keep a per-status
- * tint; the text color is a single readable slate for every status so the
- * label stays legible on the light table background.
- */
-const STATUS_SELECT_STYLES: Record<TrackerStatus, string> = {
-  Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-700",
-  Analyzed: "border-indigo-500/40 bg-indigo-500/20 text-slate-700",
-  "Ready to Apply": "border-cyan-400/40 bg-cyan-400/20 text-slate-700",
-  Applied: "border-slate-500/40 bg-slate-500/20 text-slate-700",
-  "Recruiter Contact": "border-violet-400/40 bg-violet-400/20 text-slate-700",
-  Interview: "border-slate-400/40 bg-slate-400/20 text-slate-700",
-  "Technical Interview": "border-violet-500/40 bg-violet-500/20 text-slate-700",
-  "Final Interview": "border-purple-500/40 bg-purple-500/20 text-slate-700",
-  Offer: "border-cyan-500/50 bg-cyan-500/20 text-slate-700",
-  Accepted: "border-emerald-500/50 bg-emerald-500/20 text-slate-700",
-  Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-700",
-  Withdrawn: "border-slate-600/30 bg-slate-600/15 text-slate-700",
-};
 
 export type SortKey =
   | "role"
@@ -51,7 +30,6 @@ type RolesTableProps = {
   onRowClick: (id: string, e: React.MouseEvent) => void;
   onOpenRole: (id: string) => void;
   updateStatus: (id: string, status: TrackerStatus) => void;
-  updateNotes: (id: string, notes: string) => void;
   updateRole: (id: string, role: string) => void;
   updateCompany: (id: string, company: string) => void;
 };
@@ -67,7 +45,6 @@ export function RolesTable({
   onRowClick,
   onOpenRole,
   updateStatus,
-  updateNotes,
   updateRole,
   updateCompany,
 }: RolesTableProps) {
@@ -112,8 +89,8 @@ export function RolesTable({
               <th className="min-w-[124px] py-3 px-3 font-medium text-slate-500">
                 Actions
               </th>
-              <th className="hidden min-w-[120px] py-3 px-3 font-medium text-slate-500 xl:table-cell">
-                Notes
+              <th className="hidden min-w-[110px] py-3 px-3 font-medium text-slate-500 lg:table-cell">
+                Deadline
               </th>
             </tr>
           </thead>
@@ -192,13 +169,7 @@ export function RolesTable({
                       <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </td>
-                  <NotesCell
-                    item={item}
-                    editingCell={editingCell}
-                    onEditingChange={onEditingCellChange}
-                    updateNotes={updateNotes}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+                  <DeadlineCell item={item} />
                 </tr>
               ))
             )}
@@ -320,65 +291,48 @@ function CompanyCell({
           className={INPUT_CLASS}
         />
       ) : (
-        <Link
-          to={`/companies/${encodeURIComponent(item.company)}`}
-          onClick={(e) => e.stopPropagation()}
-          className="block max-w-[120px] truncate text-slate-700 hover:text-cyan-600 hover:underline"
-          title={`${item.company} — view your history with this company`}
+        <span
+          className="block max-w-[120px] truncate text-slate-700"
+          title={item.company}
         >
           {item.company}
-        </Link>
+        </span>
       )}
     </td>
   );
 }
 
-function NotesCell({
-  item,
-  editingCell,
-  onEditingChange,
-  updateNotes,
-  onClick,
-}: {
-  item: TrackerItem;
-  editingCell: { id: string; field: string } | null;
-  onEditingChange: (c: { id: string; field: string } | null) => void;
-  updateNotes: (id: string, notes: string) => void;
-  onClick: (e: React.MouseEvent) => void;
-}) {
-  const editing =
-    editingCell?.id === item.id && editingCell?.field === "notes";
-  const notes = item.notes ?? "";
-  const display = notes || "Add note";
-  const isEmpty = !notes;
+/** Free-text `deadline` field (see types/tracker.ts) — read-only here.
+ * Clicking anywhere on the row (this cell included — nothing here stops
+ * that click) opens the role's detail sidebar, which is the one place
+ * it's actually set (RoleDetailDrawer.tsx), one click to open + pick.
+ * Same field Dashboard's "Upcoming deadlines" and "Overdue" pill already
+ * read (src/lib/dashboardStats.ts's getUpcomingDeadlines), so a deadline
+ * set there shows up here too. */
+function DeadlineCell({ item }: { item: TrackerItem }) {
+  const raw = item.deadline?.trim() ?? "";
+  const parsed = raw ? new Date(raw) : null;
+  const isValidDate = parsed != null && !Number.isNaN(parsed.getTime());
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isOverdue = isValidDate && parsed.getTime() < today.getTime();
 
   return (
-    <td
-      className="hidden py-2.5 px-3 align-middle xl:table-cell"
-      onDoubleClick={() => onEditingChange({ id: item.id, field: "notes" })}
-    >
-      {editing ? (
-        <textarea
-          autoFocus
-          value={notes}
-          onChange={(e) => updateNotes(item.id, e.target.value)}
-          onBlur={() => onEditingChange(null)}
-          onClick={onClick}
-          placeholder="Notes..."
-          rows={2}
-          className={`${INPUT_CLASS} max-w-[180px] resize-none placeholder:text-slate-400`}
-        />
+    <td className="hidden py-2.5 px-3 align-middle lg:table-cell">
+      {isValidDate ? (
+        <span
+          className={cn(
+            "inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium",
+            isOverdue ? "bg-rose-50 text-rose-700" : "text-slate-600",
+          )}
+        >
+          {parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          {isOverdue ? " · Overdue" : ""}
+        </span>
       ) : (
-        <Tooltip content={isEmpty ? "Double-click to add" : notes} disabled={false}>
-          <span
-            className={cn(
-              "block max-w-[160px] truncate transition-colors duration-150",
-              isEmpty ? "italic text-slate-400 group-hover:text-slate-500" : "text-slate-500"
-            )}
-          >
-            {display}
-          </span>
-        </Tooltip>
+        <span className="text-xs italic text-slate-400 transition-colors duration-150 group-hover:text-slate-500">
+          Add deadline
+        </span>
       )}
     </td>
   );

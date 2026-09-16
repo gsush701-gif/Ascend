@@ -89,3 +89,21 @@ export const divider =
 /** Section title (e.g. "Upcoming deadlines", "Next actions") */
 export const sectionTitle =
   "text-sm font-semibold text-slate-800";
+
+/** Muted pill styles per tracker status, keyed by TrackerStatus — shared by
+ * RolesTable's status dropdown and RoleDetail's application-status field so
+ * the same status always reads the same color everywhere in the app. */
+export const STATUS_SELECT_STYLES: Record<string, string> = {
+  Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-700",
+  Analyzed: "border-indigo-500/40 bg-indigo-500/20 text-slate-700",
+  "Ready to Apply": "border-cyan-400/40 bg-cyan-400/20 text-slate-700",
+  Applied: "border-slate-500/40 bg-slate-500/20 text-slate-700",
+  "Recruiter Contact": "border-violet-400/40 bg-violet-400/20 text-slate-700",
+  Interview: "border-slate-400/40 bg-slate-400/20 text-slate-700",
+  "Technical Interview": "border-violet-500/40 bg-violet-500/20 text-slate-700",
+  "Final Interview": "border-purple-500/40 bg-purple-500/20 text-slate-700",
+  Offer: "border-cyan-500/50 bg-cyan-500/20 text-slate-700",
+  Accepted: "border-emerald-500/50 bg-emerald-500/20 text-slate-700",
+  Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-700",
+  Withdrawn: "border-slate-600/30 bg-slate-600/15 text-slate-700",
+};
