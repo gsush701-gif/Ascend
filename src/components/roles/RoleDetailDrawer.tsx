@@ -168,7 +168,7 @@ export function RoleDetailDrawer({ item, onClose, updateDeadline, removeItem }: 
                 <ActionRow
                   icon={Lock}
                   label="Voice interview practice"
-                  hint="Pro feature — upgrade to unlock"
+                  hint="Upgrade to Pro"
                   onClick={() => goTo(`/roles/${item.id}/voice-interview`)}
                 />
               ))}
