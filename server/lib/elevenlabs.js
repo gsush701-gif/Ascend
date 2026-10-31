@@ -10,14 +10,15 @@
 // cost/complexity transcribing audio server-side when that already works.
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-// ElevenLabs' stock "Charlie" voice — casual/conversational tone. Note:
+// ElevenLabs' stock "Eric" voice — chosen by ear over Charlie and seven other
+// premade voices as the most natural for a mock interviewer. Note:
 // ElevenLabs' free tier can only use its own default/premade voices via the
 // API — community "voice library" voices (e.g. ones picked from
 // elevenlabs.io/app/voice-library) return 402 Payment Required on a free
 // account, even though they work fine in the ElevenLabs web app itself.
 // Override with any other premade voice_id, or a library voice_id once on a
 // paid ElevenLabs plan.
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "IKne3meq5aSn9XLyUdCD";
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "cjVigY5qzO86Huf0OWal";
 // eleven_multilingual_v2 is ElevenLabs' higher-quality, more natural model.
 // The earlier default, eleven_turbo_v2_5, is faster and uses roughly half
 // the credits per character, but sounded flat/robotic for a mock-interview
@@ -34,12 +35,12 @@ function numberFromEnv(name, fallback) {
 
 // Delivery settings (all 0-1). Lower stability = more varied, expressive
 // delivery (less monotone); style adds some emphasis/emotion. These defaults
-// are the "B" sample that was picked by ear over the plain model defaults.
+// are the settings the chosen voice was auditioned with.
 // Each can be tuned without a code change via the matching env var.
 const VOICE_SETTINGS = {
-  stability: numberFromEnv("ELEVENLABS_STABILITY", 0.35),
+  stability: numberFromEnv("ELEVENLABS_STABILITY", 0.4),
   similarity_boost: numberFromEnv("ELEVENLABS_SIMILARITY", 0.75),
-  style: numberFromEnv("ELEVENLABS_STYLE", 0.25),
+  style: numberFromEnv("ELEVENLABS_STYLE", 0.3),
   use_speaker_boost: true,
 };
 
