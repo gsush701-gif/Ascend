@@ -64,6 +64,9 @@ export type Report = {
     resumeSkillsFound?: number;
     pdfTextLength?: number;
     pdfPages?: number;
+    /** True when the score counts bullets the user wrote in the Analyzer that aren't in their resume file yet. Never saved. */
+    projected?: boolean;
+    additionsCount?: number;
   };
 };
 

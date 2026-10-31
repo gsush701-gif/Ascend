@@ -127,7 +127,8 @@ export function useAnalyzer() {
     setParsedJdData(parseJdRequirements(jd.trim()));
   }
 
-  async function onAnalyze(options?: { roleId?: string }) {
+  /** `additions`: bullets the user wrote for missing skills, counted for a projected re-check (never saved). */
+  async function onAnalyze(options?: { roleId?: string; additions?: string[] }) {
     if (!resume || !hasValidJd) return;
 
     setLoading(true);
@@ -144,6 +145,7 @@ export function useAnalyzer() {
       fd.append("jd", jd);
       if (selectedResumeId) fd.append("resumeId", selectedResumeId);
       if (options?.roleId) fd.append("roleId", options.roleId);
+      if (options?.additions?.length) fd.append("additions", options.additions.join("\n"));
 
       const res = await fetch(API_URL, {
         method: "POST",
@@ -159,6 +161,10 @@ export function useAnalyzer() {
         return;
       }
       setReport(data);
+      // A projected re-check (with the user's draft bullets counted) is a
+      // what-if, not a real analysis: it doesn't count as one for the funnel
+      // and doesn't enter the score history.
+      if (data?.meta?.projected) return;
       logEvent("analysis_completed", { alignment: data?.alignment });
       setAlignmentHistory((prev) => {
         const next: AlignmentHistoryItem[] = [

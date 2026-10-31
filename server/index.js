@@ -50,6 +50,7 @@ const {
 const { optionalAuth } = require("./middleware/auth");
 const { requireAdmin } = require("./middleware/requireAdmin");
 const { createUsageAccumulator, usageMetadata } = require("./lib/llmCost");
+const { parseAdditions, applyAdditions } = require("./lib/resumeAdditions");
 const { userHasPlanFeature, requirePlanFeature } = require("./middleware/requirePlanFeature");
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
@@ -551,6 +552,9 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
     if (req.body.roleId !== undefined && typeof req.body.roleId !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleId' must be a string");
     }
+    if (req.body.additions !== undefined && typeof req.body.additions !== "string") {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'additions' must be a string");
+    }
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const resumeId =
       typeof req.body.resumeId === "string" && UUID_RE.test(req.body.resumeId.trim())
@@ -613,8 +617,16 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
 
     console.log("PDF parsed. Text length:", resumeText.length);
 
+    // Optional "what if I add these lines" bullets the user wrote in the
+    // Analyzer. They're counted for scoring only: the result is flagged
+    // `meta.projected`, and a projected run is never saved or summarised, since
+    // the PDF itself hasn't changed.
+    const additions = parseAdditions(req.body.additions);
+    const projected = additions.length > 0;
+    const scoringText = applyAdditions(resumeText, additions);
+
     const jdSkills = extractSkills(jd);
-    const resumeSkills = extractSkills(resumeText);
+    const resumeSkills = extractSkills(scoringText);
 
     const resumeSet = new Set(resumeSkills.map((s) => norm(s)));
     const importanceBySkill = classifySkillsImportance(jd, jdSkills);
@@ -632,11 +644,11 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
     const total = Math.max(skills.length, 1);
     const coverage = Math.round((hits / total) * 100);
 
-    const signals = missingSignals(resumeText);
+    const signals = missingSignals(scoringText);
 
     const { overallScore, breakdown } = computeScoreBreakdown({
       skills,
-      resumeText,
+      resumeText: scoringText,
       numPages,
       signals,
       jobDescriptionText: jd,
@@ -670,6 +682,7 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
         resumeSkillsFound: resumeSkills.length,
         pdfTextLength: resumeText.length,
         pdfPages: numPages,
+        ...(projected ? { projected: true, additionsCount: additions.length } : {}),
       },
     };
 
@@ -680,7 +693,7 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
     // quota gate here only skips the bonus summary, it never rejects the
     // whole /analyze response, since the deterministic report never touches
     // Groq and shouldn't be blocked by a Groq-specific quota.
-    if (groq.isGroqConfigured) {
+    if (groq.isGroqConfigured && !projected) {
       try {
         const quota = await checkQuota(req.user && req.user.id, "ai.analyze_summary");
         if (quota.allowed) {
@@ -699,7 +712,7 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
     // Persist this analysis for logged-in users so it can be read back later
     // (Analysis history on /resumes) — fire-and-forget, mirrors the
     // /api/improve-bullet -> resume_improvements pattern above.
-    if (req.user && supabaseAdmin) {
+    if (req.user && supabaseAdmin && !projected) {
       supabaseAdmin
         .from("job_analyses")
         .insert({

@@ -27,6 +27,8 @@ import { getRecentCompanies, getRecentRoles } from "../lib/dashboardStats";
 import { findDuplicateRole, formatDuplicateWarning } from "../features/tracker/duplicateDetection";
 import { cn } from "../lib/cn";
 import { alignmentToPreparedness, type Preparedness } from "../lib/preparedness";
+import { ResumeAdditionsPanel } from "../features/analyzer/components/ResumeAdditionsPanel";
+import type { ResumeAddition } from "../features/analyzer/additions";
 
 const QUICK_NEXT_STEPS = ["Tailor resume", "Apply", "Follow up", "Prepare for interview"];
 
@@ -71,6 +73,22 @@ export function Analyzer() {
     coverage: number;
   } | null>(null);
   const [reanalyzeRoleId, setReanalyzeRoleId] = useState<string | null>(null);
+  // "Add to my resume" drafts: bullets the user wrote for missing skills, and
+  // the real score they started from, to show how much they moved it. Kept
+  // together with the resume file they belong to, so picking a different file
+  // starts clean without an effect to reset them.
+  const [draft, setDraft] = useState<{
+    forResume: File | null;
+    items: ResumeAddition[];
+    baseline: { alignment: number; coverage: number } | null;
+  }>({ forResume: null, items: [], baseline: null });
+  const draftIsCurrent = draft.forResume === resume;
+  const additions = draftIsCurrent ? draft.items : [];
+  const baseline = draftIsCurrent ? draft.baseline : null;
+  const setAdditions = (items: ResumeAddition[]) =>
+    setDraft({ forResume: resume, items, baseline });
+  const setBaseline = (next: { alignment: number; coverage: number } | null) =>
+    setDraft({ forResume: resume, items: additions, baseline: next });
   const [skillsToAddToNotes, setSkillsToAddToNotes] = useState<string[]>([]);
   const [showMarkNextStep, setShowMarkNextStep] = useState(false);
   const markNextStepRef = useRef<HTMLDivElement>(null);
@@ -118,7 +136,19 @@ export function Analyzer() {
     }
   }, [report?.roleTitle]);
 
+  const PROJECTED_SAVE_MESSAGE =
+    "This score includes bullets that aren't in your resume file yet. Update your resume, upload it, and analyze again before saving.";
+
+  const handleRecheckWithAdditions = () => {
+    if (!resume || !hasValidJd || additions.length === 0) return;
+    if (report && !report.meta?.projected) {
+      setBaseline({ alignment: report.alignment, coverage: report.coverage });
+    }
+    void onAnalyze({ additions: additions.map((a) => a.text) });
+  };
+
   const handleAnalyze = () => {
+    setBaseline(null);
     if (!hasValidJd) {
       toast.error({ title: "Add job description", description: "Add job description to analyze this role." });
       return;
@@ -176,6 +206,10 @@ export function Analyzer() {
   };
 
   const handleAddToRoles = async () => {
+    if (report?.meta?.projected) {
+      toast.error({ title: "Not saved yet", description: PROJECTED_SAVE_MESSAGE });
+      return;
+    }
     const snapshot =
       report && alignmentHistory
         ? {
@@ -458,6 +492,14 @@ export function Analyzer() {
               </p>
             ) : (
               <div className="space-y-6 animate-fade-in">
+                {report?.meta?.projected && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <strong>Projected score.</strong> This counts {report.meta.additionsCount ?? "your"} bullet
+                    {report.meta.additionsCount === 1 ? "" : "s"} you wrote here that aren&apos;t in your resume file
+                    yet, so it isn&apos;t saved. Add them to your resume, upload it, and analyze again to make it official.
+                  </div>
+                )}
+
                 {/* A vs B comparison (Re-analyze flow) */}
                 {showComparison && (
                   <div className={cn(cardAlt, "p-4")}>
@@ -670,6 +712,21 @@ export function Analyzer() {
                   )}
                 </div>
 
+                {report && resume && (
+                  <ResumeAdditionsPanel
+                    missingSkills={report.skills
+                      .filter((x) => x.status === "miss")
+                      .map((x) => ({ name: x.name, importance: x.importance ?? "required" }))}
+                    additions={additions}
+                    onChange={setAdditions}
+                    onRecheck={handleRecheckWithAdditions}
+                    rechecking={loading}
+                    baseline={baseline}
+                    current={{ alignment: report.alignment, coverage: report.coverage }}
+                    projected={Boolean(report.meta?.projected)}
+                  />
+                )}
+
                 {report && (
                   <SkillGapHelper
                     missingRequiredSkills={missingRequiredSkills}
@@ -778,6 +835,10 @@ export function Analyzer() {
                         <button
                           type="button"
                           onClick={() => {
+                            if (report?.meta?.projected) {
+                              toast.error({ title: "Not saved yet", description: PROJECTED_SAVE_MESSAGE });
+                              return;
+                            }
                             if (reanalyzeRoleId && report && alignmentHistory) {
                               const snapshot = {
                                 alignment: report.alignment,
