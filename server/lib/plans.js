@@ -24,6 +24,9 @@ const PLANS = {
   free: {
     name: "Free",
     priceMonthly: 0, // cents
+    // Plan-gated features (server/middleware/requirePlanFeature.js). The voice
+    // interview is Pro-only, so free has no limits for its three event types.
+    features: { voiceInterview: false },
     limits: {
       "ai.analyze_summary": 20,
       "ai.improve_bullet": 30,
@@ -31,9 +34,6 @@ const PLANS = {
       "ai.generate_cover_letter": 10,
       "ai.generate_interview_questions": 10,
       "ai.interview_feedback": 20,
-      "ai.interview_tts": 40,
-      "ai.interview_turn": 150,
-      "ai.interview_evaluation": 15,
       "ai.improve_linkedin": 10,
       "ai.skill_roadmap": 20,
       "ai.recommend_project": 10,
@@ -63,6 +63,7 @@ const PLANS = {
     // script any time priceMonthly changes here, then it creates a new price
     // (Stripe prices are immutable) and updates this field to match.
     stripePriceId: "price_1U8drIC7X9ixl0QrsvwwjEDE",
+    features: { voiceInterview: true },
     limits: {
       "ai.analyze_summary": 200,
       "ai.improve_bullet": 300,

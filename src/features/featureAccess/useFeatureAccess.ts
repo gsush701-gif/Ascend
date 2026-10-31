@@ -7,12 +7,12 @@ type FeatureAccess = { voiceInterview: boolean };
 const LOCKED: FeatureAccess = { voiceInterview: false };
 
 /**
- * UX-only check for features that are locked to an allowlist (currently the
- * voice interview — GET /api/feature-access, server/index.js). Defaults to
- * locked while loading and on any failure, so a locked feature is never shown
- * by accident. This is NOT the security boundary: the feature's server routes
- * independently 401/403 callers who aren't on the allowlist
- * (server/middleware/requireVoiceInterviewAccess.js).
+ * UX-only check for plan-gated features (currently the Pro-only voice
+ * interview — GET /api/feature-access, server/index.js). Defaults to locked
+ * while loading and on any failure, so a paid feature is never shown by
+ * accident. This is NOT the security boundary: the feature's server routes
+ * independently 401/403 callers whose plan doesn't include it
+ * (server/middleware/requirePlanFeature.js).
  */
 export function useFeatureAccess() {
   const { session, loading: authLoading } = useAuth();

@@ -165,18 +165,12 @@ export function RoleDetailDrawer({ item, onClose, updateDeadline, removeItem }: 
                   onClick={() => goTo(`/roles/${item.id}/voice-interview`)}
                 />
               ) : (
-                <div
-                  className="flex w-full cursor-not-allowed items-center gap-3 rounded-xl border border-slate-200 bg-slate-900/[0.02] px-4 py-3 opacity-70"
-                  aria-disabled="true"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-slate-500">
-                    <Lock size={16} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-700">Voice interview practice</span>
-                    <span className="block truncate text-xs text-slate-500">Coming soon</span>
-                  </span>
-                </div>
+                <ActionRow
+                  icon={Lock}
+                  label="Voice interview practice"
+                  hint="Pro feature — upgrade to unlock"
+                  onClick={() => goTo(`/roles/${item.id}/voice-interview`)}
+                />
               ))}
             <ActionRow
               icon={BarChart3}

@@ -22,6 +22,7 @@ import { useTracker } from "../features/tracker/hooks/useTracker";
 import { API_BASE } from "../config/api";
 import { useAuth } from "../context/AuthContext";
 import { useFeatureAccess } from "../features/featureAccess/useFeatureAccess";
+import { useBillingActions } from "../features/profile/hooks/useBillingActions";
 import { getApiErrorMessage } from "../lib/apiError";
 import { logEvent } from "../lib/analytics";
 import { useSpeechRecognition, isSpeechRecognitionSupported } from "../features/voiceInterview/useSpeechRecognition";
@@ -355,6 +356,7 @@ export function VoiceInterview() {
   const navigate = useNavigate();
   const { session: authSession } = useAuth();
   const featureAccess = useFeatureAccess();
+  const { billingBusy, handleUpgrade } = useBillingActions(authSession);
   const { tracker } = useTracker(undefined);
   const item = id ? tracker.find((x) => x.id === id) : null;
 
@@ -686,8 +688,8 @@ export function VoiceInterview() {
     recognition.start();
   }, [voice, recognition]);
 
-  // Locked feature — see useFeatureAccess. UX only; the server routes this
-  // page calls independently reject callers who aren't on the allowlist.
+  // Pro-only feature — see useFeatureAccess. UX only; the server routes this
+  // page calls independently reject callers whose plan doesn't include it.
   if (!featureAccess.checked) {
     return (
       <AppShell>
@@ -701,19 +703,27 @@ export function VoiceInterview() {
         <div className="mx-auto max-w-md py-12 text-center">
           <Lock className="mx-auto h-8 w-8 text-slate-400" />
           <h1 className="mt-3 font-display text-xl font-semibold tracking-tight text-slate-900">
-            Voice interview is coming soon
+            Voice interview is a Pro feature
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            This feature isn&apos;t available on your account yet. The text-based interview prep
-            works for every role in the meantime.
+            Practice a real back-and-forth interview out loud, with a spoken AI interviewer and a
+            scored evaluation at the end. Upgrade to Pro to unlock it. The text-based interview
+            prep stays free for every role.
           </p>
-          <button
-            type="button"
-            onClick={() => navigate(id ? `/roles/${id}/interview-prep` : "/roles")}
-            className="mt-4 text-sm text-slate-700 underline hover:text-slate-900"
-          >
-            Go to interview prep
-          </button>
+          <div className="mt-5 flex flex-col items-center gap-3">
+            {authSession ? (
+              <Button type="button" onClick={handleUpgrade} disabled={billingBusy} size="sm">
+                {billingBusy ? "Opening checkout…" : "Upgrade to Pro"}
+              </Button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => navigate(id ? `/roles/${id}/interview-prep` : "/roles")}
+              className="text-sm text-slate-700 underline hover:text-slate-900"
+            >
+              Go to interview prep
+            </button>
+          </div>
         </div>
       </AppShell>
     );

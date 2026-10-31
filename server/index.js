@@ -49,10 +49,7 @@ const {
 
 const { optionalAuth } = require("./middleware/auth");
 const { requireAdmin } = require("./middleware/requireAdmin");
-const {
-  hasVoiceInterviewAccess,
-  requireVoiceInterviewAccess,
-} = require("./middleware/requireVoiceInterviewAccess");
+const { userHasPlanFeature, requirePlanFeature } = require("./middleware/requirePlanFeature");
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
 const { supabaseAdmin, isSupabaseConfigured } = require("./lib/supabaseAdmin");
@@ -1056,12 +1053,13 @@ app.post("/api/interview-feedback", aiLimiter, optionalAuth, async (req, res) =>
   }
 });
 
-// The voice interview is locked to an email allowlist (VOICE_INTERVIEW_EMAILS,
-// see server/middleware/requireVoiceInterviewAccess.js) while it's being tuned.
-// This cheap check lets the frontend decide whether to show the feature or a
-// locked state; the three routes below enforce the lock independently.
-app.get("/api/feature-access", aiLimiter, optionalAuth, (req, res) => {
-  res.json({ voiceInterview: Boolean(req.user && hasVoiceInterviewAccess(req.user.email)) });
+// The voice interview is a Pro-plan feature (`features.voiceInterview` in
+// server/lib/plans.js). This lets the frontend decide whether to show the
+// feature or its upgrade prompt; the three routes below enforce the paywall
+// independently via requireVoiceInterview.
+const requireVoiceInterview = requirePlanFeature("voiceInterview", "Voice interview");
+app.get("/api/feature-access", aiLimiter, optionalAuth, async (req, res) => {
+  res.json({ voiceInterview: await userHasPlanFeature(req.user && req.user.id, "voiceInterview") });
 });
 
 // Text-to-speech for the voice interview's spoken interviewer (Week 2 voice
@@ -1071,7 +1069,7 @@ app.get("/api/feature-access", aiLimiter, optionalAuth, (req, res) => {
 // generic "*NotConfiguredError" handling) and the frontend falls back to
 // the browser's free built-in speechSynthesis voice instead of failing the
 // interview.
-app.post("/api/interview-speech", aiLimiter, optionalAuth, requireVoiceInterviewAccess, async (req, res) => {
+app.post("/api/interview-speech", aiLimiter, optionalAuth, requireVoiceInterview, async (req, res) => {
   try {
     if (req.body?.text !== undefined && typeof req.body.text !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'text' must be a string");
@@ -1125,7 +1123,7 @@ app.post("/api/interview-speech", aiLimiter, optionalAuth, requireVoiceInterview
 // POST /api/interview-feedback above are untouched and still power the
 // separate text-based interview prep page as-is.
 const MAX_INTERVIEW_TURN_COUNT = 20; // hard cap — see server/lib/groq.js's generateInterviewTurn docblock
-app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterviewAccess, async (req, res) => {
+app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterview, async (req, res) => {
   try {
     if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' must be a string");
@@ -1234,7 +1232,7 @@ app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterviewAc
   }
 });
 
-app.post("/api/interview-evaluation", aiLimiter, optionalAuth, requireVoiceInterviewAccess, async (req, res) => {
+app.post("/api/interview-evaluation", aiLimiter, optionalAuth, requireVoiceInterview, async (req, res) => {
   try {
     if (req.body?.transcript !== undefined && typeof req.body.transcript !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'transcript' must be a string");
