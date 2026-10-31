@@ -126,3 +126,27 @@ describe("computeEventTypeStats", () => {
     expect(computeEventTypeStats([null, {}, { event_type: 42 }])).toEqual({});
   });
 });
+
+describe("computeEventTypeStats — token cost", () => {
+  it("sums tokens/cost and averages over rows that recorded cost", () => {
+    const rows = [
+      { event_type: "ai.analyze_summary", metadata: { success: true, totalTokens: 1000, estCostUsd: 0.0004 } },
+      { event_type: "ai.analyze_summary", metadata: { success: true, totalTokens: 3000, estCostUsd: 0.0012 } },
+      // Recorded before cost tracking existed — counted as a request, not as cost.
+      { event_type: "ai.analyze_summary", metadata: { success: true } },
+    ];
+    const s = computeEventTypeStats(rows)["ai.analyze_summary"];
+    expect(s.requestCount).toBe(3);
+    expect(s.costTrackedCount).toBe(2);
+    expect(s.totalTokens).toBe(4000);
+    expect(s.estCostUsd).toBeCloseTo(0.0016, 6);
+    expect(s.avgCostUsd).toBeCloseTo(0.0008, 6);
+  });
+
+  it("reports cost as null (not 0) when no row recorded any", () => {
+    const s = computeEventTypeStats([{ event_type: "ai.ats_check", metadata: { success: true } }])["ai.ats_check"];
+    expect(s.estCostUsd).toBeNull();
+    expect(s.avgCostUsd).toBeNull();
+    expect(s.totalTokens).toBeNull();
+  });
+});

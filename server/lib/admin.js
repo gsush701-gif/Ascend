@@ -109,17 +109,31 @@ function topByCount(values, topN) {
  * rate as trustworthy.
  *
  * @param {Array<{ event_type: string, user_id?: string|null, metadata?: { success?: boolean } | null }>} rows
- * @returns {Record<string, { requestCount: number, successCount: number, failureCount: number, errorRatePct: number | null }>}
+ * @returns {Record<string, { requestCount: number, successCount: number, failureCount: number, errorRatePct: number | null, totalTokens: number | null, estCostUsd: number | null, avgCostUsd: number | null, costTrackedCount: number }>}
  */
 function computeEventTypeStats(rows) {
   const byType = new Map();
   for (const r of rows || []) {
     if (!r || typeof r.event_type !== "string") continue;
     if (!byType.has(r.event_type)) {
-      byType.set(r.event_type, { requestCount: 0, successCount: 0, failureCount: 0 });
+      byType.set(r.event_type, {
+        requestCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        costTrackedCount: 0,
+        totalTokens: 0,
+        estCostUsd: 0,
+      });
     }
     const bucket = byType.get(r.event_type);
     bucket.requestCount += 1;
+    // Token/cost fields come from callGroq() (server/lib/llmCost.js); rows
+    // recorded before that existed, and non-LLM rows, simply have none.
+    if (r.metadata && typeof r.metadata.estCostUsd === "number") {
+      bucket.costTrackedCount += 1;
+      bucket.estCostUsd += r.metadata.estCostUsd;
+      bucket.totalTokens += Number(r.metadata.totalTokens) || 0;
+    }
     if (r.metadata && r.metadata.success === true) bucket.successCount += 1;
     else if (r.metadata && r.metadata.success === false) bucket.failureCount += 1;
   }
@@ -133,6 +147,12 @@ function computeEventTypeStats(rows) {
       // null (not 0) when no row of this type ever recorded success/failure
       // at all — "unknown", not "zero errors".
       errorRatePct: tracked > 0 ? Math.round((b.failureCount / tracked) * 1000) / 10 : null,
+      // Cost fields are null (not 0) when no row of this type recorded any —
+      // "unknown", not "free". avgCostUsd averages only over rows that did.
+      totalTokens: b.costTrackedCount > 0 ? b.totalTokens : null,
+      estCostUsd: b.costTrackedCount > 0 ? Math.round(b.estCostUsd * 1e6) / 1e6 : null,
+      avgCostUsd: b.costTrackedCount > 0 ? Math.round((b.estCostUsd / b.costTrackedCount) * 1e6) / 1e6 : null,
+      costTrackedCount: b.costTrackedCount,
     };
   }
   return out;

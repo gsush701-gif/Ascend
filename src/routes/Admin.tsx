@@ -43,6 +43,20 @@ function fmtNumber(n: number) {
   return n.toLocaleString();
 }
 
+/** Dollar amounts here are fractions of a cent per request, so show enough
+ * precision to be meaningful; null means no request recorded token usage. */
+function fmtUsd(n: number | null) {
+  if (n === null) return "—";
+  return `$${n < 0.01 ? n.toFixed(5) : n.toFixed(2)}`;
+}
+
+function totalEstCostUsd(usage: AdminAiUsage) {
+  const costs = Object.values(usage.byEventType)
+    .map((s) => s.estCostUsd)
+    .filter((c): c is number => c !== null);
+  return costs.length === 0 ? null : costs.reduce((a, b) => a + b, 0);
+}
+
 function shortId(id: string | null | undefined) {
   if (!id) return "—";
   return id.length > 10 ? `${id.slice(0, 8)}…` : id;
@@ -359,6 +373,11 @@ export function Admin() {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard label="Total AI requests" value={fmtNumber(aiUsage.totalAiRequests)} hint={`Last ${aiUsage.windowDays} days`} />
+                <StatCard
+                  label="Est. AI cost"
+                  value={fmtUsd(totalEstCostUsd(aiUsage))}
+                  hint="Groq tokens only; requests before cost tracking aren't counted"
+                />
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[520px] text-left text-sm">
@@ -369,6 +388,10 @@ export function Admin() {
                       <th className="py-2 pr-4">Success</th>
                       <th className="py-2 pr-4">Failures</th>
                       <th className="py-2 pr-4">Error rate</th>
+                      <th className="py-2 pr-4" title="Estimated Groq cost per request, averaged over requests that recorded token usage">
+                        Avg cost
+                      </th>
+                      <th className="py-2 pr-4">Est. total</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -389,6 +412,8 @@ export function Admin() {
                               `${stat.errorRatePct}%`
                             )}
                           </td>
+                          <td className="py-2 pr-4 text-slate-700">{fmtUsd(stat.avgCostUsd)}</td>
+                          <td className="py-2 pr-4 text-slate-700">{fmtUsd(stat.estCostUsd)}</td>
                         </tr>
                       ))}
                   </tbody>

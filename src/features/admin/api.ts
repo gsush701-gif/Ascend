@@ -75,6 +75,11 @@ export type AdminEventTypeStat = {
   successCount: number;
   failureCount: number;
   errorRatePct: number | null;
+  /** Null when no request of this type recorded token usage (older rows, non-LLM routes). */
+  totalTokens: number | null;
+  estCostUsd: number | null;
+  avgCostUsd: number | null;
+  costTrackedCount: number;
 };
 
 export type AdminAiUsage = {

@@ -1,4 +1,6 @@
 const Groq = require("groq-sdk");
+const { AsyncLocalStorage } = require("node:async_hooks");
+const { addUsage } = require("./llmCost");
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
@@ -30,6 +32,16 @@ class GroqRequestError extends Error {
   }
 }
 
+// Per-request token tally. server/index.js's callGroq() runs each route's Groq
+// work inside runWithUsage(acc, fn); chatJson then adds every completion's
+// token usage to that request's accumulator without each of the ~15 prompt
+// functions below having to thread it through. Outside runWithUsage (tests,
+// scripts) there is no store and recording is a no-op.
+const usageStore = new AsyncLocalStorage();
+function runWithUsage(accumulator, fn) {
+  return usageStore.run(accumulator, fn);
+}
+
 async function chatJson(systemPrompt, userPrompt, maxTokens = 1200) {
   if (!configured) throw new GroqNotConfiguredError();
 
@@ -48,6 +60,9 @@ async function chatJson(systemPrompt, userPrompt, maxTokens = 1200) {
   } catch (e) {
     throw new GroqRequestError(e.message || "Groq request failed");
   }
+
+  // Tokens were spent even if the body below turns out empty/malformed.
+  addUsage(usageStore.getStore(), completion.usage);
 
   const raw = completion.choices?.[0]?.message?.content;
   if (!raw) throw new GroqRequestError("Groq returned an empty response");
@@ -605,6 +620,7 @@ module.exports = {
   parseResumeToStructured,
   generateResumeSuggestions,
   RESUME_SECTIONS,
+  runWithUsage,
   isGroqConfigured: configured,
   GROQ_MODEL,
   GroqNotConfiguredError,

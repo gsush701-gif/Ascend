@@ -49,6 +49,7 @@ const {
 
 const { optionalAuth } = require("./middleware/auth");
 const { requireAdmin } = require("./middleware/requireAdmin");
+const { createUsageAccumulator, usageMetadata } = require("./lib/llmCost");
 const { userHasPlanFeature, requirePlanFeature } = require("./middleware/requirePlanFeature");
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
@@ -333,15 +334,19 @@ const TRACKABLE_EVENT_TYPES = new Set([
  */
 async function callGroq(req, eventType, fn) {
   const startedAt = Date.now();
+  // Token usage reported by each Groq completion inside fn (server/lib/groq.js
+  // chatJson), recorded as non-sensitive counts + an estimated cost so the
+  // admin AI usage table can show cost per request. See server/lib/llmCost.js.
+  const usage = createUsageAccumulator();
   try {
-    const result = await fn();
+    const result = await groq.runWithUsage(usage, fn);
     recordUsageEvent({
       eventType,
       userId: req.user && req.user.id,
       aiModel: groq.GROQ_MODEL,
       aiLatencyMs: Date.now() - startedAt,
       requestId: req.requestId,
-      metadata: { success: true },
+      metadata: { success: true, ...usageMetadata(usage) },
     });
     return result;
   } catch (err) {
@@ -351,7 +356,7 @@ async function callGroq(req, eventType, fn) {
       aiModel: groq.GROQ_MODEL,
       aiLatencyMs: Date.now() - startedAt,
       requestId: req.requestId,
-      metadata: { success: false, errorName: err && err.name },
+      metadata: { success: false, errorName: err && err.name, ...usageMetadata(usage) },
     });
     throw err;
   }
@@ -1095,7 +1100,8 @@ app.post("/api/interview-speech", aiLimiter, optionalAuth, requireVoiceInterview
         aiModel: elevenlabs.ELEVENLABS_MODEL_ID,
         aiLatencyMs: Date.now() - startedAt,
         requestId: req.requestId,
-        metadata: { success: true },
+        // Characters synthesized — ElevenLabs bills per character.
+        metadata: { success: true, characters: text.length },
       });
       res.set("Content-Type", "audio/mpeg");
       return res.send(audio);
