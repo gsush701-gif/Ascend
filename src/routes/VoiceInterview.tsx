@@ -12,6 +12,8 @@ import {
   ChevronUp,
   Volume2,
   Lock,
+  Video,
+  VideoOff,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { AppShell } from "../components/layout/AppShell";
@@ -28,6 +30,9 @@ import { logEvent } from "../lib/analytics";
 import { useSpeechRecognition, isSpeechRecognitionSupported } from "../features/voiceInterview/useSpeechRecognition";
 import { useAutoStopOnSilence } from "../features/voiceInterview/useAutoStopOnSilence";
 import { useInterviewerVoice } from "../features/voiceInterview/useInterviewerVoice";
+import { InterviewerAvatar, type AvatarState } from "../features/voiceInterview/InterviewerAvatar";
+import { SelfView } from "../features/voiceInterview/SelfView";
+import { useSelfCamera } from "../features/voiceInterview/useSelfCamera";
 import { useVoiceInterviewSessions } from "../features/voiceInterview/hooks/useVoiceInterviewSessions";
 import {
   computeSessionProgress,
@@ -366,6 +371,7 @@ export function VoiceInterview() {
   const supported = useMemo(() => isSpeechRecognitionSupported(), []);
   const recognition = useSpeechRecognition();
   const voice = useInterviewerVoice(authSession?.access_token);
+  const camera = useSelfCamera();
   useAutoStopOnSilence(recognition);
   const {
     sessions,
@@ -396,6 +402,14 @@ export function VoiceInterview() {
   const [evalLoading, setEvalLoading] = useState(false);
 
   const isConversationSession = activeSession != null && activeSession.conversationState != null;
+
+  // The camera light goes out as soon as an interview ends, by either route
+  // (the interviewer closing it, or the End interview button).
+  const stopCamera = camera.stop;
+  const interviewEnded = Boolean(activeSession?.completedAt);
+  useEffect(() => {
+    if (interviewEnded) stopCamera();
+  }, [interviewEnded, stopCamera]);
 
   // Resume the most recent in-progress session for this role, if one exists,
   // instead of forcing every visit to start a brand-new session. Works for
@@ -808,6 +822,15 @@ export function VoiceInterview() {
   const latestInterviewerMessage =
     [...transcript].reverse().find((t) => t.speaker === "interviewer")?.text ?? null;
 
+  const avatarState: AvatarState =
+    voice.status === "speaking"
+      ? "speaking"
+      : turnLoading || voice.status === "loading"
+        ? "thinking"
+        : recognition.status === "listening"
+          ? "listening"
+          : "idle";
+
   const phaseLabel = activeSession?.completedAt
     ? "Interview complete"
     : turnLoading
@@ -925,7 +948,11 @@ export function VoiceInterview() {
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
                   AI Interviewer
                 </span>
-                {/* Also a replay button: a session resumed from an earlier visit shows
+                <InterviewerAvatar state={avatarState} />
+                {latestInterviewerMessage && (
+                  <p className="max-w-md text-sm font-medium text-slate-900">{latestInterviewerMessage}</p>
+                )}
+                {/* A replay button: a session resumed from an earlier visit shows
                     the interviewer's last line but never speaks it (nothing
                     triggers a new turn), and browsers only allow audio after a
                     click anyway — so this click is what makes it audible. */}
@@ -938,25 +965,11 @@ export function VoiceInterview() {
                   }}
                   disabled={!latestInterviewerMessage || recognition.status === "listening" || turnLoading}
                   title="Replay the interviewer's question"
-                  aria-label="Replay the interviewer's question"
-                  className={cn(
-                    "btn-press flex h-14 w-14 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                    voice.status === "speaking" || voice.status === "loading"
-                      ? "bg-cyan-500/15"
-                      : "bg-slate-900/[0.04] hover:bg-cyan-500/10",
-                  )}
+                  className="btn-press inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500 transition hover:border-cyan-400/60 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <Volume2
-                    size={22}
-                    className={cn(
-                      "text-cyan-600",
-                      (voice.status === "speaking" || voice.status === "loading") && "animate-pulse",
-                    )}
-                  />
+                  <Volume2 size={13} />
+                  Replay question
                 </button>
-                {latestInterviewerMessage && (
-                  <p className="max-w-md text-sm font-medium text-slate-900">{latestInterviewerMessage}</p>
-                )}
               </div>
 
               <p className="text-center text-sm text-slate-500">{phaseLabel}</p>
@@ -987,6 +1000,38 @@ export function VoiceInterview() {
                 )}
                 {(recognition.status === "permission-denied" || recognition.status === "error") && (
                   <p className="text-xs text-red-600">{recognition.error}</p>
+                )}
+
+                {/* Optional self-view — off until the user asks for it. Stays
+                    on this device: never recorded, uploaded, or sent. */}
+                {camera.stream ? (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <SelfView stream={camera.stream} />
+                    <button
+                      type="button"
+                      onClick={camera.stop}
+                      className="inline-flex items-center gap-1 text-xs text-slate-400 underline hover:text-slate-600"
+                    >
+                      <VideoOff size={12} />
+                      Hide my camera
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => void camera.start()}
+                      disabled={camera.starting}
+                      className="btn-press inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500 transition hover:border-cyan-400/60 hover:text-slate-700 disabled:opacity-50"
+                    >
+                      <Video size={13} />
+                      {camera.starting ? "Starting camera…" : "Show my camera"}
+                    </button>
+                    <span className="text-[11px] text-slate-400">
+                      Practise eye contact. Only you see it, and it isn&apos;t recorded.
+                    </span>
+                    {camera.error && <span className="text-xs text-red-600">{camera.error}</span>}
+                  </div>
                 )}
               </div>
 
