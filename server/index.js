@@ -1128,7 +1128,7 @@ app.post("/api/interview-speech", aiLimiter, optionalAuth, requireVoiceInterview
 // interview sessions; POST /api/generate-interview-questions and
 // POST /api/interview-feedback above are untouched and still power the
 // separate text-based interview prep page as-is.
-const MAX_INTERVIEW_TURN_COUNT = 20; // hard cap — see server/lib/groq.js's generateInterviewTurn docblock
+const MAX_INTERVIEW_TURN_COUNT = 12; // hard cap — see server/lib/groq.js's generateInterviewTurn docblock
 app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterview, async (req, res) => {
   try {
     if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {

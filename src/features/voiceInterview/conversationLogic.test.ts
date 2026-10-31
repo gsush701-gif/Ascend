@@ -98,6 +98,20 @@ describe("advanceConversationState", () => {
     expect(next.topicsCovered).toEqual([]);
   });
 
+  it("keeps counting follow-ups when the model re-words the topic label (no endless loop)", () => {
+    let state = { ...base, currentTopic: "maintenance scheduling", followUpCountForTopic: 0 };
+    state = advanceConversationState(state, 2, "FOLLOW_UP", "maintenance tools");
+    state = advanceConversationState(state, 3, "EXPLORE_DETAIL", "tool selection reasoning");
+    expect(state.followUpCountForTopic).toBe(2);
+  });
+
+  it("starts the counter at 0 on the opening turn, then counts from there", () => {
+    const opening = advanceConversationState(base, 0, "FOLLOW_UP", "background");
+    expect(opening.followUpCountForTopic).toBe(0);
+    const next = advanceConversationState(opening, 1, "FOLLOW_UP", "background");
+    expect(next.followUpCountForTopic).toBe(1);
+  });
+
   it("marks the stage as closing on CLOSE_INTERVIEW", () => {
     const next = advanceConversationState(base, 14, "CLOSE_INTERVIEW", "closing remarks");
     expect(next.stage).toBe("closing");

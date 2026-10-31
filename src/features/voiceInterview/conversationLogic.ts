@@ -34,12 +34,12 @@ export function countCandidateTurns(transcript: ConversationTurn[]): number {
 // Soft target the interviewer paces itself against (also sent to the AI as
 // context) — used client-side only for the progress-dots UI, never shown to
 // the candidate as a literal "question N of M" count.
-export const TARGET_CANDIDATE_TURNS = 14;
+export const TARGET_CANDIDATE_TURNS = 9;
 // Hard cap enforced server-side (server/index.js's POST /api/interview-turn)
 // regardless of what the model decides — guarantees a session can never run
 // away in length or cost. Mirrored here so the client's progress indicator
 // and any client-side pacing hints agree with the server's actual cutoff.
-export const MAX_CANDIDATE_TURNS = 20;
+export const MAX_CANDIDATE_TURNS = 12;
 
 export function isNearingBudget(turnCount: number, targetTurns: number = TARGET_CANDIDATE_TURNS): boolean {
   return turnCount >= targetTurns - 2;
@@ -71,6 +71,11 @@ export function advanceConversationState(
   topic: string | null,
 ): ConversationState {
   const topicChanged = topic != null && topic !== state.currentTopic;
+  // The follow-up counter resets only on an actual topic transition (or the
+  // opening turn) — never because the model re-worded its topic label. The
+  // label drifting ("maintenance scheduling" -> "maintenance tools") used to
+  // reset it every turn, so one topic could be probed forever.
+  const startsNewTopic = action === "TRANSITION_TOPIC" || state.currentTopic === null;
   const topicsCovered =
     topicChanged && state.currentTopic
       ? [...state.topicsCovered, state.currentTopic]
@@ -79,7 +84,7 @@ export function advanceConversationState(
   return {
     topicsCovered,
     currentTopic: topic ?? state.currentTopic,
-    followUpCountForTopic: topicChanged ? 0 : state.followUpCountForTopic + 1,
+    followUpCountForTopic: startsNewTopic ? 0 : state.followUpCountForTopic + 1,
     turnCount,
     stage: action === "CLOSE_INTERVIEW" ? "closing" : state.stage,
   };
