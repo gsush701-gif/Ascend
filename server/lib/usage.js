@@ -132,14 +132,16 @@ async function checkQuota(userId, eventType) {
  */
 async function enforceUsageQuota(req, res, eventType) {
   if (!req.user) return true; // anonymous — governed by the IP rate limiter instead
-  const { allowed, limit } = await checkQuota(req.user.id, eventType);
+  const { allowed, limit, planKey } = await checkQuota(req.user.id, eventType);
   if (allowed) return true;
+  // Pro is the top plan, so "upgrade" isn't useful advice for its users.
+  const next = planKey === "pro" ? "Your limit resets at the start of next month." : "Upgrade or wait until next month to continue.";
   sendError(
     req,
     res,
     429,
     ErrorCodes.USAGE_LIMIT_EXCEEDED,
-    `You've reached your plan's monthly limit (${limit}) for this feature. Upgrade or wait until next month to continue.`,
+    `You've reached your plan's monthly limit (${limit}) for this feature. ${next}`,
   );
   return false;
 }

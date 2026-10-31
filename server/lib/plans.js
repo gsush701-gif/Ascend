@@ -65,6 +65,10 @@ const PLANS = {
     stripePriceId: "price_1U8drIC7X9ixl0QrsvwwjEDE",
     features: { voiceInterview: true },
     limits: {
+      // Voice interviews a Pro user can start per month. Each one costs about
+      // $0.15-0.25 in ElevenLabs speech (~1,800 characters) plus ~$0.01 of
+      // Groq, so 20 keeps the worst case around $4-5 against the $9 price.
+      "ai.interview_start": 20,
       "ai.analyze_summary": 200,
       "ai.improve_bullet": 300,
       "ai.improve_resume": 50,
@@ -99,6 +103,7 @@ const USAGE_LABELS = {
   "ai.generate_cover_letter": "Cover letters",
   "ai.generate_interview_questions": "Interview question sets",
   "ai.interview_feedback": "Interview answer critiques",
+  "ai.interview_start": "Voice interviews",
   "ai.interview_tts": "Interview voice playback",
   "ai.interview_turn": "Voice interview conversation turns",
   "ai.interview_evaluation": "Voice interview evaluations",

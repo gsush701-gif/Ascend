@@ -1197,6 +1197,14 @@ app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterview, 
       transcript.push({ speaker: turn.speaker, text: turn.text.slice(0, 4000) });
     }
 
+    // The first turn of a session (empty transcript) is an interview *start*.
+    // Starts are capped per plan per month (ai.interview_start in
+    // server/lib/plans.js) because each interview's spoken lines are the
+    // single biggest cost in the app (ElevenLabs bills per character). The
+    // per-turn / per-playback caps below stay as a backstop for callers who
+    // skip the empty-transcript start.
+    const isInterviewStart = transcript.length === 0;
+    if (isInterviewStart && !(await enforceUsageQuota(req, res, "ai.interview_start"))) return;
     if (!(await enforceUsageQuota(req, res, "ai.interview_turn"))) return;
 
     // Defensive hard cap, independent of what the model itself decides —
@@ -1231,6 +1239,16 @@ app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterview, 
         turnCount,
       }),
     );
+    // Counted only after the first turn succeeds, so a failed start (Groq
+    // error, rate limit) doesn't burn one of the user's monthly interviews.
+    if (isInterviewStart) {
+      recordUsageEvent({
+        eventType: "ai.interview_start",
+        userId: req.user && req.user.id,
+        requestId: req.requestId,
+        metadata: { success: true },
+      });
+    }
     return res.json(result);
   } catch (err) {
     console.error("interview-turn failed:", err);
