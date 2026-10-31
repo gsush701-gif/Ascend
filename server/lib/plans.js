@@ -124,4 +124,16 @@ function getPlan(planKey) {
   return PLANS[planKey] || PLANS[DEFAULT_PLAN];
 }
 
-module.exports = { PLANS, DEFAULT_PLAN, USAGE_LABELS, getPlan };
+/**
+ * The Stripe Price id Checkout should charge for Pro. `STRIPE_PRO_PRICE_ID`
+ * wins when set, so moving between Stripe test and live mode is purely a
+ * configuration change (a live key needs the live price's id); the id written
+ * into this file by server/scripts/setup-stripe-plans.js is only the fallback
+ * for local development, and is a test-mode id.
+ */
+function getProPriceId(env = process.env) {
+  const fromEnv = typeof env.STRIPE_PRO_PRICE_ID === "string" ? env.STRIPE_PRO_PRICE_ID.trim() : "";
+  return fromEnv || PLANS.pro.stripePriceId || null;
+}
+
+module.exports = { PLANS, DEFAULT_PLAN, USAGE_LABELS, getPlan, getProPriceId };

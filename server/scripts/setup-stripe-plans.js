@@ -123,7 +123,15 @@ async function main() {
     console.log(`Created new price: ${price.id} ($${(price.unit_amount / 100).toFixed(2)}/mo)`);
   }
 
-  if (PLANS.pro.stripePriceId === price.id) {
+  // A live-mode key must never write its price id into plans.js: that file is
+  // committed and is the local-development (test) fallback. Live ids belong in
+  // the STRIPE_PRO_PRICE_ID environment variable instead, which overrides it.
+  const isLiveKey = /^(sk|rk)_live_/.test(STRIPE_SECRET_KEY);
+  if (isLiveKey || process.argv.includes("--env-only")) {
+    console.log("");
+    console.log("Not writing to plans.js (live key or --env-only). Set this environment variable instead:");
+    console.log(`  STRIPE_PRO_PRICE_ID=${price.id}`);
+  } else if (PLANS.pro.stripePriceId === price.id) {
     console.log("plans.js already has this exact stripePriceId — nothing to write.");
   } else {
     writePriceIdIntoPlansFile(price.id);

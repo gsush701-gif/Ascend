@@ -58,10 +58,10 @@ const { createRateLimiter } = require("./lib/rateLimit");
 const { ErrorCodes, sendError } = require("./lib/errors");
 const { recordUsageEvent } = require("./lib/usageEvents");
 const { checkQuota, enforceUsageQuota } = require("./lib/usage");
-const { PLANS, DEFAULT_PLAN, USAGE_LABELS } = require("./lib/plans");
+const { PLANS, DEFAULT_PLAN, USAGE_LABELS, getProPriceId } = require("./lib/plans");
 const groq = require("./lib/groq");
 const elevenlabs = require("./lib/elevenlabs");
-const { stripe, isStripeConfigured } = require("./lib/stripe");
+const { stripe, isStripeConfigured, stripeMode } = require("./lib/stripe");
 const billing = require("./lib/billing");
 const { fetchOwnedRow } = require("./lib/supabaseUser");
 const { isUuid } = require("./lib/validation");
@@ -428,7 +428,8 @@ app.post("/api/billing/create-checkout-session", billingLimiter, optionalAuth, a
   if (!isStripeConfigured || !stripe) {
     return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Billing is not configured on the server");
   }
-  if (!PLANS.pro.stripePriceId) {
+  const proPriceId = getProPriceId();
+  if (!proPriceId) {
     return sendError(
       req,
       res,
@@ -456,14 +457,14 @@ app.post("/api/billing/create-checkout-session", billingLimiter, optionalAuth, a
     const frontendUrl = billing.getFrontendUrl();
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: PLANS.pro.stripePriceId, quantity: 1 }],
+      line_items: [{ price: proPriceId, quantity: 1 }],
       client_reference_id: req.user.id,
       metadata: { supabase_user_id: req.user.id },
       ...(existingCustomerId
         ? { customer: existingCustomerId }
         : { customer_email: req.user.email || undefined }),
-      success_url: `${frontendUrl}/profile?checkout=success`,
-      cancel_url: `${frontendUrl}/profile?checkout=cancelled`,
+      success_url: `${frontendUrl}/dashboard?checkout=success`,
+      cancel_url: `${frontendUrl}/dashboard?checkout=cancelled`,
     });
 
     return res.json({ url: session.url });
@@ -2935,7 +2936,7 @@ app.get("/api/admin/billing", adminLimiter, optionalAuth, requireAdmin, async (r
       totalSubscriptionRows: (allRows || []).length,
       activeByPlan,
       byPlanStatus,
-      isLiveStripeData: false,
+      isLiveStripeData: stripeMode === "live",
       recent: buildPageResult({ page, pageSize, total: total || 0, items: recentRows || [] }),
     });
   } catch (err) {
