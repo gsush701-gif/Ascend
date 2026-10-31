@@ -494,9 +494,10 @@ export function Analyzer() {
               <div className="space-y-6 animate-fade-in">
                 {report?.meta?.projected && (
                   <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    <strong>Projected score.</strong> This counts {report.meta.additionsCount ?? "your"} bullet
-                    {report.meta.additionsCount === 1 ? "" : "s"} you wrote here that aren&apos;t in your resume file
-                    yet, so it isn&apos;t saved. Add them to your resume, upload it, and analyze again to make it official.
+                    <strong>Projected score.</strong>{" "}
+                    {report.meta.additionsCount === 1
+                      ? "This counts 1 bullet you wrote here that isn't in your resume file yet, so it isn't saved. Add it to your resume, upload it, and analyze again to make it official."
+                      : `This counts ${report.meta.additionsCount ?? "the"} bullets you wrote here that aren't in your resume file yet, so it isn't saved. Add them to your resume, upload it, and analyze again to make it official.`}
                   </div>
                 )}
 
