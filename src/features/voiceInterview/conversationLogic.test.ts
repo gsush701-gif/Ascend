@@ -9,7 +9,7 @@ import {
   formatTranscriptForDisplay,
   TARGET_CANDIDATE_TURNS,
 } from "./conversationLogic";
-import type { ConversationTurn } from "../../types/voiceInterview";
+import type { ConversationState, ConversationTurn } from "../../types/voiceInterview";
 
 describe("initialConversationState", () => {
   it("starts empty/active with zero turns", () => {
@@ -99,7 +99,7 @@ describe("advanceConversationState", () => {
   });
 
   it("keeps counting follow-ups when the model re-words the topic label (no endless loop)", () => {
-    let state = { ...base, currentTopic: "maintenance scheduling", followUpCountForTopic: 0 };
+    let state: ConversationState = { ...base, currentTopic: "maintenance scheduling", followUpCountForTopic: 0 };
     state = advanceConversationState(state, 2, "FOLLOW_UP", "maintenance tools");
     state = advanceConversationState(state, 3, "EXPLORE_DETAIL", "tool selection reasoning");
     expect(state.followUpCountForTopic).toBe(2);
