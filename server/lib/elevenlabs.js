@@ -18,9 +18,30 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 // Override with any other premade voice_id, or a library voice_id once on a
 // paid ElevenLabs plan.
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "IKne3meq5aSn9XLyUdCD";
-// eleven_turbo_v2_5 is fast and cheap — good enough for short spoken
-// interview questions; see elevenlabs.io/docs/models for alternatives.
-const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_turbo_v2_5";
+// eleven_multilingual_v2 is ElevenLabs' higher-quality, more natural model.
+// The earlier default, eleven_turbo_v2_5, is faster and uses roughly half
+// the credits per character, but sounded flat/robotic for a mock-interview
+// voice — set ELEVENLABS_MODEL_ID=eleven_turbo_v2_5 to go back to it if
+// credits matter more than naturalness. See elevenlabs.io/docs/models.
+const ELEVENLABS_MODEL_ID = process.env.ELEVENLABS_MODEL_ID || "eleven_multilingual_v2";
+
+function numberFromEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : fallback;
+}
+
+// Delivery settings (all 0-1). Lower stability = more varied, expressive
+// delivery (less monotone); style adds some emphasis/emotion. These defaults
+// are the "B" sample that was picked by ear over the plain model defaults.
+// Each can be tuned without a code change via the matching env var.
+const VOICE_SETTINGS = {
+  stability: numberFromEnv("ELEVENLABS_STABILITY", 0.35),
+  similarity_boost: numberFromEnv("ELEVENLABS_SIMILARITY", 0.75),
+  style: numberFromEnv("ELEVENLABS_STYLE", 0.25),
+  use_speaker_boost: true,
+};
 
 const configured = Boolean(ELEVENLABS_API_KEY);
 
@@ -69,6 +90,7 @@ async function synthesizeSpeech(text) {
         body: JSON.stringify({
           text,
           model_id: ELEVENLABS_MODEL_ID,
+          voice_settings: VOICE_SETTINGS,
         }),
       },
     );
