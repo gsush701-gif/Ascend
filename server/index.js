@@ -65,7 +65,11 @@ const { stripe, isStripeConfigured } = require("./lib/stripe");
 const billing = require("./lib/billing");
 const { fetchOwnedRow } = require("./lib/supabaseUser");
 const { isUuid } = require("./lib/validation");
-const { getResumeStoragePathsToDelete } = require("./lib/accountDeletion");
+const {
+  getResumeStoragePathsToDelete,
+  getUserFolderObjectPaths,
+  USER_FOLDER_BUCKETS,
+} = require("./lib/accountDeletion");
 const { computePublicProfileStats, filterPublicProfileFields } = require("./lib/publicProfile");
 const { bucketCount, countDistinct, topByCount, computeEventTypeStats } = require("./lib/admin");
 const { parsePagination, buildPageResult } = require("./lib/pagination");
@@ -1806,6 +1810,29 @@ app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) =
       err,
     );
     captureException(err, { requestId: req.requestId, route: req.path, stage: "storage-cleanup" });
+  }
+
+  // The PDFs attached to individual roles live in their own buckets, in a
+  // `<user id>/` folder each. Same non-blocking policy as the cleanup above:
+  // a failure is logged loudly but never stops the account deletion itself.
+  for (const bucket of USER_FOLDER_BUCKETS) {
+    try {
+      const { data: listing, error: listError } = await supabaseAdmin.storage
+        .from(bucket)
+        .list(req.user.id, { limit: 1000 });
+      if (listError) throw listError;
+      const paths = getUserFolderObjectPaths(req.user.id, listing);
+      if (paths.length > 0) {
+        const { error: removeError } = await supabaseAdmin.storage.from(bucket).remove(paths);
+        if (removeError) throw removeError;
+      }
+    } catch (err) {
+      console.error(
+        `[account-delete] ORPHANED STORAGE FILES: failed to clean the "${bucket}" bucket for user ${req.user.id}:`,
+        err && err.message,
+      );
+      captureException(err, { requestId: req.requestId, route: req.path, stage: `cleanup-${bucket}` });
+    }
   }
 
   try {

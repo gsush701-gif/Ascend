@@ -31,6 +31,7 @@ import { Signup } from "./routes/Signup";
 import { ForgotPassword } from "./routes/ForgotPassword";
 import { ResetPassword } from "./routes/ResetPassword";
 import { NotFound } from "./routes/NotFound";
+import { Privacy } from "./routes/Privacy";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/privacy" element={<Privacy />} />
       {/* Public shareable profile — see src/routes/PublicProfile.tsx and
           supabase/migrations/017_public_profiles.sql. Replaces the old
           /{slug}?d=<base64> mechanism entirely (no more reserved-segment

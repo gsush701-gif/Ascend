@@ -358,6 +358,10 @@ export function TopNav() {
                     item={{ to: "/contacts", label: "Contact" }}
                     onSelect={closeMenu}
                   />
+                  <MenuLink
+                    item={{ to: "/privacy", label: "Privacy policy" }}
+                    onSelect={closeMenu}
+                  />
                   <AccountMenuItem icon={LogOut} label="Log out" onClick={handleSignOut} />
                 </div>
               )}

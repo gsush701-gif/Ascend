@@ -43,4 +43,31 @@ function getResumeStoragePathsToDelete(resumeRows) {
   return Array.from(new Set(paths));
 }
 
-module.exports = { getResumeStoragePathsToDelete };
+/**
+ * Storage buckets that hold per-user files outside the `resumes` table:
+ * `role-resumes` (the PDF attached to a tracked role) and `job-postings`
+ * (older per-role uploads; no longer written by the UI but may still hold
+ * files). Both use a flat `<user id>/<file>` layout, so everything the user
+ * owns is whatever lists under their id as a folder.
+ */
+const USER_FOLDER_BUCKETS = ["role-resumes", "job-postings"];
+
+/**
+ * Turns a Storage `list(<user id>)` result into full object paths to remove.
+ * Skips entries without a file name (sub-folders, malformed rows) so one bad
+ * entry can't throw and block the rest of the cleanup.
+ *
+ * @param {string} userId
+ * @param {Array<{ name?: unknown } | null | undefined> | null | undefined} listing
+ * @returns {string[]}
+ */
+function getUserFolderObjectPaths(userId, listing) {
+  if (!userId || !Array.isArray(listing)) return [];
+  const paths = listing
+    .map((item) => item && item.name)
+    .filter((name) => typeof name === "string" && name.trim().length > 0)
+    .map((name) => `${userId}/${name}`);
+  return Array.from(new Set(paths));
+}
+
+module.exports = { getResumeStoragePathsToDelete, getUserFolderObjectPaths, USER_FOLDER_BUCKETS };

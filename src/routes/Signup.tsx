@@ -145,6 +145,14 @@ export function Signup() {
         <OAuthButtons />
 
         <p className="text-center text-xs text-slate-400">
+          We store your resume and job data to run Ascend. See our{" "}
+          <Link to="/privacy" className="text-slate-600 underline hover:text-slate-900">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
+        <p className="text-center text-xs text-slate-400">
           Already have an account?{" "}
           <Link to="/login" className="text-slate-600 underline hover:text-slate-900">
             Log in

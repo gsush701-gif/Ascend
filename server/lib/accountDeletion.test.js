@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getResumeStoragePathsToDelete } from "./accountDeletion.js";
+import { getResumeStoragePathsToDelete, getUserFolderObjectPaths, USER_FOLDER_BUCKETS } from "./accountDeletion.js";
 
 describe("getResumeStoragePathsToDelete — Storage cleanup targets for account deletion", () => {
   it("extracts storage_path from each row", () => {
@@ -48,5 +48,24 @@ describe("getResumeStoragePathsToDelete — Storage cleanup targets for account 
       { storage_path: "user-1/soft-deleted.pdf", deleted_at: "2026-01-01T00:00:00.000Z" },
     ];
     expect(getResumeStoragePathsToDelete(rows)).toEqual(["user-1/kept.pdf", "user-1/soft-deleted.pdf"]);
+  });
+});
+
+describe("getUserFolderObjectPaths — per-role PDF cleanup for account deletion", () => {
+  it("prefixes each listed file with the user's folder", () => {
+    const listing = [{ name: "role1-abc.pdf" }, { name: "role2-def.pdf" }];
+    expect(getUserFolderObjectPaths("user-1", listing)).toEqual(["user-1/role1-abc.pdf", "user-1/role2-def.pdf"]);
+  });
+
+  it("skips entries with no usable name and tolerates bad input", () => {
+    expect(getUserFolderObjectPaths("user-1", [null, {}, { name: "  " }, { name: 5 }, { name: "ok.pdf" }])).toEqual([
+      "user-1/ok.pdf",
+    ]);
+    expect(getUserFolderObjectPaths("user-1", null)).toEqual([]);
+    expect(getUserFolderObjectPaths("", [{ name: "a.pdf" }])).toEqual([]);
+  });
+
+  it("covers both per-role buckets", () => {
+    expect(USER_FOLDER_BUCKETS).toEqual(expect.arrayContaining(["role-resumes", "job-postings"]));
   });
 });
