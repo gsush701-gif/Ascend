@@ -846,28 +846,39 @@ export function VoiceInterview() {
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
                   Interview in progress
                 </span>
-                {conversationState.turnCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={restartInterview}
-                    title="Abandon this interview and start a fresh one"
-                    className="text-xs text-slate-400 underline hover:text-slate-600"
-                  >
-                    Start over
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={restartInterview}
+                  title="Abandon this interview and start a fresh one"
+                  className="text-xs text-slate-400 underline hover:text-slate-600"
+                >
+                  Start over
+                </button>
               </div>
 
               <div className="flex flex-col items-center gap-3 py-1 text-center">
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
                   AI Interviewer
                 </span>
-                <div
+                {/* Also a replay button: a session resumed from an earlier visit shows
+                    the interviewer's last line but never speaks it (nothing
+                    triggers a new turn), and browsers only allow audio after a
+                    click anyway — so this click is what makes it audible. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!latestInterviewerMessage) return;
+                    voice.stop();
+                    void voice.speak(latestInterviewerMessage);
+                  }}
+                  disabled={!latestInterviewerMessage || recognition.status === "listening" || turnLoading}
+                  title="Replay the interviewer's question"
+                  aria-label="Replay the interviewer's question"
                   className={cn(
-                    "flex h-14 w-14 items-center justify-center rounded-full transition-colors",
+                    "btn-press flex h-14 w-14 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-60",
                     voice.status === "speaking" || voice.status === "loading"
                       ? "bg-cyan-500/15"
-                      : "bg-slate-900/[0.04]",
+                      : "bg-slate-900/[0.04] hover:bg-cyan-500/10",
                   )}
                 >
                   <Volume2
@@ -877,7 +888,7 @@ export function VoiceInterview() {
                       (voice.status === "speaking" || voice.status === "loading") && "animate-pulse",
                     )}
                   />
-                </div>
+                </button>
                 {latestInterviewerMessage && (
                   <p className="max-w-md text-sm font-medium text-slate-900">{latestInterviewerMessage}</p>
                 )}
