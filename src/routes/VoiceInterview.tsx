@@ -351,6 +351,9 @@ function ConversationSessionHistoryItem({ session }: { session: VoiceInterviewSe
   );
 }
 
+/** Fewest candidate answers worth sending to the evaluator when ending early. */
+const MIN_ANSWERS_TO_SCORE = 2;
+
 export function VoiceInterview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -535,6 +538,46 @@ export function VoiceInterview() {
 
   // ===== Week 3 dynamic-conversation engine =====
 
+  /** Scores a finished (or ended-early) conversation and saves the result.
+   * Shared by the interviewer's own CLOSE_INTERVIEW and the End interview
+   * button. Failures surface through `turnError`, shown in the complete panel. */
+  const runEvaluation = useCallback(
+    async (sessionId: string, finalTranscript: ConversationTurn[]) => {
+      setEvalLoading(true);
+      try {
+        const evalRes = await fetch(`${API_BASE}/api/interview-evaluation`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authSession?.access_token ? { Authorization: `Bearer ${authSession.access_token}` } : {}),
+          },
+          body: JSON.stringify({
+            transcript: formatTranscriptForDisplay(finalTranscript),
+            jobDescription: item?.jobDescription,
+          }),
+        });
+        const evalData = await evalRes.json();
+        if (!evalRes.ok) throw new Error(getApiErrorMessage(evalData, "AI request failed"));
+        setEvaluation(evalData);
+        void saveEvaluation(sessionId, evalData);
+      } catch (evalErr) {
+        setTurnError(
+          evalErr instanceof Error
+            ? `Interview complete, but the evaluation failed: ${evalErr.message}`
+            : "Interview complete, but the evaluation failed to generate.",
+        );
+      } finally {
+        setEvalLoading(false);
+      }
+    },
+    [authSession, item, saveEvaluation],
+  );
+
+  // Sessions the user ended with the End interview button. An in-flight turn
+  // request for one of these must not speak or update the transcript when it
+  // lands, and the auto-submit-on-mic-stop effect must not send a last answer.
+  const endedSessionsRef = useRef<Set<string>>(new Set());
+
   /** Generates + speaks the next interviewer turn from a given transcript
    * and state, then either auto-starts the mic or closes the interview. */
   const requestNextTurn = useCallback(
@@ -563,6 +606,11 @@ export function VoiceInterview() {
         const data = await res.json();
         if (!res.ok) throw new Error(getApiErrorMessage(data, "AI request failed"));
 
+        if (endedSessionsRef.current.has(sessionId)) {
+          setTurnLoading(false);
+          return;
+        }
+
         const newTranscript = appendTurn(transcriptSoFar, "interviewer", data.message);
         const newState = advanceConversationState(stateSoFar, stateSoFar.turnCount, data.action, data.topic ?? null);
         setActiveSession((prev) =>
@@ -578,32 +626,7 @@ export function VoiceInterview() {
           setActiveSession((prev) =>
             prev && prev.id === sessionId ? { ...prev, completedAt: new Date().toISOString() } : prev,
           );
-          setEvalLoading(true);
-          try {
-            const evalRes = await fetch(`${API_BASE}/api/interview-evaluation`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                ...(authSession?.access_token ? { Authorization: `Bearer ${authSession.access_token}` } : {}),
-              },
-              body: JSON.stringify({
-                transcript: formatTranscriptForDisplay(newTranscript),
-                jobDescription: item.jobDescription,
-              }),
-            });
-            const evalData = await evalRes.json();
-            if (!evalRes.ok) throw new Error(getApiErrorMessage(evalData, "AI request failed"));
-            setEvaluation(evalData);
-            void saveEvaluation(sessionId, evalData);
-          } catch (evalErr) {
-            setTurnError(
-              evalErr instanceof Error
-                ? `Interview complete, but the evaluation failed: ${evalErr.message}`
-                : "Interview complete, but the evaluation failed to generate.",
-            );
-          } finally {
-            setEvalLoading(false);
-          }
+          await runEvaluation(sessionId, newTranscript);
         } else if (
           recognition.status === "idle" ||
           recognition.status === "error" ||
@@ -616,7 +639,7 @@ export function VoiceInterview() {
         setTurnLoading(false);
       }
     },
-    [item, authSession, appendTranscriptTurns, voice, recognition, completeSession, saveEvaluation],
+    [item, authSession, appendTranscriptTurns, voice, recognition, completeSession, runEvaluation],
   );
 
   const startInterview = useCallback(async () => {
@@ -645,6 +668,10 @@ export function VoiceInterview() {
   useEffect(() => {
     if (recognition.status !== "stopped") return;
     if (!activeSession || !isConversationSession || !activeSession.conversationState) return;
+    if (activeSession.completedAt || endedSessionsRef.current.has(activeSession.id)) {
+      recognition.reset();
+      return;
+    }
     if (turnLoading) return;
     const answer = recognition.transcript.trim();
     recognition.reset();
@@ -687,6 +714,34 @@ export function VoiceInterview() {
     }
     recognition.start();
   }, [voice, recognition]);
+
+  /** The End interview button: stops audio and mic, marks the session
+   * complete, and — if there's enough said to score — runs the same
+   * evaluation a natural ending gets. Deliberately explicit (with a confirm)
+   * rather than auto-ending when the user navigates away: leaving the page
+   * only stops audio and the mic, and the session stays resumable. */
+  const endInterview = useCallback(async () => {
+    if (!activeSession || activeSession.completedAt || !activeSession.conversationState) return;
+    const canScore = countCandidateTurns(activeSession.transcript) >= MIN_ANSWERS_TO_SCORE;
+    const ok = window.confirm(
+      canScore
+        ? "End this interview now? You'll get feedback on the answers you've given so far."
+        : "End this interview now? It's too short to score yet.",
+    );
+    if (!ok) return;
+    const sessionId = activeSession.id;
+    endedSessionsRef.current.add(sessionId);
+    voice.stop();
+    recognition.stop();
+    recognition.reset();
+    setTurnLoading(false);
+    setTurnError(null);
+    await completeSession(sessionId);
+    setActiveSession((prev) =>
+      prev && prev.id === sessionId ? { ...prev, completedAt: new Date().toISOString() } : prev,
+    );
+    if (canScore) await runEvaluation(sessionId, activeSession.transcript);
+  }, [activeSession, voice, recognition, completeSession, runEvaluation]);
 
   // Pro-only feature — see useFeatureAccess. UX only; the server routes this
   // page calls independently reject callers whose plan doesn't include it.
@@ -846,14 +901,24 @@ export function VoiceInterview() {
                 <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
                   Interview in progress
                 </span>
-                <button
-                  type="button"
-                  onClick={restartInterview}
-                  title="Abandon this interview and start a fresh one"
-                  className="text-xs text-slate-400 underline hover:text-slate-600"
-                >
-                  Start over
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={restartInterview}
+                    title="Abandon this interview and start a fresh one"
+                    className="text-xs text-slate-400 underline hover:text-slate-600"
+                  >
+                    Start over
+                  </button>
+                  <button
+                    type="button"
+                    onClick={endInterview}
+                    title="End the interview now and get feedback on what you've answered"
+                    className="text-xs font-medium text-rose-600 underline hover:text-rose-700"
+                  >
+                    End interview
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col items-center gap-3 py-1 text-center">
@@ -961,6 +1026,11 @@ export function VoiceInterview() {
                 <EvaluationPanel evaluation={evaluation} />
               ) : turnError ? (
                 <p className="text-sm text-red-600">{turnError}</p>
+              ) : countCandidateTurns(transcript) < MIN_ANSWERS_TO_SCORE ? (
+                <p className="text-sm text-slate-500">
+                  This interview ended before there was enough to score. Answer a couple of
+                  questions next time to get a full evaluation.
+                </p>
               ) : null}
 
               {transcript.length > 0 && (
