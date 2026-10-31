@@ -7,9 +7,11 @@ import {
   ShieldCheck,
   Bell,
   CreditCard,
+  Gauge,
   Trash2,
   LogOut,
 } from "lucide-react";
+import { useIsAdmin } from "../../features/admin/hooks/useIsAdmin";
 import { AscendLogo } from "./AscendLogo";
 import { NotificationsBell } from "./NotificationsBell";
 import { Modal } from "../ui/Modal";
@@ -176,6 +178,7 @@ export function TopNav() {
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, session, signOut } = useAuth();
   const { profile } = useProfile();
+  const { isAdmin } = useIsAdmin();
   const navigate = useNavigate();
 
   const closeMenu = () => setMenuOpen(false);
@@ -321,6 +324,19 @@ export function TopNav() {
                       label="Plan & billing"
                       onClick={() => openModal("plan")}
                     />
+                    {/* UX only — shown when GET /api/admin/whoami says this
+                        account is in ADMIN_EMAILS. The /admin data routes
+                        re-check that on the server regardless. */}
+                    {isAdmin && (
+                      <AccountMenuItem
+                        icon={Gauge}
+                        label="Admin"
+                        onClick={() => {
+                          closeMenu();
+                          navigate("/admin");
+                        }}
+                      />
+                    )}
                   </div>
 
                   <span className="my-1.5 h-px bg-slate-100" aria-hidden />
