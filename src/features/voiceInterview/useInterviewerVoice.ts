@@ -90,17 +90,36 @@ export function useInterviewerVoice(accessToken?: string): UseInterviewerVoiceRe
         const audio = audioRef.current;
         audio.src = url;
 
-        await new Promise<void>((resolve) => {
-          const finish = () => resolve();
-          audio.onended = finish;
-          audio.onerror = finish;
+        // Resolves true only if the audio actually played to the end. A
+        // playback failure — most commonly the browser's autoplay policy
+        // rejecting audio.play() with NotAllowedError (strictest on
+        // Safari/iOS, since the click that started the interview is long
+        // gone by the time the AI's reply and the audio have downloaded) —
+        // must NOT resolve as if it succeeded, or the interviewer is just
+        // silent with no fallback and no hint why.
+        const played = await new Promise<boolean>((resolve) => {
+          audio.onended = () => resolve(true);
+          audio.onerror = () => {
+            console.warn("[interviewer-voice] audio element error — falling back to the browser voice");
+            resolve(false);
+          };
           setStatus("speaking");
-          audio.play().catch(() => finish());
+          audio.play().catch((err: unknown) => {
+            console.warn(
+              "[interviewer-voice] playback was blocked or failed — falling back to the browser voice:",
+              err instanceof Error ? err.name : err,
+            );
+            resolve(false);
+          });
         });
-      } catch {
+        if (!played) {
+          await speakWithBrowserFallback(trimmed);
+        }
+      } catch (err) {
         // Server TTS unavailable (not configured, rate-limited, network
-        // error, autoplay blocked) — degrade to the free browser voice
-        // rather than leaving the question silent.
+        // error) — degrade to the free browser voice rather than leaving
+        // the question silent.
+        console.warn("[interviewer-voice] server voice unavailable — falling back to the browser voice:", err);
         setStatus("speaking");
         await speakWithBrowserFallback(trimmed);
       } finally {
