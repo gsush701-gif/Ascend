@@ -14,11 +14,13 @@ import {
   fetchAdminOverview,
   fetchAdminApplications,
   fetchAdminAiUsage,
+  fetchAdminFunnel,
   fetchAdminBilling,
   fetchAdminSystem,
   type AdminOverview,
   type AdminApplications,
   type AdminAiUsage,
+  type AdminFunnel,
   type AdminBilling,
   type AdminSystem,
 } from "../features/admin/api";
@@ -99,6 +101,8 @@ export function Admin() {
 
   const [aiUsage, setAiUsage] = useState<AdminAiUsage | null>(null);
   const [aiUsageLoading, setAiUsageLoading] = useState(true);
+  const [funnel, setFunnel] = useState<AdminFunnel | null>(null);
+  const [funnelLoading, setFunnelLoading] = useState(true);
 
   const [billing, setBilling] = useState<AdminBilling | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
@@ -194,6 +198,11 @@ export function Admin() {
       .then(setAiUsage)
       .catch(() => {})
       .finally(() => setAiUsageLoading(false));
+    setFunnelLoading(true);
+    fetchAdminFunnel(accessToken)
+      .then(setFunnel)
+      .catch(() => {})
+      .finally(() => setFunnelLoading(false));
     // Only re-run when we first become "ready" for this session's token —
     // per-section pagination is handled by the page-change handlers below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -359,6 +368,56 @@ export function Admin() {
                   { header: "Created", render: (r) => fmtDate(r.created_at) },
                 ]}
               />
+            </div>
+          )}
+        </Panel>
+
+        {/* --- Activation funnel --- */}
+        <Panel title="Activation funnel" subtitle="What people who signed up did next. Where they stop is what to fix first.">
+          {funnelLoading && !funnel ? (
+            <Skeleton className="h-40" />
+          ) : !funnel ? (
+            <p className="text-sm text-slate-500">Couldn&apos;t load funnel data.</p>
+          ) : funnel.signups === 0 ? (
+            <p className="text-sm text-slate-500">No signups in the last {funnel.windowDays} days yet.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard label="Signups" value={fmtNumber(funnel.signups)} hint={`Last ${funnel.windowDays} days`} />
+                <StatCard
+                  label="Activated"
+                  value={fmtNumber(funnel.activated.users)}
+                  hint={`${funnel.activated.pctOfSignups ?? 0}% ran an analysis and added a role`}
+                />
+                <StatCard
+                  label="Did nothing"
+                  value={fmtNumber(funnel.didNothing.users)}
+                  hint={`${funnel.didNothing.pctOfSignups ?? 0}% signed up but never acted`}
+                />
+              </div>
+              <div className="space-y-2.5">
+                {funnel.steps.map((step) => (
+                  <div key={step.key}>
+                    <div className="mb-1 flex items-baseline justify-between text-sm">
+                      <span className="text-slate-700">{step.label}</span>
+                      <span className="text-xs text-slate-500">
+                        {fmtNumber(step.users)} of {fmtNumber(funnel.signups)} ({step.pctOfSignups ?? 0}%)
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-cyan-500"
+                        style={{ width: `${Math.min(100, step.pctOfSignups ?? 0)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500">
+                Each step counts people who ever did it, not a strict sequence. Activity from before 31 Oct 2026 isn&apos;t
+                attributed to users, so older signups look inactive.
+                {funnel.truncated ? " More users exist than this view loads, so the newest may be missing." : ""}
+              </p>
             </div>
           )}
         </Panel>

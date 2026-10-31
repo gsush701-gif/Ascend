@@ -1,4 +1,5 @@
 import { API_BASE } from "../config/api";
+import { supabase } from "./supabaseClient";
 
 /**
  * Product events the backend allowlists (server/index.js, TRACKABLE_EVENT_TYPES).
@@ -15,17 +16,36 @@ export type TrackedEvent =
 
 /**
  * Fire-and-forget product analytics ping to POST /api/track (usage_events
- * table). No auth required — anonymous events are valid. Never throws, never
+ * table). Auth is optional — anonymous events are valid — but signed-in events
+ * carry the user's token so they count toward the admin funnel. Never throws, never
  * awaited by callers, and never sent with resume/JD/answer content: keep
  * `metadata` to small, non-sensitive shape info only (counts, lengths,
  * booleans), matching the same privacy rule the backend's own AI-route
  * instrumentation follows.
  */
 export function logEvent(event: TrackedEvent, metadata?: Record<string, unknown>): void {
+  void send(event, metadata);
+}
+
+async function send(event: TrackedEvent, metadata?: Record<string, unknown>): Promise<void> {
   try {
-    fetch(`${API_BASE}/api/track`, {
+    // Attach the signed-in user's token, if any, so the server can tie the
+    // event to an account — the admin funnel (GET /api/admin/funnel) counts
+    // distinct users per step, which is impossible with anonymous events.
+    // Never blocks or breaks the caller: any failure just sends it anonymously.
+    let token: string | undefined;
+    try {
+      const { data } = await supabase.auth.getSession();
+      token = data.session?.access_token;
+    } catch {
+      token = undefined;
+    }
+    await fetch(`${API_BASE}/api/track`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ event_type: event, metadata }),
       keepalive: true,
     }).catch(() => {

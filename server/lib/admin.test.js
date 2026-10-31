@@ -5,6 +5,7 @@ import {
   countDistinct,
   topByCount,
   computeEventTypeStats,
+  computeFunnel,
 } from "./admin.js";
 
 describe("isAdminEmail — the real server-side admin boundary", () => {
@@ -148,5 +149,47 @@ describe("computeEventTypeStats — token cost", () => {
     expect(s.estCostUsd).toBeNull();
     expect(s.avgCostUsd).toBeNull();
     expect(s.totalTokens).toBeNull();
+  });
+});
+
+describe("computeFunnel — signup activation", () => {
+  const ev = (user_id, event_type) => ({ user_id, event_type });
+
+  it("counts distinct users per step as a share of the signup cohort", () => {
+    const rows = [
+      ev("a", "analysis_completed"),
+      ev("a", "analysis_completed"), // repeat by the same user counts once
+      ev("b", "analysis_completed"),
+      ev("a", "role_created"),
+      ev("c", "resume_uploaded"),
+    ];
+    const f = computeFunnel(["a", "b", "c", "d"], rows);
+    const step = (k) => f.steps.find((s) => s.key === k);
+    expect(f.signups).toBe(4);
+    expect(step("analysis_completed")).toMatchObject({ users: 2, pctOfSignups: 50 });
+    expect(step("role_created")).toMatchObject({ users: 1, pctOfSignups: 25 });
+    expect(step("cover_letter_generated").users).toBe(0);
+  });
+
+  it("defines activated as analysis AND a role, and counts signups who did nothing", () => {
+    const rows = [ev("a", "analysis_completed"), ev("a", "role_created"), ev("b", "analysis_completed")];
+    const f = computeFunnel(["a", "b", "c"], rows);
+    expect(f.activated.users).toBe(1);
+    expect(f.didNothing.users).toBe(1);
+    expect(f.didNothing.pctOfSignups).toBeCloseTo(33.3, 1);
+  });
+
+  it("ignores anonymous events, other event types, and users outside the cohort", () => {
+    const rows = [ev(null, "role_created"), ev("x", "role_created"), ev("a", "signup"), ev("a", "ai.improve_bullet")];
+    const f = computeFunnel(["a"], rows);
+    expect(f.steps.every((s) => s.users === 0)).toBe(true);
+    expect(f.didNothing.users).toBe(1);
+  });
+
+  it("reports null percentages for an empty cohort rather than dividing by zero", () => {
+    const f = computeFunnel([], []);
+    expect(f.signups).toBe(0);
+    expect(f.activated.pctOfSignups).toBeNull();
+    expect(f.steps[0].pctOfSignups).toBeNull();
   });
 });

@@ -128,6 +128,18 @@ export type AdminSystem = {
   recent: PageResult<AdminErrorLogRow>;
 };
 
+export type AdminFunnelStep = { key: string; label: string; users: number; pctOfSignups: number | null };
+
+export type AdminFunnel = {
+  windowDays: number;
+  /** True when there are more users than one page, so the newest may be missing. */
+  truncated: boolean;
+  signups: number;
+  steps: AdminFunnelStep[];
+  activated: { users: number; pctOfSignups: number | null };
+  didNothing: { users: number; pctOfSignups: number | null };
+};
+
 export function fetchAdminWhoAmI(accessToken: string | undefined) {
   return adminGet<{ isAdmin: true; email: string }>("/api/admin/whoami", accessToken);
 }
@@ -153,4 +165,8 @@ export function fetchAdminBilling(accessToken: string | undefined, page: number,
 
 export function fetchAdminSystem(accessToken: string | undefined, page: number, pageSize: number) {
   return adminGet<AdminSystem>(`/api/admin/system?page=${page}&pageSize=${pageSize}`, accessToken);
+}
+
+export function fetchAdminFunnel(accessToken: string | undefined, days = 30) {
+  return adminGet<AdminFunnel>(`/api/admin/funnel?days=${days}`, accessToken);
 }

@@ -72,7 +72,14 @@ const {
   USER_FOLDER_BUCKETS,
 } = require("./lib/accountDeletion");
 const { computePublicProfileStats, filterPublicProfileFields } = require("./lib/publicProfile");
-const { bucketCount, countDistinct, topByCount, computeEventTypeStats } = require("./lib/admin");
+const {
+  bucketCount,
+  countDistinct,
+  topByCount,
+  computeEventTypeStats,
+  computeFunnel,
+  FUNNEL_STEPS,
+} = require("./lib/admin");
 const { parsePagination, buildPageResult } = require("./lib/pagination");
 const { runWeeklyReportJob } = require("./lib/weeklyReport");
 const { sendWeeklyReportEmail } = require("./lib/resend");
@@ -2833,6 +2840,55 @@ app.get("/api/admin/ai-usage", adminLimiter, optionalAuth, requireAdmin, async (
     console.error("admin/ai-usage failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load AI usage data");
+  }
+});
+
+// GET /api/admin/funnel — activation funnel for people who signed up in the
+// last N days (default 30, max 90): of those signups, how many uploaded a
+// resume, ran an analysis, added a role, and so on, plus how many are
+// "activated" (analysis + role) and how many did nothing at all. The cohort
+// comes from the auth user list (so Google and email signups both count) and
+// the steps from the product events in `usage_events` — which only carry a
+// user id since src/lib/analytics.ts started sending the login, so people who
+// signed up and acted before that deploy show up as having done nothing.
+app.get("/api/admin/funnel", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    let windowDays = parseInt(req.query.days, 10);
+    if (!Number.isFinite(windowDays) || windowDays < 1) windowDays = 30;
+    windowDays = Math.min(windowDays, 90);
+    const sinceMs = Date.now() - windowDays * 24 * 60 * 60 * 1000;
+    const since = new Date(sinceMs).toISOString();
+
+    const COHORT_PAGE = 1000;
+    const { data: usersData, error: usersErr } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: COHORT_PAGE,
+    });
+    if (usersErr) throw usersErr;
+    // Bounded at one page for this stage of the product. If there are more
+    // users than that, the newest may be missing, and the response says so.
+    const truncated = (usersData.total || 0) > COHORT_PAGE;
+    const cohort = (usersData.users || [])
+      .filter((u) => new Date(u.created_at).getTime() >= sinceMs)
+      .map((u) => u.id);
+
+    const { data: rows, error: rowsErr } = await supabaseAdmin
+      .from("usage_events")
+      .select("user_id, event_type")
+      .in("event_type", FUNNEL_STEPS.map((s) => s.key))
+      .not("user_id", "is", null)
+      .gte("created_at", since)
+      .limit(20000);
+    if (rowsErr) throw rowsErr;
+
+    return res.json({ windowDays, truncated, ...computeFunnel(cohort, rows || []) });
+  } catch (err) {
+    console.error("admin/funnel failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load funnel data");
   }
 });
 

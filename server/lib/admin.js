@@ -158,7 +158,66 @@ function computeEventTypeStats(rows) {
   return out;
 }
 
+/**
+ * The activation steps the admin funnel reports, in the order a new student
+ * would naturally reach them. Event keys are the product events recorded by
+ * POST /api/track (src/lib/analytics.ts).
+ */
+const FUNNEL_STEPS = [
+  { key: "resume_uploaded", label: "Uploaded a resume" },
+  { key: "analysis_completed", label: "Ran an analysis" },
+  { key: "role_created", label: "Added a role" },
+  { key: "cover_letter_generated", label: "Generated a cover letter" },
+  { key: "interview_started", label: "Practised an interview" },
+];
+
+/**
+ * Activation funnel for a cohort of signups: for each step, how many of those
+ * users ever did it. Steps are counted independently rather than as a strict
+ * sequence, because the app isn't linear (a role can be added without an
+ * analysis, a resume can be pasted rather than uploaded) — a strict funnel
+ * would drop real users. Two derived numbers carry the story instead:
+ *   - activated: did BOTH an analysis and added a role (the core loop).
+ *   - didNothing: signed up but triggered none of the steps (the leak).
+ * Rows from users outside the cohort, or with no user, are ignored.
+ *
+ * @param {string[]} cohortUserIds users who signed up in the window
+ * @param {Array<{ user_id?: string|null, event_type?: string }>} eventRows
+ * @param {{ key: string, label: string }[]} [steps]
+ */
+function computeFunnel(cohortUserIds, eventRows, steps = FUNNEL_STEPS) {
+  const cohort = new Set(cohortUserIds || []);
+  const byEvent = new Map(steps.map((s) => [s.key, new Set()]));
+  const didAny = new Set();
+  for (const r of eventRows || []) {
+    if (!r || !r.user_id || !cohort.has(r.user_id)) continue;
+    const set = byEvent.get(r.event_type);
+    if (!set) continue;
+    set.add(r.user_id);
+    didAny.add(r.user_id);
+  }
+  const total = cohort.size;
+  const pct = (n) => (total > 0 ? Math.round((n / total) * 1000) / 10 : null);
+  const analysed = byEvent.get("analysis_completed") || new Set();
+  const addedRole = byEvent.get("role_created") || new Set();
+  const activated = [...analysed].filter((id) => addedRole.has(id)).length;
+  const didNothing = total - didAny.size;
+  return {
+    signups: total,
+    steps: steps.map((s) => ({
+      key: s.key,
+      label: s.label,
+      users: byEvent.get(s.key).size,
+      pctOfSignups: pct(byEvent.get(s.key).size),
+    })),
+    activated: { users: activated, pctOfSignups: pct(activated) },
+    didNothing: { users: didNothing, pctOfSignups: pct(didNothing) },
+  };
+}
+
 module.exports = {
+  FUNNEL_STEPS,
+  computeFunnel,
   isAdminEmail,
   bucketCount,
   countDistinct,
