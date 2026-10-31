@@ -476,16 +476,10 @@ export function Profile() {
               )}
 
               {deleteStep === "idle" && (
-                // SAFETY (temporary): `disabled` added so account deletion — which is
-                // irreversible, and this dev build points at a shared Supabase
-                // project — can't be triggered by accident. To revert, delete the
-                // `disabled` prop on the <Button> below.
                 <Button
                   type="button"
                   onClick={() => setDeleteStep("confirm")}
-                  disabled
                   variant="dangerOutline"
-                  title="Temporarily disabled during development"
                 >
                   Delete account & data
                 </Button>

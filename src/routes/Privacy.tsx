@@ -86,7 +86,7 @@ export function Privacy() {
               "We do not sell your personal information, and we do not show ads.",
               "When you use an AI feature, the text involved is sent to our AI provider to produce the result. We do not use your content to train our own models.",
               "Your camera preview and your voice are not recorded or uploaded by us.",
-              "You can ask us to delete your account and everything in it at any time.",
+              "You can delete your account and everything in it yourself, any time, from the account menu.",
             ]}
           />
         </div>
@@ -186,8 +186,9 @@ export function Privacy() {
 
         <Section title="6. Your choices">
           <p>
-            You can view and edit most of your information inside Ascend. You can also ask us to give you a copy of
-            your data, correct it, or delete your account and everything in it. We aim to respond within 30 days.
+            You can view and edit most of your information inside Ascend. You can delete your account yourself from
+            the account menu (Delete account), which also cancels any Pro subscription. You can also ask us to give
+            you a copy of your data or to correct it. We aim to respond within 30 days.
             Depending on where you live you may have further rights under local law, and we will honour them where
             they apply.
           </p>

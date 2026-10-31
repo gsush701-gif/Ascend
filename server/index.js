@@ -68,6 +68,7 @@ const { isUuid } = require("./lib/validation");
 const {
   getResumeStoragePathsToDelete,
   getUserFolderObjectPaths,
+  isSubscriptionAlreadyGone,
   USER_FOLDER_BUCKETS,
 } = require("./lib/accountDeletion");
 const { computePublicProfileStats, filterPublicProfileFields } = require("./lib/publicProfile");
@@ -1833,6 +1834,44 @@ app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) =
       );
       captureException(err, { requestId: req.requestId, route: req.path, stage: `cleanup-${bucket}` });
     }
+  }
+
+  // Cancel any live Stripe subscription BEFORE the user row goes away. The
+  // `subscriptions` row cascades with the user, but Stripe keeps billing until
+  // told otherwise — so a failure here (other than "already gone") stops the
+  // deletion and lets the user retry, instead of leaving a charge with no
+  // account behind it.
+  try {
+    const { data: sub } = await supabaseAdmin
+      .from("subscriptions")
+      .select("stripe_subscription_id, stripe_customer_id")
+      .eq("user_id", req.user.id)
+      .maybeSingle();
+    if (sub && sub.stripe_subscription_id && stripe) {
+      try {
+        await stripe.subscriptions.cancel(sub.stripe_subscription_id);
+      } catch (stripeErr) {
+        if (!isSubscriptionAlreadyGone(stripeErr)) throw stripeErr;
+      }
+    }
+    if (sub && sub.stripe_customer_id && stripe) {
+      // Best effort: drop the customer record (and its stored email) too.
+      try {
+        await stripe.customers.del(sub.stripe_customer_id);
+      } catch (customerErr) {
+        console.warn(`[account-delete] could not delete Stripe customer for user ${req.user.id}:`, customerErr && customerErr.message);
+      }
+    }
+  } catch (err) {
+    console.error(`[account-delete] could not cancel Stripe subscription for user ${req.user.id}:`, err && err.message);
+    captureException(err, { requestId: req.requestId, route: req.path, stage: "cancel-subscription" });
+    return sendError(
+      req,
+      res,
+      502,
+      ErrorCodes.INTERNAL_ERROR,
+      "We couldn't cancel your subscription, so your account was not deleted. Please try again in a minute or contact us.",
+    );
   }
 
   try {

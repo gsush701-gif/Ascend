@@ -26,6 +26,7 @@ import {
 } from "../../features/profile/components/ProfileSharedForms";
 import { usePlanUsage } from "../../features/profile/hooks/usePlanUsage";
 import { useBillingActions } from "../../features/profile/hooks/useBillingActions";
+import { DeleteAccountPanel } from "../../features/profile/components/DeleteAccountPanel";
 import { MfaSettingsPanel } from "../../features/mfa/components/MfaSettingsPanel";
 
 type NavItem = { to: string; label: string };
@@ -54,7 +55,7 @@ const PRIMARY_LINKS: NavItem[] = [
  * src/features/mfa/components/MfaSettingsPanel.tsx) directly inside the
  * dropdown's own Modal — none of them navigate to the Profile page.
  */
-type AccountModal = "edit" | "password" | "security" | "notifications" | "plan" | null;
+type AccountModal = "edit" | "password" | "security" | "notifications" | "plan" | "delete" | null;
 
 const MODAL_TITLES: Record<Exclude<AccountModal, null>, string> = {
   edit: "Edit profile",
@@ -62,6 +63,7 @@ const MODAL_TITLES: Record<Exclude<AccountModal, null>, string> = {
   security: "Two-factor authentication",
   notifications: "Notifications",
   plan: "Plan & billing",
+  delete: "Delete account",
 };
 
 function BarLink({ item }: { item: NavItem }) {
@@ -341,15 +343,13 @@ export function TopNav() {
 
                   <span className="my-1.5 h-px bg-slate-100" aria-hidden />
 
-                  {/* Stays visible but genuinely inert — see AccountMenuItem's
-                      disabled handling above. No delete-account logic is
-                      wired to this row at all. */}
+                  {/* Opens a multi-step confirmation (DeleteAccountPanel) —
+                      nothing is deleted from this click alone. */}
                   <AccountMenuItem
                     icon={Trash2}
                     label="Delete account"
-                    disabled
                     danger
-                    title="Temporarily disabled during development"
+                    onClick={() => openModal("delete")}
                   />
 
                   <span className="my-1.5 h-px bg-slate-100" aria-hidden />
@@ -384,6 +384,9 @@ export function TopNav() {
       </Modal>
       <Modal isOpen={activeModal === "plan"} onClose={closeModal} title={MODAL_TITLES.plan}>
         <PlanModalContent userId={session?.user?.id} session={session} />
+      </Modal>
+      <Modal isOpen={activeModal === "delete"} onClose={closeModal} title={MODAL_TITLES.delete}>
+        <DeleteAccountPanel onCancel={closeModal} />
       </Modal>
     </>
   );

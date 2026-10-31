@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getResumeStoragePathsToDelete, getUserFolderObjectPaths, USER_FOLDER_BUCKETS } from "./accountDeletion.js";
+import { getResumeStoragePathsToDelete, getUserFolderObjectPaths, isSubscriptionAlreadyGone, USER_FOLDER_BUCKETS } from "./accountDeletion.js";
 
 describe("getResumeStoragePathsToDelete — Storage cleanup targets for account deletion", () => {
   it("extracts storage_path from each row", () => {
@@ -67,5 +67,19 @@ describe("getUserFolderObjectPaths — per-role PDF cleanup for account deletion
 
   it("covers both per-role buckets", () => {
     expect(USER_FOLDER_BUCKETS).toEqual(expect.arrayContaining(["role-resumes", "job-postings"]));
+  });
+});
+
+describe("isSubscriptionAlreadyGone — when a Stripe cancel failure may be ignored", () => {
+  it("treats a missing subscription as already gone", () => {
+    expect(isSubscriptionAlreadyGone({ code: "resource_missing" })).toBe(true);
+    expect(isSubscriptionAlreadyGone({ statusCode: 404 })).toBe(true);
+  });
+
+  it("does not ignore real failures, so the account is not deleted while billing continues", () => {
+    expect(isSubscriptionAlreadyGone({ code: "rate_limit", statusCode: 429 })).toBe(false);
+    expect(isSubscriptionAlreadyGone({ statusCode: 500 })).toBe(false);
+    expect(isSubscriptionAlreadyGone(new Error("network"))).toBe(false);
+    expect(isSubscriptionAlreadyGone(null)).toBe(false);
   });
 });

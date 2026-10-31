@@ -70,4 +70,23 @@ function getUserFolderObjectPaths(userId, listing) {
   return Array.from(new Set(paths));
 }
 
-module.exports = { getResumeStoragePathsToDelete, getUserFolderObjectPaths, USER_FOLDER_BUCKETS };
+/**
+ * Whether a Stripe error from cancelling a subscription means "it's already
+ * gone" (never existed in this mode, or already cancelled) — safe to carry on
+ * deleting the account. Anything else (network, auth, rate limit) must STOP
+ * the deletion: removing the user while their subscription is still live
+ * would leave them being billed with no account to cancel it from.
+ *
+ * @param {{ code?: string, statusCode?: number } | null | undefined} err
+ */
+function isSubscriptionAlreadyGone(err) {
+  if (!err) return false;
+  return err.code === "resource_missing" || err.statusCode === 404;
+}
+
+module.exports = {
+  getResumeStoragePathsToDelete,
+  getUserFolderObjectPaths,
+  isSubscriptionAlreadyGone,
+  USER_FOLDER_BUCKETS,
+};
