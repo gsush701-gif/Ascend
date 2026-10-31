@@ -428,6 +428,25 @@ app.post("/api/billing/create-checkout-session", billingLimiter, optionalAuth, a
   if (!isStripeConfigured || !stripe) {
     return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Billing is not configured on the server");
   }
+  // While Stripe is in test mode anyone could "pay" with a public fake card,
+  // so checkout is limited to admins until live keys are set. See
+  // billing.canStartCheckout and docs/STRIPE_GO_LIVE.md.
+  if (
+    !billing.canStartCheckout({
+      mode: stripeMode,
+      email: req.user.email,
+      adminEmails: process.env.ADMIN_EMAILS,
+      extraEmails: process.env.STRIPE_TEST_ALLOWED_EMAILS,
+    })
+  ) {
+    return sendError(
+      req,
+      res,
+      403,
+      ErrorCodes.FORBIDDEN,
+      "Pro isn't open for upgrades yet. We'll let you know as soon as it is.",
+    );
+  }
   const proPriceId = getProPriceId();
   if (!proPriceId) {
     return sendError(

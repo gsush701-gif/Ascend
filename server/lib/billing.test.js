@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
+  canStartCheckout,
   getFrontendUrl,
   buildCheckoutCompletedRow,
   buildSubscriptionUpdateRow,
@@ -245,5 +246,25 @@ describe("handleSubscriptionDeleted — downgrades the matched user to free/canc
     const supabaseAdmin = createFakeSupabaseAdmin({ maybeSingleResult: { data: null, error: null } });
     await handleSubscriptionDeleted({ id: "sub_x", customer: "cus_unknown" }, { supabaseAdmin });
     expect(supabaseAdmin._calls.update).toHaveLength(0);
+  });
+});
+
+describe("canStartCheckout — no free Pro through test-mode checkout", () => {
+  const base = { adminEmails: "owner@example.com", extraEmails: "tester@example.com" };
+
+  it("opens checkout to everyone in live mode", () => {
+    expect(canStartCheckout({ ...base, mode: "live", email: "student@example.com" })).toBe(true);
+  });
+
+  it("limits test-mode checkout to admins and listed testers, case-insensitively", () => {
+    expect(canStartCheckout({ ...base, mode: "test", email: "Owner@Example.com" })).toBe(true);
+    expect(canStartCheckout({ ...base, mode: "test", email: "tester@example.com" })).toBe(true);
+    expect(canStartCheckout({ ...base, mode: "test", email: "student@example.com" })).toBe(false);
+  });
+
+  it("fails closed for unknown modes, missing emails and unset lists", () => {
+    expect(canStartCheckout({ ...base, mode: "unknown", email: "student@example.com" })).toBe(false);
+    expect(canStartCheckout({ ...base, mode: "test", email: null })).toBe(false);
+    expect(canStartCheckout({ mode: "test", email: "owner@example.com" })).toBe(false);
   });
 });

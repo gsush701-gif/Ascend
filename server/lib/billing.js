@@ -159,7 +159,27 @@ async function handleSubscriptionDeleted(subscription, { supabaseAdmin }) {
   if (error) throw new Error(`subscriptions downgrade failed: ${error.message}`);
 }
 
+const { isAdminEmail } = require("./admin");
+
+/**
+ * Whether this user may start a Stripe Checkout. In live mode, everyone may.
+ * Outside live mode (Stripe test keys) checkout accepts the public fake card
+ * 4242 4242 4242 4242 from anyone, which would hand out free Pro (and the
+ * paid features' AI/voice cost) to anyone who knows it — so only admins, plus
+ * anyone in the optional STRIPE_TEST_ALLOWED_EMAILS list, may check out until
+ * the switch to live keys. Fails closed: unknown/unconfigured modes are
+ * treated as non-live.
+ *
+ * @param {{ mode: string, email?: string|null, adminEmails?: string, extraEmails?: string }} args
+ * @returns {boolean}
+ */
+function canStartCheckout({ mode, email, adminEmails, extraEmails }) {
+  if (mode === "live") return true;
+  return isAdminEmail(email, adminEmails) || isAdminEmail(email, extraEmails);
+}
+
 module.exports = {
+  canStartCheckout,
   getFrontendUrl,
   buildCheckoutCompletedRow,
   buildSubscriptionUpdateRow,

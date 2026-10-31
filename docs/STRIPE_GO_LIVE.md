@@ -17,6 +17,14 @@ mode keeps working until you flip the variables below.
 - [ ] Your ElevenLabs plan allows commercial use (the free plan does not, as
       far as we know — read their terms).
 
+## Until then: who can upgrade
+
+While `STRIPE_SECRET_KEY` is a test key, checkout is limited to the emails in
+`ADMIN_EMAILS` (plus any in the optional `STRIPE_TEST_ALLOWED_EMAILS`), because
+test checkout accepts the public fake card `4242 4242 4242 4242` from anyone.
+Everyone else gets "Pro isn't open for upgrades yet". The limit lifts by itself
+once a live key is set.
+
 ## 1. Activate your Stripe account
 
 In the Stripe dashboard, switch off "Test mode" and complete activation:
