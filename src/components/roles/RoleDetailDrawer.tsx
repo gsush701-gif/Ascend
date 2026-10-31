@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, FileText, MessageSquare, BarChart3, ChevronRight, Mic } from "lucide-react";
+import { X, FileText, MessageSquare, BarChart3, ChevronRight, Mic, Lock } from "lucide-react";
+import { useFeatureAccess } from "../../features/featureAccess/useFeatureAccess";
 import { alignmentToPreparedness } from "../../lib/preparedness";
 import { Panel } from "../ui/Panel";
 import type { TrackerItem } from "../../types/tracker";
@@ -51,6 +52,7 @@ export function RoleDetailDrawer({ item, onClose, updateDeadline, removeItem }: 
   const navigate = useNavigate();
   const alignment = item.reportSnapshot?.alignment ?? item.alignment;
   const voiceInterviewSupported = isSpeechRecognitionSupported();
+  const { voiceInterview: voiceInterviewUnlocked } = useFeatureAccess();
 
   // Same free-text `deadline` field the Roles table and Dashboard's
   // "Upcoming deadlines" / "Overdue" pill already read (src/lib/
@@ -154,14 +156,28 @@ export function RoleDetailDrawer({ item, onClose, updateDeadline, removeItem }: 
               }
               onClick={() => goTo(`/roles/${item.id}/interview-prep`)}
             />
-            {voiceInterviewSupported && (
-              <ActionRow
-                icon={Mic}
-                label="Voice interview practice"
-                hint="Practice out loud with live AI feedback"
-                onClick={() => goTo(`/roles/${item.id}/voice-interview`)}
-              />
-            )}
+            {voiceInterviewSupported &&
+              (voiceInterviewUnlocked ? (
+                <ActionRow
+                  icon={Mic}
+                  label="Voice interview practice"
+                  hint="Practice out loud with live AI feedback"
+                  onClick={() => goTo(`/roles/${item.id}/voice-interview`)}
+                />
+              ) : (
+                <div
+                  className="flex w-full cursor-not-allowed items-center gap-3 rounded-xl border border-slate-200 bg-slate-900/[0.02] px-4 py-3 opacity-70"
+                  aria-disabled="true"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-200 text-slate-500">
+                    <Lock size={16} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-slate-700">Voice interview practice</span>
+                    <span className="block truncate text-xs text-slate-500">Coming soon</span>
+                  </span>
+                </div>
+              ))}
             <ActionRow
               icon={BarChart3}
               label="Report"

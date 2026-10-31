@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Volume2,
+  Lock,
 } from "lucide-react";
 import { cn } from "../lib/cn";
 import { AppShell } from "../components/layout/AppShell";
@@ -20,6 +21,7 @@ import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { API_BASE } from "../config/api";
 import { useAuth } from "../context/AuthContext";
+import { useFeatureAccess } from "../features/featureAccess/useFeatureAccess";
 import { getApiErrorMessage } from "../lib/apiError";
 import { logEvent } from "../lib/analytics";
 import { useSpeechRecognition, isSpeechRecognitionSupported } from "../features/voiceInterview/useSpeechRecognition";
@@ -352,6 +354,7 @@ export function VoiceInterview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { session: authSession } = useAuth();
+  const featureAccess = useFeatureAccess();
   const { tracker } = useTracker(undefined);
   const item = id ? tracker.find((x) => x.id === id) : null;
 
@@ -682,6 +685,39 @@ export function VoiceInterview() {
     }
     recognition.start();
   }, [voice, recognition]);
+
+  // Locked feature — see useFeatureAccess. UX only; the server routes this
+  // page calls independently reject callers who aren't on the allowlist.
+  if (!featureAccess.checked) {
+    return (
+      <AppShell>
+        <div className="py-12 text-center text-sm text-slate-500">Loading…</div>
+      </AppShell>
+    );
+  }
+  if (!featureAccess.voiceInterview) {
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-md py-12 text-center">
+          <Lock className="mx-auto h-8 w-8 text-slate-400" />
+          <h1 className="mt-3 font-display text-xl font-semibold tracking-tight text-slate-900">
+            Voice interview is coming soon
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            This feature isn&apos;t available on your account yet. The text-based interview prep
+            works for every role in the meantime.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate(id ? `/roles/${id}/interview-prep` : "/roles")}
+            className="mt-4 text-sm text-slate-700 underline hover:text-slate-900"
+          >
+            Go to interview prep
+          </button>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!item) {
     return (
