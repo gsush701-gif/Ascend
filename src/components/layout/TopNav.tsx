@@ -26,6 +26,7 @@ import {
 } from "../../features/profile/components/ProfileSharedForms";
 import { usePlanUsage } from "../../features/profile/hooks/usePlanUsage";
 import { useBillingActions } from "../../features/profile/hooks/useBillingActions";
+import { AI_NAME, AI_PATH } from "../../config/brand";
 import { DeleteAccountPanel } from "../../features/profile/components/DeleteAccountPanel";
 import { MfaSettingsPanel } from "../../features/mfa/components/MfaSettingsPanel";
 
@@ -40,7 +41,7 @@ const PRIMARY_LINKS: NavItem[] = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/roles", label: "Roles" },
   { to: "/analyzer", label: "Analyze" },
-  { to: "/grok", label: "Grok AI" },
+  { to: AI_PATH, label: AI_NAME },
   { to: "/resume-lab", label: "Resume Lab" },
   // TEMPORARILY DISABLED — the Profile page itself is turned off for now
   // (see the /profile route in src/App.tsx); restore by uncommenting this

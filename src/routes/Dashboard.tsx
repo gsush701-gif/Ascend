@@ -55,6 +55,7 @@ import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklis
 import { DashboardSkeleton } from "../components/dashboard/DashboardSkeleton";
 import { toast } from "../components/ui/toast";
 import { isResumeLabUsed } from "../lib/onboarding";
+import { AI_NAME, AI_PATH } from "../config/brand";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -186,7 +187,7 @@ export function Dashboard() {
               }}
             />
 
-            <GrokEntryCard onOpen={() => navigate("/grok")} />
+            <AdvisorEntryCard onOpen={() => navigate(AI_PATH)} />
           </div>
         ) : (
           <div className="animate-fade-in space-y-6">
@@ -278,7 +279,7 @@ export function Dashboard() {
               <KpiCard label="Interviews" value={getInterviewCount(items)} icon={CalendarCheck} accent="emerald" />
             </div>
 
-            <GrokEntryCard onOpen={() => navigate("/grok")} />
+            <AdvisorEntryCard onOpen={() => navigate(AI_PATH)} />
 
             <OnboardingChecklist
               rolesCount={items.length}
@@ -663,10 +664,10 @@ function RecentActivityList({
   );
 }
 
-/** Dashboard entry point for the AI career advisor (Grok AI). Navigates to
- * the standalone /grok page — the same feature also lives on every tracked
+/** Dashboard entry point for the AI career advisor . Navigates to
+ * the standalone advisor page — the same feature also lives on every tracked
  * role. Presentation only; no data or request logic here. */
-function GrokEntryCard({ onOpen }: { onOpen: () => void }) {
+function AdvisorEntryCard({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       type="button"
@@ -678,7 +679,7 @@ function GrokEntryCard({ onOpen }: { onOpen: () => void }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-slate-900">Ask Grok AI</span>
+          <span className="text-sm font-semibold text-slate-900">Ask {AI_NAME}</span>
           <span className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-cyan-700">
             AI advisor
           </span>

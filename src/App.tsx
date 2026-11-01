@@ -4,7 +4,8 @@ import { Landing } from "./routes/Landing";
 import { PublicProfile } from "./routes/PublicProfile";
 import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
-import { Grok } from "./routes/Grok";
+import { Assistant } from "./routes/Assistant";
+import { AI_PATH } from "./config/brand";
 import { Roles } from "./routes/Roles";
 import { Contacts } from "./routes/Contacts";
 import { Goals } from "./routes/Goals";
@@ -64,7 +65,9 @@ export default function App() {
       <Route path="/roles/:id/interview-prep" element={<ProtectedRoute><InterviewPrep /></ProtectedRoute>} />
       <Route path="/roles/:id/voice-interview" element={<ProtectedRoute><VoiceInterview /></ProtectedRoute>} />
       <Route path="/analyzer" element={<ProtectedRoute><Analyzer /></ProtectedRoute>} />
-      <Route path="/grok" element={<ProtectedRoute><Grok /></ProtectedRoute>} />
+      <Route path={AI_PATH} element={<ProtectedRoute><Assistant /></ProtectedRoute>} />
+      {/* Old address from when this feature had a different name. */}
+      <Route path="/grok" element={<Navigate to={AI_PATH} replace />} />
       <Route path="/tracker" element={<Navigate to="/roles" replace />} />
       {/* TEMPORARILY DISABLED — redirects to /dashboard instead of rendering
           the Profile page. Restore by deleting this line and uncommenting

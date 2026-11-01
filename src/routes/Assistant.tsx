@@ -8,10 +8,11 @@ import { pageHeader, pageTitle, pageSubtitle } from "../lib/ui";
 import { useAuth } from "../context/AuthContext";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { API_BASE } from "../config/api";
+import { AI_NAME } from "../config/brand";
 import { getApiErrorMessage } from "../lib/apiError";
 
 /**
- * Standalone home for the AI career advisor (Grok AI). This is a new,
+ * Standalone home for the AI career advisor. This is a new,
  * discoverable ENTRY POINT for the exact same feature already available
  * inside RoleDetailDrawer's "Ask AI about this role" panel — it calls the
  * same POST /api/career-advice endpoint with the same { question, roleId? }
@@ -32,7 +33,7 @@ const SUGGESTED_QUESTIONS = [
   "What's the highest-leverage thing I can do this week?",
 ];
 
-export function Grok() {
+export function Assistant() {
   const { session } = useAuth();
   const { tracker } = useTracker(undefined);
 
@@ -86,7 +87,7 @@ export function Grok() {
                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-600">
                   <Sparkles className="h-4 w-4" />
                 </span>
-                Grok AI
+                {AI_NAME}
               </span>
             </h1>
             <p className={pageSubtitle}>
@@ -179,7 +180,7 @@ export function Grok() {
                 <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                   <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-cyan-700">
                     <Sparkles size={12} />
-                    Grok AI
+                    {AI_NAME}
                   </div>
                   <p className="text-sm leading-relaxed text-slate-800">{answer}</p>
                 </div>
