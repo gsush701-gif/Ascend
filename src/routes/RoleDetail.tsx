@@ -248,7 +248,7 @@ export function RoleDetail() {
           });
           return;
         }
-        analyzer.setResume(new File([data], "resume.pdf", { type: "application/pdf" }));
+        analyzer.setResume(new File([data], "resume.pdf", { type: "application/pdf" }), "system");
       } else {
         if (savedResumes.length === 0) {
           setResumeBusy(false);
@@ -318,6 +318,9 @@ export function RoleDetail() {
 
   useEffect(() => {
     if (analyzer.analyzeError) {
+      // A failed run must also release the "waiting to save" state, or the
+      // Re-analyze button stays stuck on "Analyzing…" until the page is reloaded.
+      setPendingSave(false);
       toast.error({ title: "Analysis failed", description: analyzer.analyzeError });
     }
   }, [analyzer.analyzeError]);

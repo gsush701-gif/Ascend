@@ -100,10 +100,12 @@ export function useAnalyzer() {
   }, [resume]);
 
   /** Set a resume from a plain file picker — clears any saved-resume link. */
-  function setResume(file: File | null, source: "picker" | "example" = "picker") {
+  function setResume(file: File | null, source: "picker" | "example" | "system" = "picker") {
     setSelectedResumeId(null);
     setResumeState(file);
-    // The example resume isn't the user's own, so it doesn't count as an upload.
+    // Only a file the user chose counts as an upload. The example resume isn't
+    // theirs, and "system" is a file the app re-loaded for them (a role's attached
+    // resume on re-analyze), which would otherwise inflate the funnel.
     if (file && source === "picker") logEvent("resume_uploaded", { source });
   }
 

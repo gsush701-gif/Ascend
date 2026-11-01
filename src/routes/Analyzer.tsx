@@ -31,6 +31,7 @@ import { ResumeAdditionsPanel } from "../features/analyzer/components/ResumeAddi
 import type { ResumeAddition } from "../features/analyzer/additions";
 import { ResumeDropzone } from "../features/analyzer/components/ResumeDropzone";
 import { isDocxFile } from "../lib/docx";
+import type { TrackerStatus } from "../types/tracker";
 import { buildNextSteps, guessRoleAndCompany, jdHint } from "../features/analyzer/inputChecks";
 import {
   EXAMPLE_JOB_DESCRIPTION,
@@ -81,6 +82,10 @@ export function Analyzer() {
     coverage: number;
   } | null>(null);
   const [reanalyzeRoleId, setReanalyzeRoleId] = useState<string | null>(null);
+  // Status the role is saved with. "Analyzed" is the honest default: the student
+  // has just checked their fit, not necessarily applied, and "Applied" would
+  // inflate their application stats from the first role.
+  const [addStatus, setAddStatus] = useState<TrackerStatus>("Analyzed");
   // "Add to my resume" drafts: bullets the user wrote for missing skills, and
   // the real score they started from, to show how much they moved it. Kept
   // together with the resume file they belong to, so picking a different file
@@ -164,6 +169,16 @@ export function Analyzer() {
     if (guess.company && !tracker.company.trim()) tracker.setCompany(guess.company);
     if (guess.role && !tracker.role.trim()) tracker.setRole(guess.role);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report]);
+
+  // On a phone the results render far below the form, so after pressing Analyze
+  // it looks like nothing happened. Bring the results into view on small screens
+  // (the side-by-side layout on desktop already shows them).
+  const resultsRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!report || report.meta?.projected) return;
+    if (typeof window === "undefined" || window.matchMedia("(min-width: 1024px)").matches) return;
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [report]);
 
   const jdState = jdHint(jd);
@@ -290,7 +305,7 @@ export function Analyzer() {
       {
         company,
         role,
-        status: "Applied",
+        status: addStatus,
         nextStep: tracker.nextStep || "Follow up",
         jobDescription: jd.trim() || undefined,
         notes: notesFromSkills,
@@ -546,7 +561,7 @@ export function Analyzer() {
           </section>
 
           {/* Right: Results panel */}
-          <section className={cn(card, "flex min-h-[280px] flex-col justify-center")}>
+          <section ref={resultsRef} className={cn(card, "flex min-h-[280px] flex-col justify-center scroll-mt-20")}>
             {!hasResults ? (
               <p className="text-sm text-slate-500 text-center">
                 Paste a job description above and click Analyze to see role requirements.
@@ -1004,6 +1019,22 @@ export function Analyzer() {
                           placeholder="Role (e.g. SWE Intern)"
                           list={recentRoles.length > 0 ? "analyzer-roles" : undefined}
                         />
+                        <div>
+                          <label htmlFor="analyzer-add-status" className="mb-1 block text-xs text-slate-500">
+                            Status
+                          </label>
+                          <select
+                            id="analyzer-add-status"
+                            value={addStatus}
+                            onChange={(e) => setAddStatus(e.target.value as TrackerStatus)}
+                            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 text-sm text-slate-800 focus:border-slate-300 focus:outline-none"
+                          >
+                            <option value="Wishlist">Wishlist (just interested)</option>
+                            <option value="Analyzed">Analyzed (checked my fit)</option>
+                            <option value="Ready to Apply">Ready to apply</option>
+                            <option value="Applied">Applied</option>
+                          </select>
+                        </div>
                         <Input
                           value={tracker.nextStep}
                           onChange={(e) => tracker.setNextStep(e.target.value)}
