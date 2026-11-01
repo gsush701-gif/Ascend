@@ -8,5 +8,5 @@
 module.exports = {
   SUPABASE_URL: "https://dwiwayffvlbokffyyuwy.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_ThbeG8PSzzj6PND7eHASXw_q9xWS5QL",
-  ASCEND_APP_URL: "https://ascend-app-60ef.onrender.com",
+  ASCEND_APP_URL: "https://ascendcareers.app",
 };

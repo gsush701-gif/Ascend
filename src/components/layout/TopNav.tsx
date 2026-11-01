@@ -360,6 +360,10 @@ export function TopNav() {
                     onSelect={closeMenu}
                   />
                   <MenuLink
+                    item={{ to: "/extension", label: "Chrome extension" }}
+                    onSelect={closeMenu}
+                  />
+                  <MenuLink
                     item={{ to: "/privacy", label: "Privacy policy" }}
                     onSelect={closeMenu}
                   />

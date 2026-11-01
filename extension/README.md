@@ -1,7 +1,7 @@
 # Ascend browser extension
 
 Manifest V3 Chrome extension that saves a LinkedIn or Indeed job posting
-straight into your [Ascend](https://ascend-app-60ef.onrender.com) Roles
+straight into your [Ascend](https://ascendcareers.app) Roles
 tracker, instead of retyping company/role/JD by hand.
 
 ## What it does
@@ -22,7 +22,7 @@ tracker, instead of retyping company/role/JD by hand.
   `addManualTrackerItem` in `src/features/tracker/hooks/useTracker.ts`
   (`status: "Wishlist"`, `alignment: 0`, client-generated `id`, etc.).
 - **Success / error states** — on success, a "View in Ascend" button opens
-  `https://ascend-app-60ef.onrender.com/roles` in a new tab. On failure (not
+  `https://ascendcareers.app/roles` in a new tab. On failure (not
   logged in, RLS rejection, network error) the Supabase error message is
   shown inline.
 

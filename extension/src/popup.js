@@ -5,6 +5,7 @@
 const { supabase } = require("./supabaseClient");
 const { ASCEND_APP_URL } = require("./config");
 const { REQUEST_JOB } = require("./messages");
+const { canonicalJobUrl } = require("./jobUrl");
 
 const views = {
   loading: document.getElementById("view-loading"),
@@ -111,6 +112,7 @@ async function enterSaveView() {
   resetSaveForm();
 
   const captured = await captureFromActiveTab();
+  capturedLink = captured && captured.url ? { url: captured.url, source: captured.source } : { url: null, source: null };
   if (captured && captured.detected) {
     fieldCompany.value = captured.company || "";
     fieldRole.value = captured.title || "";
@@ -131,6 +133,10 @@ async function enterSaveView() {
     hideBanner(detectionNote);
   }
 }
+
+// The posting's own link and site, set when the popup opens on a recognised job
+// page and saved with the role. Both stay null for a manually typed role.
+let capturedLink = { url: null, source: null };
 
 function resetSaveForm() {
   saveForm.reset();
@@ -159,9 +165,13 @@ async function captureFromActiveTab() {
       return null;
     }
 
+    // A clean link back to the posting, kept with the saved role. Null unless
+    // the page is a recognised job page, so no other address is ever stored.
+    const url = canonicalJobUrl(tab.url, source);
+
     const response = await chrome.tabs.sendMessage(tab.id, { type: REQUEST_JOB });
-    if (!response) return { attempted: true, detected: false };
-    return { ...response, source, attempted: true };
+    if (!response) return { attempted: true, detected: false, source, url };
+    return { ...response, source, url, attempted: true };
   } catch (_err) {
     // No content script listening (page not fully loaded yet, or this
     // build's manifest match patterns don't cover this exact URL shape).
@@ -206,6 +216,8 @@ saveForm.addEventListener("submit", async (e) => {
       alignment: 0,
       next_step: "Apply",
       job_description: jobDescription || null,
+      job_url: capturedLink.url,
+      source: capturedLink.source,
       notes: null,
       created_at: now,
       updated_at: now,

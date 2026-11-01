@@ -15,7 +15,10 @@ export function PublicShell({ children }: PublicShellProps) {
       <main className={`relative pb-20 pt-16 ${pageContainer}`}>
         {children}
       </main>
-      <footer className="relative border-t border-slate-200 py-5 text-center text-xs text-slate-400">
+      <footer className="relative flex items-center justify-center gap-4 border-t border-slate-200 py-5 text-center text-xs text-slate-400">
+        <Link to="/extension" className="underline hover:text-slate-600">
+          Chrome extension
+        </Link>
         <Link to="/privacy" className="underline hover:text-slate-600">
           Privacy Policy
         </Link>

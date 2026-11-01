@@ -1,5 +1,5 @@
 /** Shown at the top of the privacy policy; bump it whenever the policy text changes. */
-export const PRIVACY_POLICY_UPDATED = "31 October 2026";
+export const PRIVACY_POLICY_UPDATED = "1 November 2026";
 
 /**
  * Where people reach us about privacy (access, correction, deletion). Set

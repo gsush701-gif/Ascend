@@ -104,6 +104,13 @@ export function Privacy() {
             we also store basic details about your repositories and an encrypted access token.
           </p>
           <p>
+            <strong className="text-slate-800">The Chrome extension (optional).</strong> It runs only on LinkedIn and
+            Indeed job pages and reads the job title, company and description on the page you have open, to pre-fill
+            its form. Nothing leaves your browser until you press Save, and then the job details and a link to the
+            posting are saved to your account. Your sign-in is kept in the extension&apos;s own browser storage. It does
+            not read other sites or your browsing history.
+          </p>
+          <p>
             <strong className="text-slate-800">Payment information.</strong> Payments are handled by Stripe. We keep
             your plan, subscription status and a Stripe customer reference, never your card number.
           </p>
