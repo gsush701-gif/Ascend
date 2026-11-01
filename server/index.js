@@ -467,6 +467,19 @@ function respondAiError(req, res, err, fallbackMessage) {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+// TEMPORARY diagnostic: shows only the caller's own connection details, to
+// work out how many proxy hops Render puts in front of the app. Remove once
+// the trust-proxy setting is confirmed.
+app.get("/api/_diag/ip", (req, res) => {
+  res.json({
+    ip: req.ip,
+    ips: req.ips,
+    xff: req.headers["x-forwarded-for"] || null,
+    cfConnectingIp: req.headers["cf-connecting-ip"] || null,
+    socket: req.socket.remoteAddress,
+  });
+});
+
 // Static plan/pricing/quota config (server/lib/plans.js is the single source
 // of truth) — public, no auth required, nothing user-specific in the
 // response. The frontend's Profile page reads this to render actual plan
