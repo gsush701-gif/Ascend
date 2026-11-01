@@ -16,6 +16,7 @@ import { Panel } from "../components/ui/Panel";
 import { DarkSelect } from "../components/ui/DarkSelect";
 import { fileNameFor, kindOfPath, mimeFor } from "../lib/resumeFile";
 import { RoleGapsPanel } from "../components/roles/RoleGapsPanel";
+import { FitInsights, ReadinessPanel } from "../components/roles/RoleFitInsights";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { Modal } from "../components/ui/Modal";
 import { useTracker } from "../features/tracker/hooks/useTracker";
@@ -308,6 +309,7 @@ export function RoleDetail() {
         alignment: h.alignment,
         createdAt: h.createdAt,
       })),
+      breakdown: report.breakdown,
       resumeStrengthAtSave: analyzer.resumeStrength?.score,
     });
     toast.success({
@@ -456,7 +458,10 @@ export function RoleDetail() {
                   gradient="linear-gradient(90deg, #22d3ee, #a78bfa)"
                 />
               </div>
+              {snap && <FitInsights snap={snap} />}
             </Panel>
+
+            <ReadinessPanel item={item} />
 
             <AskAboutRolePanel roleId={item.id} />
 
@@ -479,17 +484,19 @@ export function RoleDetail() {
             )}
 
             {snap && (
-              <Panel
-                title={
-                  <span className="flex items-center gap-2">
-                    <SectionIcon icon={Target} accent="amber" />
-                    Skill gaps
-                  </span>
-                }
-                subtitle="What this job asks for that your resume doesn't show yet."
-              >
-                <RoleGapsPanel item={item} />
-              </Panel>
+              <div id="role-gaps" className="scroll-mt-20">
+                <Panel
+                  title={
+                    <span className="flex items-center gap-2">
+                      <SectionIcon icon={Target} accent="amber" />
+                      Skill gaps
+                    </span>
+                  }
+                  subtitle="What this job asks for that your resume doesn't show yet."
+                >
+                  <RoleGapsPanel item={item} />
+                </Panel>
+              </div>
             )}
 
             <SkillGapHelper missingRequiredSkills={missingRequiredSkills} />
@@ -503,6 +510,7 @@ export function RoleDetail() {
               </Panel>
             )}
 
+            <div id="role-status" className="scroll-mt-20">
             <Panel
               title={
                 <span className="flex items-center gap-2">
@@ -543,6 +551,7 @@ export function RoleDetail() {
                 />
               </div>
             </Panel>
+            </div>
 
             <Panel
               title={

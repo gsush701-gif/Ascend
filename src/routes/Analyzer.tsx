@@ -282,6 +282,7 @@ export function Analyzer() {
               alignment: h.alignment,
               createdAt: h.createdAt,
             })),
+            breakdown: report.breakdown,
             resumeStrengthAtSave: resumeStrength?.score,
           }
         : undefined;
@@ -941,6 +942,7 @@ export function Analyzer() {
                                   alignment: h.alignment,
                                   createdAt: h.createdAt,
                                 })),
+                                breakdown: report.breakdown,
                                 resumeStrengthAtSave: resumeStrength?.score,
                               };
                               updateReportSnapshot(reanalyzeRoleId, snapshot);

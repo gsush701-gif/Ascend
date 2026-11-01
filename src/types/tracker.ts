@@ -1,3 +1,5 @@
+import type { ScoreBreakdown } from "./analyzer";
+
 export type TrackerStatus =
   | "Wishlist"
   | "Analyzed"
@@ -46,6 +48,8 @@ export type SavedReportSnapshot = {
     resumeSkillsFound?: number;
   };
   alignmentHistory: { alignment: number; createdAt: string }[];
+  /** The four parts the score is made of, so a role's page can explain why it is what it is. Absent on analyses saved before this was kept. */
+  breakdown?: ScoreBreakdown;
   resumeStrengthAtSave?: number;
   /** Regex-extracted salary range from this role's job description at analysis time. Absent when the JD didn't mention one. */
   salary?: {
