@@ -103,13 +103,16 @@ const app = express();
 // per-IP rate limiters below into one shared global bucket instead of
 // one per real client.
 //
-// Render's own load balancer sits behind Cloudflare, so there are two hops in
-// front of the app: with only 1 trusted, req.ip was a Cloudflare edge address
-// that changes between requests, which splits one client's requests over
-// several rate-limit counters. Override with TRUST_PROXY_HOPS if the hosting
-// setup changes (0 when running directly on the internet, e.g. locally).
+// On Render the app sits behind three proxies (measured against the live
+// service): Cloudflare, Render's internal load balancer, and a local sidecar.
+// X-Forwarded-For arrives as "client, cloudflare-edge, internal-lb". Trusting
+// fewer than 3 makes req.ip a Cloudflare edge address that changes between
+// requests, which splits one visitor over many rate-limit counters. Cloudflare
+// writes the real client address into that list itself, so counting from the
+// right is not spoofable by a forged header. Override with TRUST_PROXY_HOPS if
+// the hosting setup changes (0 when running with no proxy, e.g. locally).
 const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS || "", 10);
-app.set("trust proxy", Number.isInteger(trustProxyHops) && trustProxyHops >= 0 ? trustProxyHops : 2);
+app.set("trust proxy", Number.isInteger(trustProxyHops) && trustProxyHops >= 0 ? trustProxyHops : 3);
 
 // Assign a request id + response header (X-Request-Id) before anything else
 // runs, so every log line and every error response for this request can be
@@ -466,20 +469,6 @@ function respondAiError(req, res, err, fallbackMessage) {
 }
 
 app.get("/health", (req, res) => res.json({ ok: true }));
-
-// TEMPORARY diagnostic: shows only the caller's own connection details, to
-// work out how many proxy hops Render puts in front of the app. Remove once
-// the trust-proxy setting is confirmed.
-app.get("/api/_diag/ip", (req, res) => {
-  res.json({
-    ip: req.ip,
-    ips: req.ips,
-    xff: req.headers["x-forwarded-for"] || null,
-    cfConnectingIp: req.headers["cf-connecting-ip"] || null,
-    socket: req.socket.remoteAddress,
-  });
-});
-
 // Static plan/pricing/quota config (server/lib/plans.js is the single source
 // of truth) — public, no auth required, nothing user-specific in the
 // response. The frontend's Profile page reads this to render actual plan
