@@ -42,37 +42,106 @@ function runWithUsage(accumulator, fn) {
   return usageStore.run(accumulator, fn);
 }
 
-async function chatJson(systemPrompt, userPrompt, maxTokens = 1200) {
-  if (!configured) throw new GroqNotConfiguredError();
-
-  let completion;
-  try {
-    completion = await client.chat.completions.create({
-      model: GROQ_MODEL,
-      temperature: 0.6,
-      max_tokens: maxTokens,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
-  } catch (e) {
-    throw new GroqRequestError(e.message || "Groq request failed");
-  }
-
-  // Tokens were spent even if the body below turns out empty/malformed.
-  addUsage(usageStore.getStore(), completion.usage);
-
-  const raw = completion.choices?.[0]?.message?.content;
-  if (!raw) throw new GroqRequestError("Groq returned an empty response");
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new GroqRequestError("Groq returned malformed JSON");
+/**
+ * Thrown when every model we're allowed to use is rate-limited at once. The
+ * message is fixed and safe to show to a student as-is (respondAiError in
+ * server/index.js passes it through), unlike a raw provider error.
+ */
+class AiBusyError extends Error {
+  constructor() {
+    super("Ascend's AI is very busy right now. Please try again in a minute.");
+    this.name = "AiBusyError";
+    this.statusCode = 503;
   }
 }
+
+/** Whether a provider error means "slow down / out of allowance", not "broken". */
+function isRateLimitError(e) {
+  if (!e) return false;
+  if (e.status === 429) return true;
+  return /rate.?limit|too many requests|tokens per (minute|day)|requests per (minute|day)/i.test(String(e.message || ""));
+}
+
+/**
+ * Models to try in order: the main one, then any fallbacks. Groq's free plan
+ * gives each model its own allowance (requests and tokens per minute and day),
+ * so when the main model is used up a second one on the same key still has room.
+ * Duplicates and blanks are dropped.
+ */
+function modelOrder(primary, fallbacksCsv) {
+  const out = [primary];
+  for (const m of String(fallbacksCsv ?? "").split(",")) {
+    const name = m.trim();
+    if (name && !out.includes(name)) out.push(name);
+  }
+  return out;
+}
+
+const GROQ_FALLBACK_MODELS = modelOrder(GROQ_MODEL, process.env.GROQ_FALLBACK_MODELS ?? "openai/gpt-oss-20b").slice(1);
+
+/**
+ * Builds the JSON-chat function every prompt below uses. Kept as a factory so
+ * the fallback behaviour can be tested with a fake client.
+ *
+ * Rate-limited on a model => try the next one (nothing was spent on the failed
+ * attempt). Any other error is a real failure and is NOT retried on another
+ * model. Every model rate-limited => AiBusyError.
+ */
+function createChatJson({ getClient, models, recordUsage }) {
+  return async function chatJson(systemPrompt, userPrompt, maxTokens = 1200) {
+    const client = getClient();
+    if (!client) throw new GroqNotConfiguredError();
+
+    let completion;
+    let usedFallback = false;
+    let lastWasRateLimit = false;
+    for (let i = 0; i < models.length; i++) {
+      try {
+        completion = await client.chat.completions.create({
+          model: models[i],
+          temperature: 0.6,
+          max_tokens: maxTokens,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        });
+        usedFallback = i > 0;
+        lastWasRateLimit = false;
+        break;
+      } catch (e) {
+        if (isRateLimitError(e)) {
+          lastWasRateLimit = true;
+          continue;
+        }
+        throw new GroqRequestError(e.message || "Groq request failed");
+      }
+    }
+    if (!completion) {
+      if (lastWasRateLimit) throw new AiBusyError();
+      throw new GroqRequestError("Groq request failed");
+    }
+
+    // Tokens were spent even if the body below turns out empty/malformed.
+    recordUsage(completion.usage, { fallback: usedFallback });
+
+    const raw = completion.choices?.[0]?.message?.content;
+    if (!raw) throw new GroqRequestError("Groq returned an empty response");
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw new GroqRequestError("Groq returned malformed JSON");
+    }
+  };
+}
+
+const chatJson = createChatJson({
+  getClient: () => (configured ? client : null),
+  models: [GROQ_MODEL, ...GROQ_FALLBACK_MODELS],
+  recordUsage: (usage, meta) => addUsage(usageStore.getStore(), usage, meta),
+});
 
 /**
  * Rewrite a single resume bullet with clarity, technical depth, and a
@@ -671,6 +740,11 @@ module.exports = {
   generateResumeSuggestions,
   RESUME_SECTIONS,
   runWithUsage,
+  createChatJson,
+  isRateLimitError,
+  modelOrder,
+  AiBusyError,
+  GROQ_FALLBACK_MODELS,
   isGroqConfigured: configured,
   GROQ_MODEL,
   GroqNotConfiguredError,

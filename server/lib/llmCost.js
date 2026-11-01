@@ -33,13 +33,18 @@ function estimateCostUsd(promptTokens, completionTokens, prices = getGroqPrices(
 
 /** Mutable per-request tally; a route can make more than one LLM call. */
 function createUsageAccumulator() {
-  return { llmCalls: 0, promptTokens: 0, completionTokens: 0 };
+  return { llmCalls: 0, fallbackCalls: 0, promptTokens: 0, completionTokens: 0 };
 }
 
-/** Adds one completion's `usage` object ({ prompt_tokens, completion_tokens }). */
-function addUsage(acc, usage) {
+/**
+ * Adds one completion's `usage` object ({ prompt_tokens, completion_tokens }).
+ * `meta.fallback` marks a call that was served by a fallback model because the
+ * main one was rate-limited, so the admin view can see how often that happens.
+ */
+function addUsage(acc, usage, meta = {}) {
   if (!acc || !usage) return;
   acc.llmCalls += 1;
+  if (meta.fallback) acc.fallbackCalls += 1;
   acc.promptTokens += Number(usage.prompt_tokens) || 0;
   acc.completionTokens += Number(usage.completion_tokens) || 0;
 }
@@ -57,6 +62,7 @@ function usageMetadata(acc, prices = getGroqPrices()) {
     completionTokens: acc.completionTokens,
     totalTokens: acc.promptTokens + acc.completionTokens,
     estCostUsd: estimateCostUsd(acc.promptTokens, acc.completionTokens, prices),
+    ...(acc.fallbackCalls > 0 ? { fallbackCalls: acc.fallbackCalls } : {}),
   };
 }
 

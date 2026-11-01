@@ -399,6 +399,12 @@ function respondAiError(req, res, err, fallbackMessage) {
   if (err && typeof err.name === "string" && err.name.endsWith("NotConfiguredError")) {
     return sendError(req, res, err.statusCode || 503, ErrorCodes.AI_NOT_CONFIGURED, err.message);
   }
+  // "Everything is rate-limited right now": a fixed, student-safe message, plus a
+  // Retry-After hint, instead of the route's generic failure text.
+  if (err && err.name === "AiBusyError") {
+    res.set("Retry-After", "60");
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, err.message);
+  }
   const safeMessage =
     process.env.NODE_ENV !== "production" && err && err.message ? err.message : fallbackMessage;
   return sendError(req, res, (err && err.statusCode) || 500, ErrorCodes.AI_REQUEST_FAILED, safeMessage);
