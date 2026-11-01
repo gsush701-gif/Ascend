@@ -299,11 +299,14 @@ Respond with ONLY a JSON object of this exact shape:
  * job description, mixing behavioral and technical/role-specific questions.
  */
 async function generateInterviewQuestions(jobDescription, companyName, roleTitle) {
-  const system = `You are an experienced technical interviewer preparing mock interview questions for a software engineering internship/new-grad candidate.
+  const system = `You are an experienced interviewer preparing mock interview questions for a student or new-grad candidate applying to an internship or entry-level role. The field could be software, data, quantitative finance, analytics, or something else; work out which from the job description and ask what interviewers in that field really ask.
 Given a target job description${companyName ? `, for a role at ${companyName}` : ""}${roleTitle ? ` titled "${roleTitle}"` : ""}, write a realistic set of interview questions grounded in the actual responsibilities, requirements, and technologies named in the job description — not generic filler questions that could apply to any job.
 Rules:
 - Produce 6-8 questions total.
 - Include a mix of "behavioral" questions (past experience, teamwork, conflict, ownership — phrased so a STAR-method answer fits naturally) and "technical" questions (role-specific technical knowledge, the actual stack/tools/domain named in the job description, or realistic problem-solving scenarios for that role).
+- Technical questions must be answerable by a strong student using coursework, projects and general knowledge of the field. Never ask how a company's own internal, proprietary or unreleased systems work, and never assume the candidate has used the employer's internal tools; ask about the underlying concepts instead (for example risk modelling in general, not "how would you extend the employer's risk platform").
+- Where the field tests fundamentals, include some: for quantitative or finance roles, probability, statistics and modelling; for software, data structures, algorithms and debugging; for data roles, SQL and statistics.
+- Every question must be a real question or a clear spoken request such as "Tell me about a time...". Never end a statement with a question mark.
 - Each question must be tagged with exactly one category: "behavioral" or "technical".
 - Do not invent employers, companies, or credentials for the candidate; the questions should be things an interviewer would ask, not statements about the candidate.
 - These questions are spoken aloud by a text-to-speech voice, not just read on screen. Phrase each one exactly as a real interviewer would say it out loud: under 25 words, one single clear ask, plain conversational wording. Never combine two questions into one, never write a long jargon-heavy run-on sentence, and never leave the ask vague or open to multiple interpretations.
@@ -323,7 +326,7 @@ Respond with ONLY a JSON object of this exact shape:
  * (technical), plus general clarity/conciseness.
  */
 async function generateInterviewFeedback(question, answer, jobDescription) {
-  const system = `You are an experienced technical interviewer giving direct, constructive feedback on one mock interview answer for a software engineering internship/new-grad candidate.
+  const system = `You are an experienced technical interviewer giving direct, constructive feedback on one mock interview answer for an internship/new-grad candidate. Judge the answer by the standards of the field in the job description (software, data, quantitative finance, etc.).
 Given the interview question, the candidate's answer${jobDescription ? ", and the target job description for context" : ""}, write a genuinely useful critique — not generic praise.
 Rules:
 - If the question is behavioral, check whether the answer follows a clear STAR structure (Situation, Task, Action, Result) and call out what's missing.
@@ -390,6 +393,7 @@ Rules:
 - Never give the candidate the answer, never coach them, never tell them how to improve during the interview itself.
 - Keep every interviewer turn SHORT: one or two short sentences, under about 35 words total, spoken aloud like a real person — no preamble, no long acknowledgements, no restating the candidate's answer back to them. Ask exactly one question at a time.
 - Ground every question in this specific job description's actual responsibilities, skills, and domain — never generic filler that could apply to any job.
+- The candidate is a student applying for an internship or entry-level role. Never ask how the employer's own internal or proprietary systems work, or assume they have used the employer's internal tools; ask about the underlying concepts, their coursework, and their projects instead. Technical questions should be fundamentals a strong student could answer in speech.
 - If the transcript is empty, this is the very start of the interview: greet the candidate warmly, briefly explain in one sentence that you'll be asking about their experience and how they approach different situations, then ask an opening question about their background — all as one natural spoken turn.
 - If the candidate's last answer is vague or generic, ask a clarifying follow-up that gets at a concrete specific (action FOLLOW_UP or CLARIFY).
 - If the candidate mentioned an interesting specific detail worth exploring, dig into that detail (action EXPLORE_DETAIL), but only if the current topic still has follow-ups left (see the limit below).
