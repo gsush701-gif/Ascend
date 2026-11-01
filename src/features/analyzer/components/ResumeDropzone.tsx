@@ -11,9 +11,9 @@ type Props = {
 };
 
 /**
- * Resume picker with drag-and-drop and plain-language errors. A student with a
- * Word file or a photo gets told what to do, instead of the picker silently
- * hiding it or the server failing later.
+ * Resume picker with drag-and-drop and plain-language errors. PDF and Word
+ * (.docx) are accepted; an old .doc or a photo gets told what to do, instead of
+ * the picker silently hiding it or the server failing later.
  */
 export function ResumeDropzone({ fileName, onFile }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -72,14 +72,14 @@ export function ResumeDropzone({ fileName, onFile }: Props) {
             {fileName ?? "Drop your resume here, or click to choose"}
           </div>
           <div className="text-[11px] text-slate-500">
-            {fileName ? "Click to choose a different file" : "PDF with selectable text, up to 5MB"}
+            {fileName ? "Click to choose a different file" : "PDF or Word (.docx), up to 5MB"}
           </div>
         </div>
         <input
           ref={inputRef}
           type="file"
-          // No type filter on purpose: a hidden Word file looks like "my file is missing".
-          // Anything that isn't a usable PDF gets an explanation instead.
+          // No type filter on purpose: a hidden file looks like "my file is missing".
+          // Anything that isn't a PDF or .docx gets an explanation instead.
           className="hidden"
           onChange={(e) => {
             accept(e.target.files?.[0]);

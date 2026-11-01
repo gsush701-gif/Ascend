@@ -14,13 +14,18 @@ describe("validateResumeFile", () => {
     expect(validateResumeFile(pdf({ type: "" }))).toBeNull();
   });
 
-  it("explains what to do for a Word file or an image", () => {
-    expect(validateResumeFile(pdf({ name: "cv.docx", type: "application/vnd.openxmlformats" }))).toMatch(/Save as|Download/);
-    expect(validateResumeFile(pdf({ name: "scan.jpg", type: "image/jpeg" }))).toMatch(/image/i);
-    expect(validateResumeFile(pdf({ name: "notes.txt", type: "text/plain" }))).toMatch(/PDF/);
+  it("accepts a Word .docx, by type or by name", () => {
+    expect(validateResumeFile(pdf({ name: "cv.docx", type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }))).toBeNull();
+    expect(validateResumeFile(pdf({ name: "My Resume.DOCX", type: "" }))).toBeNull();
   });
 
-  it("rejects an empty or oversized PDF", () => {
+  it("explains what to do for an old .doc, an image, or something else", () => {
+    expect(validateResumeFile(pdf({ name: "cv.doc", type: "application/msword" }))).toMatch(/\.docx or PDF/);
+    expect(validateResumeFile(pdf({ name: "scan.jpg", type: "image/jpeg" }))).toMatch(/image/i);
+    expect(validateResumeFile(pdf({ name: "notes.txt", type: "text/plain" }))).toMatch(/PDF or Word/);
+  });
+
+  it("rejects an empty or oversized file", () => {
     expect(validateResumeFile(pdf({ size: 0 }))).toMatch(/empty/i);
     expect(validateResumeFile(pdf({ size: MAX_RESUME_BYTES + 1 }))).toMatch(/5MB/);
   });

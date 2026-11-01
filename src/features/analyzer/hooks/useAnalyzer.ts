@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { extractTextFromPdf } from "../../../lib/pdf";
+import { extractResumeText } from "../../../lib/docx";
 import { HISTORY_KEY, LAST_RESUME_KEY } from "../../../types/analyzer";
 import type {
   Report,
@@ -79,7 +79,7 @@ export function useAnalyzer() {
     let cancelled = false;
     setResumeStrengthLoading(true);
     setResumeStrength(null);
-    extractTextFromPdf(resume)
+    extractResumeText(resume)
       .then((text) => {
         if (cancelled) return;
         setResumeText(text);

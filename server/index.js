@@ -51,6 +51,7 @@ const { optionalAuth } = require("./middleware/auth");
 const { requireAdmin } = require("./middleware/requireAdmin");
 const { createUsageAccumulator, usageMetadata } = require("./lib/llmCost");
 const { parseAdditions, applyAdditions } = require("./lib/resumeAdditions");
+const { extractDocxText, isDocxUpload } = require("./lib/docxText");
 const { userHasPlanFeature, requirePlanFeature } = require("./middleware/requirePlanFeature");
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
@@ -566,16 +567,19 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
         : null;
 
     if (!req.file) {
-      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Resume PDF is required (field name: resume)");
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Resume file is required (field name: resume)");
     }
-    if (req.file.mimetype && req.file.mimetype !== "application/pdf") {
-      console.warn("Non-PDF upload rejected:", req.file.mimetype);
+    // PDF or Word (.docx). The old binary .doc can't be read, so it's rejected
+    // with advice rather than failing later in the parser.
+    const isDocx = isDocxUpload(req.file);
+    if (!isDocx && req.file.mimetype && req.file.mimetype !== "application/pdf") {
+      console.warn("Unsupported resume upload type:", req.file.mimetype);
       return sendError(
         req,
         res,
         400,
         ErrorCodes.VALIDATION_ERROR,
-        "Only PDF resumes are supported. Please upload a PDF file.",
+        "Only PDF or Word (.docx) resumes are supported. In Word, use Save as and choose .docx or PDF.",
       );
     }
     if (norm(jd).length < 20) {
@@ -597,12 +601,20 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
     let numPages = 0;
 
     try {
-      const data = await extractPdfText(req.file.buffer);
+      const data = isDocx ? await extractDocxText(req.file.buffer) : await extractPdfText(req.file.buffer);
       resumeText = data.text || "";
       numPages = data.numPages || 0;
     } catch (e) {
-      console.error("PDF text extraction failed:", e);
-      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Could not extract text from this PDF.");
+      console.error(isDocx ? "Word text extraction failed:" : "PDF text extraction failed:", e);
+      return sendError(
+        req,
+        res,
+        400,
+        ErrorCodes.VALIDATION_ERROR,
+        isDocx
+          ? "Could not read this Word file. Save it again as .docx or PDF and try again."
+          : "Could not extract text from this PDF.",
+      );
     }
 
     if (resumeText.trim().length < 30) {
@@ -611,7 +623,9 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
         res,
         400,
         ErrorCodes.VALIDATION_ERROR,
-        "Resume PDF has little/no extractable text (might be scanned). Save it as a text-based PDF and try again.",
+        isDocx
+          ? "This Word file has almost no text in it. Check that it is your resume and try again."
+          : "Resume PDF has little/no extractable text (might be scanned). Save it as a text-based PDF and try again.",
       );
     }
 

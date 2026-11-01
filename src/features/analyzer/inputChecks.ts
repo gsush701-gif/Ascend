@@ -11,24 +11,26 @@ export const JD_COMFORTABLE_LENGTH = 200;
 
 /**
  * Returns a plain-language reason a chosen resume file can't be used, or null
- * when it's fine. Students often have a Word file or a photo, and the server
- * only reads text-based PDFs, so say what to do instead of failing later.
+ * when it's fine. PDF and Word (.docx) are accepted; older .doc files and photos
+ * get told what to do instead of failing later.
  */
 export function validateResumeFile(file: { name: string; type: string; size: number }): string | null {
   const name = file.name.toLowerCase();
   const isPdf = file.type === "application/pdf" || name.endsWith(".pdf");
-  if (!isPdf) {
-    if (/\.(docx?|rtf|odt|pages)$/.test(name)) {
-      return "That's a Word-style file. In Word or Google Docs, choose File, then Save as or Download, then PDF, and upload the PDF.";
+  const isDocx =
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || name.endsWith(".docx");
+  if (!isPdf && !isDocx) {
+    if (/\.(doc|rtf|odt|pages)$/.test(name)) {
+      return "That's an older document format. In Word or Google Docs, choose Save as or Download, then .docx or PDF, and upload that.";
     }
     if (/\.(png|jpe?g|heic|gif|webp)$/.test(name)) {
-      return "That's an image. Ascend reads text-based PDFs, so export your resume as a PDF from the program you wrote it in.";
+      return "That's an image. Ascend reads text, so export your resume as a PDF or .docx from the program you wrote it in.";
     }
-    return "Please choose a PDF file.";
+    return "Please choose a PDF or Word (.docx) file.";
   }
-  if (file.size === 0) return "That file is empty. Try exporting your resume as a PDF again.";
+  if (file.size === 0) return "That file is empty. Try exporting your resume again.";
   if (file.size > MAX_RESUME_BYTES) {
-    return "That PDF is over 5MB. Export a smaller version (no large images) and try again.";
+    return "That file is over 5MB. Export a smaller version (no large images) and try again.";
   }
   return null;
 }
@@ -143,7 +145,7 @@ export function guessRoleAndCompany(jd: string): { role: string | null; company:
 
   if (!company) {
     for (const line of lines) {
-      const labelled = line.match(/^(?:company|employer|organi[sz]ation)\s*[:\-]\s*(.+)$/i);
+      const labelled = line.match(/^(?:company|employer|organi[sz]ation)\s*[:-]\s*(.+)$/i);
       if (labelled) {
         company = clean(labelled[1]);
         break;

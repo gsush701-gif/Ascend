@@ -30,6 +30,7 @@ import { alignmentToPreparedness, type Preparedness } from "../lib/preparedness"
 import { ResumeAdditionsPanel } from "../features/analyzer/components/ResumeAdditionsPanel";
 import type { ResumeAddition } from "../features/analyzer/additions";
 import { ResumeDropzone } from "../features/analyzer/components/ResumeDropzone";
+import { isDocxFile } from "../lib/docx";
 import { buildNextSteps, guessRoleAndCompany, jdHint } from "../features/analyzer/inputChecks";
 import {
   EXAMPLE_JOB_DESCRIPTION,
@@ -231,7 +232,8 @@ export function Analyzer() {
   // has already succeeded either way, so a sync failure here just leaves
   // the viewer empty rather than failing the whole action.
   const syncResumeToRole = async (roleId: string) => {
-    if (!resume || !user) return;
+    // The role page's resume viewer shows PDFs only, so a Word file isn't attached.
+    if (!resume || !user || isDocxFile(resume)) return;
     try {
       const path = `${user.id}/${roleId}-${crypto.randomUUID()}.pdf`;
       const { error: uploadError } = await supabase.storage
@@ -436,7 +438,7 @@ export function Analyzer() {
 
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-2">
-                  Your resume (PDF) <span className="text-slate-400">add it to get your fit score</span>
+                  Your resume (PDF or Word) <span className="text-slate-400">add it to get your fit score</span>
                 </label>
                 <ResumeDropzone fileName={resume ? resume.name : null} onFile={(file) => setResume(file)} />
                 {lastResumeFilename && !resume && (
@@ -464,7 +466,12 @@ export function Analyzer() {
                     </select>
                   </div>
                 )}
-                {user && resume && resumeText && !selectedResumeId && (
+                {resume && isDocxFile(resume) && (
+                  <p className="mt-1.5 text-[11px] text-slate-400">
+                    Word files are fine for analysis. Saving to My Resumes and the preview on the role page need a PDF.
+                  </p>
+                )}
+                {user && resume && resumeText && !selectedResumeId && !isDocxFile(resume) && (
                   <button
                     type="button"
                     onClick={handleSaveResume}
