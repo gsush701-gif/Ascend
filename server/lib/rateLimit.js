@@ -1,4 +1,5 @@
 const rateLimit = require("express-rate-limit");
+const { ipKeyGenerator } = rateLimit;
 const { sendError } = require("./errors");
 
 /**
@@ -66,7 +67,7 @@ function toDuration(windowMs) {
  * @param {string} opts.message user-facing message on 429
  * @param {string} opts.keyPrefix distinguishes this limiter's counters from others sharing the same Redis (e.g. "ai", "account", "track")
  */
-function createRateLimiter({ windowMs, max, message, keyPrefix }) {
+function createRateLimiter({ windowMs, max, message, keyPrefix, keyGenerator }) {
   logModeOnce();
 
   if (useUpstash) {
@@ -79,7 +80,7 @@ function createRateLimiter({ windowMs, max, message, keyPrefix }) {
 
     return async function upstashRateLimit(req, res, next) {
       try {
-        const identifier = req.ip || "unknown";
+        const identifier = keyGenerator ? keyGenerator(req) : req.ip || "unknown";
         const { success, limit, remaining, reset } = await limiter.limit(identifier);
         res.setHeader("RateLimit-Limit", String(limit));
         res.setHeader("RateLimit-Remaining", String(Math.max(0, remaining)));
@@ -102,10 +103,23 @@ function createRateLimiter({ windowMs, max, message, keyPrefix }) {
     max,
     standardHeaders: true,
     legacyHeaders: false,
+    ...(keyGenerator ? { keyGenerator } : {}),
     handler: (req, res) => {
       sendError(req, res, 429, "RATE_LIMITED", message);
     },
   });
 }
 
-module.exports = { createRateLimiter, isUpstashBacked: useUpstash };
+/**
+ * Who a request "is" for rate limiting: the signed-in user when there is one,
+ * otherwise the client IP. Keying signed-in users by account (not address)
+ * matters for students, whose whole campus can sit behind one shared IP: a
+ * per-IP cap would let one heavy user lock out everyone on the same network.
+ * Needs req.user, so it only works on limiters placed after optionalAuth.
+ */
+function identityKey(req) {
+  if (req.user && req.user.id) return `u:${req.user.id}`;
+  return `ip:${ipKeyGenerator(req.ip || "unknown")}`;
+}
+
+module.exports = { createRateLimiter, identityKey, isUpstashBacked: useUpstash };

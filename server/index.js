@@ -57,7 +57,8 @@ const { userHasPlanFeature, requirePlanFeature } = require("./middleware/require
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
 const { supabaseAdmin, isSupabaseConfigured } = require("./lib/supabaseAdmin");
-const { createRateLimiter } = require("./lib/rateLimit");
+const { createRateLimiter, identityKey } = require("./lib/rateLimit");
+const { createDailyBudget } = require("./lib/dailyBudget");
 const { ErrorCodes, sendError } = require("./lib/errors");
 const { recordUsageEvent } = require("./lib/usageEvents");
 const { checkQuota, enforceUsageQuota } = require("./lib/usage");
@@ -122,6 +123,12 @@ app.use(helmet({ contentSecurityPolicy: false }));
 app.use(requestLogger);
 
 const corsOrigin = process.env.CORS_ORIGIN || "*";
+if (corsOrigin === "*" && (process.env.RENDER || process.env.NODE_ENV === "production")) {
+  console.warn(
+    "[security] CORS_ORIGIN is not set, so any website can call this API from a browser. " +
+      "Set it to the site's address (comma-separate several), e.g. https://ascendcareers.app",
+  );
+}
 app.use(
   cors({
     origin: corsOrigin === "*" ? "*" : corsOrigin.split(",").map((s) => s.trim()),
@@ -190,23 +197,64 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), asyn
   return res.status(200).json({ received: true });
 });
 
-app.use(express.json({ limit: "5mb" }));
+app.use(express.json({ limit: "1mb" }));
 
 // AI-backed routes each cost a real Groq API call — cap abuse/runaway cost
 // per IP. Backed by Upstash Redis when UPSTASH_REDIS_REST_URL/TOKEN are set
 // (shared across instances); otherwise falls back to the original in-memory
 // express-rate-limit behavior (fine for a single instance). See
 // server/lib/rateLimit.js.
-// 60/15min (~4/min sustained) comfortably covers a real user iterating on
-// several resume bullets in one sitting plus an /analyze run, while still
-// keeping a scripted hammering of the Groq-backed routes well below the
-// point where it would run up meaningful API cost.
+// Three layers, outermost first:
+//  1. aiLimiter: per IP, runs before any auth lookup so floods are rejected
+//     cheaply. Deliberately roomy (300/15min) because a whole campus can share
+//     one address; it is only the coarse backstop.
+//  2. aiIdentityLimiter (after optionalAuth): a signed-in user gets their own
+//     60/15min (~4/min sustained, plenty for iterating on bullets plus an
+//     /analyze run) no matter which network they are on, and cannot be locked
+//     out by someone else on the same IP. Logged-out visitors get a much
+//     tighter 20/15min per IP.
+//  3. anonAiBudget: a daily ceiling on all logged-out AI calls combined, so
+//     rotating IP addresses cannot turn the free try-out into an open tap on
+//     the Groq bill. Tune with ANON_AI_DAILY_CAP; a visitor who hits it is
+//     pointed to sign up, which is the behaviour we want anyway.
 const aiLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 60,
+  max: 300,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "ai",
 });
+const aiUserLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "ai-user",
+  keyGenerator: identityKey,
+});
+const aiAnonLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many requests without an account. Create a free account to keep going, or try again in a few minutes.",
+  keyPrefix: "ai-anon",
+  keyGenerator: identityKey,
+});
+const anonAiBudget = createDailyBudget({
+  cap: Number.parseInt(process.env.ANON_AI_DAILY_CAP || "", 10) || 500,
+});
+function aiIdentityLimiter(req, res, next) {
+  if (req.user) return aiUserLimiter(req, res, next);
+  return aiAnonLimiter(req, res, () => {
+    if (!anonAiBudget.tryConsume()) {
+      return sendError(
+        req,
+        res,
+        429,
+        "RATE_LIMITED",
+        "The free try-out is busy right now. Create a free account to continue, or try again tomorrow.",
+      );
+    }
+    return next();
+  });
+}
 
 // Account deletion is irreversible and worth throttling independently of
 // the AI limiter above (it's unauthenticated-reachable in the sense that
@@ -544,7 +592,7 @@ app.post("/api/billing/create-portal-session", billingLimiter, optionalAuth, asy
   }
 });
 
-app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (req, res) => {
+app.post("/analyze", aiLimiter, optionalAuth, aiIdentityLimiter, upload.single("resume"), async (req, res) => {
   try {
     console.log("POST /analyze received");
     console.log("file?", !!req.file, "jdLength:", (req.body.jd || "").length);
@@ -756,7 +804,7 @@ app.post("/analyze", aiLimiter, optionalAuth, upload.single("resume"), async (re
   }
 });
 
-app.post("/api/improve-bullet", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/improve-bullet", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.bullet !== undefined && typeof req.body.bullet !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'bullet' must be a string");
@@ -796,7 +844,7 @@ app.post("/api/improve-bullet", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
-app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/improve-resume", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' must be a string");
@@ -839,7 +887,7 @@ app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
 // what's written and leave [blanks] for real results, and the output is then
 // checked against the resume (invented lines or numbers are dropped) before it
 // is returned. See server/lib/tailorBullets.js.
-app.post("/api/tailor-bullets", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/tailor-bullets", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     for (const field of ["resumeText", "jobDescription"]) {
       if (req.body?.[field] !== undefined && typeof req.body[field] !== "string") {
@@ -897,7 +945,7 @@ app.post("/api/tailor-bullets", aiLimiter, optionalAuth, async (req, res) => {
 // This is Ascend's own compatibility analysis, not a simulation of any
 // specific real-world ATS's parsing behavior — the response shape and any
 // UI built on it should keep framing it that way.
-app.post("/api/ats-check", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/ats-check", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' must be a string");
@@ -954,7 +1002,7 @@ app.post("/api/ats-check", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
-app.post("/api/improve-linkedin", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/improve-linkedin", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.text !== undefined && typeof req.body.text !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'text' must be a string");
@@ -1006,7 +1054,7 @@ app.post("/api/improve-linkedin", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
-app.post("/api/generate-cover-letter", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/generate-cover-letter", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.resumeText !== undefined && typeof req.body.resumeText !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' must be a string");
@@ -1069,7 +1117,7 @@ app.post("/api/generate-cover-letter", aiLimiter, optionalAuth, async (req, res)
   }
 });
 
-app.post("/api/generate-interview-questions", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/generate-interview-questions", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' must be a string");
@@ -1116,7 +1164,7 @@ app.post("/api/generate-interview-questions", aiLimiter, optionalAuth, async (re
   }
 });
 
-app.post("/api/interview-feedback", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/interview-feedback", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.question !== undefined && typeof req.body.question !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'question' must be a string");
@@ -1186,7 +1234,7 @@ app.get("/api/feature-access", aiLimiter, optionalAuth, async (req, res) => {
 // generic "*NotConfiguredError" handling) and the frontend falls back to
 // the browser's free built-in speechSynthesis voice instead of failing the
 // interview.
-app.post("/api/interview-speech", aiLimiter, optionalAuth, requireVoiceInterview, async (req, res) => {
+app.post("/api/interview-speech", aiLimiter, optionalAuth, aiIdentityLimiter, requireVoiceInterview, async (req, res) => {
   try {
     if (req.body?.text !== undefined && typeof req.body.text !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'text' must be a string");
@@ -1241,7 +1289,7 @@ app.post("/api/interview-speech", aiLimiter, optionalAuth, requireVoiceInterview
 // POST /api/interview-feedback above are untouched and still power the
 // separate text-based interview prep page as-is.
 const MAX_INTERVIEW_TURN_COUNT = 12; // hard cap — see server/lib/groq.js's generateInterviewTurn docblock
-app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterview, async (req, res) => {
+app.post("/api/interview-turn", aiLimiter, optionalAuth, aiIdentityLimiter, requireVoiceInterview, async (req, res) => {
   try {
     if (req.body?.jobDescription !== undefined && typeof req.body.jobDescription !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' must be a string");
@@ -1368,7 +1416,7 @@ app.post("/api/interview-turn", aiLimiter, optionalAuth, requireVoiceInterview, 
   }
 });
 
-app.post("/api/interview-evaluation", aiLimiter, optionalAuth, requireVoiceInterview, async (req, res) => {
+app.post("/api/interview-evaluation", aiLimiter, optionalAuth, aiIdentityLimiter, requireVoiceInterview, async (req, res) => {
   try {
     if (req.body?.transcript !== undefined && typeof req.body.transcript !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'transcript' must be a string");
@@ -1414,7 +1462,7 @@ app.post("/api/interview-evaluation", aiLimiter, optionalAuth, requireVoiceInter
 // the same validation/error-response discipline as every other /api/* route
 // above.
 
-app.post("/api/skill-roadmap", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/skill-roadmap", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.skill !== undefined && typeof req.body.skill !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'skill' must be a string");
@@ -1446,7 +1494,7 @@ app.post("/api/skill-roadmap", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
-app.post("/api/recommend-project", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/recommend-project", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (req.body?.missingSkills !== undefined && !Array.isArray(req.body.missingSkills)) {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'missingSkills' must be an array of strings");
@@ -1488,7 +1536,7 @@ app.post("/api/recommend-project", aiLimiter, optionalAuth, async (req, res) => 
   }
 });
 
-app.post("/api/generate-cold-email", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/generate-cold-email", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (!req.user) {
       return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
@@ -1579,7 +1627,7 @@ app.post("/api/generate-cold-email", aiLimiter, optionalAuth, async (req, res) =
   }
 });
 
-app.post("/api/career-advice", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/career-advice", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (!req.user) {
       return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
@@ -1669,7 +1717,7 @@ app.post("/api/career-advice", aiLimiter, optionalAuth, async (req, res) => {
 // on a specific resume the caller must own) and do an ownership-checked
 // lookup via server/lib/supabaseUser.js's fetchOwnedRow — a resumeId
 // belonging to another user simply 404s, never leaks a row.
-app.post("/api/parse-resume", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/parse-resume", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (!req.user) {
       return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
@@ -1722,7 +1770,7 @@ app.post("/api/parse-resume", aiLimiter, optionalAuth, async (req, res) => {
   }
 });
 
-app.post("/api/resume-suggestions", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/resume-suggestions", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     if (!req.user) {
       return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
@@ -1829,7 +1877,7 @@ app.post("/api/resume-suggestions", aiLimiter, optionalAuth, async (req, res) =>
   }
 });
 
-app.post("/api/report-summary", aiLimiter, optionalAuth, async (req, res) => {
+app.post("/api/report-summary", aiLimiter, optionalAuth, aiIdentityLimiter, async (req, res) => {
   try {
     const stats = req.body?.stats;
     if (typeof stats !== "object" || stats === null || Array.isArray(stats)) {
