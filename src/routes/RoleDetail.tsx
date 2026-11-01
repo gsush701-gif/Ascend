@@ -17,6 +17,7 @@ import { DarkSelect } from "../components/ui/DarkSelect";
 import { fileNameFor, kindOfPath, mimeFor } from "../lib/resumeFile";
 import { RoleGapsPanel } from "../components/roles/RoleGapsPanel";
 import { FitInsights, ReadinessPanel } from "../components/roles/RoleFitInsights";
+import { RoleTailorPanel } from "../components/roles/RoleTailorPanel";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { Modal } from "../components/ui/Modal";
 import { useTracker } from "../features/tracker/hooks/useTracker";
@@ -215,6 +216,53 @@ export function RoleDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.id]);
 
+  /**
+   * Loads the resume this role should be worked on with: the one attached to
+   * the role (the viewer panel) if there is one, else the account's default
+   * saved resume. Always fetched fresh, never cached, so a replaced resume is
+   * what gets used. Shows its own error toast and returns null when there isn't
+   * one or it can't be loaded. Shared by Analyze and the bullet rewriter.
+   */
+  const resolveResume = useCallback(async (): Promise<{ file: File; savedId: string | null } | null> => {
+    if (!item) return null;
+    setResumeBusy(true);
+    try {
+      if (item.resumeStoragePath) {
+        const { data, error: downloadError } = await supabase.storage
+          .from("role-resumes")
+          .download(item.resumeStoragePath);
+        if (downloadError || !data) {
+          toast.error({
+            title: "Couldn't load this role's resume",
+            description: "Failed to download the attached resume. Try again.",
+          });
+          return null;
+        }
+        const kind = kindOfPath(item.resumeStoragePath);
+        return { file: new File([data], fileNameFor(kind), { type: mimeFor(kind) }), savedId: null };
+      }
+      if (savedResumes.length === 0) {
+        toast.error({
+          title: "No resume to analyze with",
+          description: "Attach a resume above, or upload one on the Resumes page.",
+        });
+        return null;
+      }
+      const saved = savedResumes.find((r) => r.isDefault) ?? savedResumes[0];
+      const file = await downloadResumeFile(saved);
+      if (!file) {
+        toast.error({
+          title: "Couldn't load resume",
+          description: "Failed to download your resume. Try again.",
+        });
+        return null;
+      }
+      return { file, savedId: saved.id };
+    } finally {
+      setResumeBusy(false);
+    }
+  }, [item, savedResumes, downloadResumeFile]);
+
   const runAnalyze = useCallback(async () => {
     if (!item) return;
     if (!item.jobDescription || item.jobDescription.trim().length < 20) {
@@ -233,49 +281,13 @@ export function RoleDetail() {
     // silently kept re-analyzing against the *first* resume ever loaded,
     // even after you replaced the attached resume or updated your default
     // saved one. Re-analyze must reflect what's true right now.
-    {
-      setResumeBusy(true);
-      // Prefer a resume attached specifically to this role (the PDF viewer
-      // panel) over the account's default saved resume, if one exists.
-      if (item.resumeStoragePath) {
-        const { data, error: downloadError } = await supabase.storage
-          .from("role-resumes")
-          .download(item.resumeStoragePath);
-        setResumeBusy(false);
-        if (downloadError || !data) {
-          toast.error({
-            title: "Couldn't load this role's resume",
-            description: "Failed to download the attached resume. Try again.",
-          });
-          return;
-        }
-        const kind = kindOfPath(item.resumeStoragePath);
-        analyzer.setResume(new File([data], fileNameFor(kind), { type: mimeFor(kind) }), "system");
-      } else {
-        if (savedResumes.length === 0) {
-          setResumeBusy(false);
-          toast.error({
-            title: "No resume to analyze with",
-            description: "Attach a resume above, or upload one on the Resumes page.",
-          });
-          return;
-        }
-        const saved = savedResumes.find((r) => r.isDefault) ?? savedResumes[0];
-        const file = await downloadResumeFile(saved);
-        setResumeBusy(false);
-        if (!file) {
-          toast.error({
-            title: "Couldn't load resume",
-            description: "Failed to download your resume. Try again.",
-          });
-          return;
-        }
-        analyzer.setResumeFromSaved(file, saved.id);
-      }
-    }
+    const resolved = await resolveResume();
+    if (!resolved) return;
+    if (resolved.savedId) analyzer.setResumeFromSaved(resolved.file, resolved.savedId);
+    else analyzer.setResume(resolved.file, "system");
     setAutoAnalyzing(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, savedResumes, downloadResumeFile]);
+  }, [item, resolveResume]);
 
   // Once the resume + job description are both in place, actually run the
   // analysis (separated from runAnalyze so a freshly-downloaded resume File
@@ -497,6 +509,10 @@ export function RoleDetail() {
                   <RoleGapsPanel item={item} />
                 </Panel>
               </div>
+            )}
+
+            {hasAnalysis && (
+              <RoleTailorPanel item={item} getResumeFile={async () => (await resolveResume())?.file ?? null} />
             )}
 
             <SkillGapHelper missingRequiredSkills={missingRequiredSkills} />

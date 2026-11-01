@@ -52,6 +52,7 @@ const { requireAdmin } = require("./middleware/requireAdmin");
 const { createUsageAccumulator, usageMetadata } = require("./lib/llmCost");
 const { parseAdditions, applyAdditions } = require("./lib/resumeAdditions");
 const { extractDocxText, isDocxUpload } = require("./lib/docxText");
+const { validateTailoredBullets } = require("./lib/tailorBullets");
 const { userHasPlanFeature, requirePlanFeature } = require("./middleware/requirePlanFeature");
 const { requestId } = require("./middleware/requestId");
 const { requestLogger } = require("./middleware/requestLogger");
@@ -824,6 +825,52 @@ app.post("/api/improve-resume", aiLimiter, optionalAuth, async (req, res) => {
   } catch (err) {
     console.error("improve-resume failed:", err);
     return respondAiError(req, res, err, "Failed to improve resume");
+  }
+});
+
+// Job-tailored rewrites of the student's OWN bullets (role page). Unlike
+// /api/improve-resume this never adds metrics: the model is told to reword only
+// what's written and leave [blanks] for real results, and the output is then
+// checked against the resume (invented lines or numbers are dropped) before it
+// is returned. See server/lib/tailorBullets.js.
+app.post("/api/tailor-bullets", aiLimiter, optionalAuth, async (req, res) => {
+  try {
+    for (const field of ["resumeText", "jobDescription"]) {
+      if (req.body?.[field] !== undefined && typeof req.body[field] !== "string") {
+        return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, `Field '${field}' must be a string`);
+      }
+    }
+    const resumeText = (req.body?.resumeText || "").trim();
+    const jobDescription = (req.body?.jobDescription || "").trim();
+    if (resumeText.length < 30) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' is required and must have real content");
+    }
+    if (resumeText.length > 50000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'resumeText' is too long (max 50000 characters)");
+    }
+    if (jobDescription.length < 20) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' is required and must have real content");
+    }
+    if (jobDescription.length > 20000) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'jobDescription' is too long (max 20000 characters)");
+    }
+    // Optional skill names from the saved analysis, used only to steer the prompt.
+    const skillList = (value) =>
+      Array.isArray(value)
+        ? value.filter((s) => typeof s === "string" && s.trim().length > 0 && s.length <= 60).slice(0, 25)
+        : [];
+    const missing = skillList(req.body?.missingSkills);
+    const matched = skillList(req.body?.matchedSkills);
+
+    if (!(await enforceUsageQuota(req, res, "ai.tailor_bullets"))) return;
+
+    const raw = await callGroq(req, "ai.tailor_bullets", () =>
+      groq.tailorBullets(resumeText, jobDescription, { missing, matched }),
+    );
+    return res.json({ bullets: validateTailoredBullets(raw, resumeText) });
+  } catch (err) {
+    console.error("tailor-bullets failed:", err);
+    return respondAiError(req, res, err, "Failed to tailor your bullets");
   }
 });
 

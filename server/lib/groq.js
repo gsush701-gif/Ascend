@@ -119,6 +119,40 @@ Only use content that appears in the resume text; do not invent employers or dat
 }
 
 /**
+ * Rewrite a candidate's OWN resume bullets so they speak to one specific job.
+ * Unlike improveResume, this never adds metrics or facts: it rewords what is
+ * already written, uses the posting's vocabulary only where the original
+ * supports it, and leaves a [bracketed blank] where a real result belongs, for
+ * the candidate to fill in truthfully. The route validates the output against
+ * the resume (server/lib/tailorBullets.js) before anything reaches the user.
+ */
+async function tailorBullets(resumeText, jobDescription, skills = {}) {
+  const missing = Array.isArray(skills.missing) ? skills.missing.slice(0, 12) : [];
+  const matched = Array.isArray(skills.matched) ? skills.matched.slice(0, 20) : [];
+
+  const system = `You are an honest resume coach helping a student tailor their EXISTING resume bullets to one specific job posting.
+You are given the resume text and the job description. Pick the 3 to 5 bullets from the resume's experience or project sections that are most relevant to this job AND could be stated more clearly, then rewrite each one.
+Hard rules, never break them:
+- Use ONLY facts that are in the original bullet. Never add a tool, technology, number, percentage, employer, team size, or outcome that the original bullet does not already state.
+- Never raise the student's level of involvement. If they "helped", "assisted", "supported" or "worked on" something, keep it at that level. Do not turn it into "led", "owned", "managed", "architected", "spearheaded", "performed" or "designed".
+- Make a meaningful change, not just a swapped verb: tighten the wording, put the most job-relevant detail first, and use the job description's own wording for something the bullet already says.
+- Where the original leaves out something this job cares about, add a bracketed blank for the student to fill in truthfully instead of guessing. Use blanks such as [add the tool you used], [add how many], or [add result: e.g. users, time saved, or a percentage]. Most rewrites should have at least one blank. Never fill a blank yourself.
+- "original" must be copied EXACTLY, word for word, from the resume text. Do not paraphrase it.
+- "why" is one short sentence naming which requirement of the job this bullet speaks to.
+- Do not touch bullets that are already strong, and do not write bullets about skills the student has not shown. If fewer than 3 bullets are worth changing, return fewer. If the resume has no bullets, return an empty list.
+Respond with ONLY a JSON object of this exact shape:
+{"bullets":[{"original": string, "rewritten": string, "why": string}]}`;
+
+  const user = `Job description:\n"""${jobDescription.slice(0, 8000)}"""${
+    matched.length ? `\n\nSkills from the posting the resume already shows: ${matched.join(", ")}` : ""
+  }${missing.length ? `\n\nSkills from the posting the resume does NOT show (do not claim these): ${missing.join(", ")}` : ""}
+
+Resume text:\n"""${resumeText.slice(0, 12000)}"""`;
+
+  return chatJson(system, user, 1500);
+}
+
+/**
  * Rewrite a LinkedIn profile section (headline or About) to be more
  * compelling, keyword-rich, and specific to the candidate's real input.
  */
@@ -620,6 +654,7 @@ Respond with ONLY a JSON object of this exact shape:
 module.exports = {
   improveBullet,
   improveResume,
+  tailorBullets,
   improveLinkedInSection,
   generateCoverLetter,
   generateInterviewQuestions,
