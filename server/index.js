@@ -102,7 +102,14 @@ const app = express();
 // to the proxy's own address for every request, which collapses the
 // per-IP rate limiters below into one shared global bucket instead of
 // one per real client.
-app.set("trust proxy", 1);
+//
+// Render's own load balancer sits behind Cloudflare, so there are two hops in
+// front of the app: with only 1 trusted, req.ip was a Cloudflare edge address
+// that changes between requests, which splits one client's requests over
+// several rate-limit counters. Override with TRUST_PROXY_HOPS if the hosting
+// setup changes (0 when running directly on the internet, e.g. locally).
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS || "", 10);
+app.set("trust proxy", Number.isInteger(trustProxyHops) && trustProxyHops >= 0 ? trustProxyHops : 2);
 
 // Assign a request id + response header (X-Request-Id) before anything else
 // runs, so every log line and every error response for this request can be
