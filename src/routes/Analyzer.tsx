@@ -31,6 +31,7 @@ import { ResumeAdditionsPanel } from "../features/analyzer/components/ResumeAddi
 import type { ResumeAddition } from "../features/analyzer/additions";
 import { ResumeDropzone } from "../features/analyzer/components/ResumeDropzone";
 import { isDocxFile } from "../lib/docx";
+import { kindOfFile, mimeFor } from "../lib/resumeFile";
 import type { TrackerStatus } from "../types/tracker";
 import { buildNextSteps, guessRoleAndCompany, jdHint } from "../features/analyzer/inputChecks";
 import {
@@ -247,13 +248,13 @@ export function Analyzer() {
   // has already succeeded either way, so a sync failure here just leaves
   // the viewer empty rather than failing the whole action.
   const syncResumeToRole = async (roleId: string) => {
-    // The role page's resume viewer shows PDFs only, so a Word file isn't attached.
-    if (!resume || !user || isDocxFile(resume)) return;
+    if (!resume || !user) return;
     try {
-      const path = `${user.id}/${roleId}-${crypto.randomUUID()}.pdf`;
+      const kind = kindOfFile(resume);
+      const path = `${user.id}/${roleId}-${crypto.randomUUID()}.${kind}`;
       const { error: uploadError } = await supabase.storage
         .from("role-resumes")
-        .upload(path, resume, { contentType: "application/pdf", cacheControl: "0" });
+        .upload(path, resume, { contentType: mimeFor(kind), cacheControl: "0" });
       if (!uploadError) {
         tracker.updateRoleFields(roleId, { resumeStoragePath: path });
       }
@@ -483,7 +484,7 @@ export function Analyzer() {
                 )}
                 {resume && isDocxFile(resume) && (
                   <p className="mt-1.5 text-[11px] text-slate-400">
-                    Word files are fine for analysis. Saving to My Resumes and the preview on the role page need a PDF.
+                    Word files are fine for analysis. Saving to My Resumes needs a PDF, and a role&apos;s page can&apos;t preview Word files.
                   </p>
                 )}
                 {user && resume && resumeText && !selectedResumeId && !isDocxFile(resume) && (

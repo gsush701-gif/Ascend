@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { useAuth } from "../../../context/AuthContext";
 import type { TrackerItem } from "../../../types/tracker";
+import { validateResumeFile } from "../../analyzer/inputChecks";
+import { kindOfFile, kindOfPath, mimeFor, type ResumeKind } from "../../../lib/resumeFile";
 
 const BUCKET = "role-resumes";
 
@@ -65,11 +67,12 @@ export function useRoleResumePdf(
   const upload = useCallback(
     async (file: File): Promise<{ error: string | null }> => {
       if (!user) return { error: "You must be logged in." };
-      if (file.type !== "application/pdf") {
-        const message = "Only PDF files are supported.";
-        setError(message);
-        return { error: message };
+      const problem = validateResumeFile(file);
+      if (problem) {
+        setError(problem);
+        return { error: problem };
       }
+      const kind = kindOfFile(file);
       setUploading(true);
       setError(null);
       try {
@@ -83,10 +86,10 @@ export function useRoleResumePdf(
         // also means resumeStoragePath genuinely changes value on every
         // replace, so the path-keyed effect above correctly re-fires on
         // reload/remount too, not just within the same session.
-        const path = `${user.id}/${roleId}-${crypto.randomUUID()}.pdf`;
+        const path = `${user.id}/${roleId}-${crypto.randomUUID()}.${kind}`;
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
-          .upload(path, file, { contentType: "application/pdf", cacheControl: "0" });
+          .upload(path, file, { contentType: mimeFor(kind), cacheControl: "0" });
         if (uploadError) throw uploadError;
         updateRoleFields(roleId, { resumeStoragePath: path });
         // Render the freshly-uploaded file directly rather than waiting on
@@ -124,5 +127,8 @@ export function useRoleResumePdf(
     return { error: null };
   }, [resumeStoragePath, roleId, updateRoleFields]);
 
-  return { uploading, error, objectUrl, upload, remove };
+  // The path's extension is the source of truth, so this is right after a reload too.
+  const kind: ResumeKind = kindOfPath(resumeStoragePath);
+
+  return { uploading, error, objectUrl, kind, upload, remove };
 }

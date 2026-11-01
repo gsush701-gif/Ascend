@@ -14,6 +14,7 @@ import { alignmentToPreparedness } from "../lib/preparedness";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
 import { DarkSelect } from "../components/ui/DarkSelect";
+import { fileNameFor, kindOfPath, mimeFor } from "../lib/resumeFile";
 import { RoleGapsPanel } from "../components/roles/RoleGapsPanel";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { Modal } from "../components/ui/Modal";
@@ -247,7 +248,8 @@ export function RoleDetail() {
           });
           return;
         }
-        analyzer.setResume(new File([data], "resume.pdf", { type: "application/pdf" }), "system");
+        const kind = kindOfPath(item.resumeStoragePath);
+        analyzer.setResume(new File([data], fileNameFor(kind), { type: mimeFor(kind) }), "system");
       } else {
         if (savedResumes.length === 0) {
           setResumeBusy(false);

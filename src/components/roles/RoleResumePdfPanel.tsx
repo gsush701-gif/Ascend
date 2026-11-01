@@ -17,7 +17,7 @@ type RoleResumePdfPanelProps = {
  * of your account's default saved resume — see RoleDetail.tsx's runAnalyze.
  */
 export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPanelProps) {
-  const { uploading, error, objectUrl, upload, remove } = useRoleResumePdf(
+  const { uploading, error, objectUrl, kind, upload, remove } = useRoleResumePdf(
     item.id,
     item.resumeStoragePath,
     updateRoleFields,
@@ -47,7 +47,7 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
       <input
         ref={fileInputRef}
         type="file"
-        accept="application/pdf"
+        accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         className="hidden"
         onChange={(e) => {
           handleFiles(e.target.files);
@@ -59,10 +59,10 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
           <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-300 bg-slate-100 px-3 py-2">
             <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-600">
               <FileText size={14} className="shrink-0 text-slate-400" />
-              <span className="truncate">Resume.pdf</span>
+              <span className="truncate">{kind === "docx" ? "Resume.docx" : "Resume.pdf"}</span>
             </span>
             <div className="flex shrink-0 items-center gap-0.5">
-              {objectUrl && (
+              {objectUrl && kind === "pdf" && (
                 <a
                   href={objectUrl}
                   target="_blank"
@@ -94,7 +94,30 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
             </div>
           </div>
           <div className="min-h-0 flex-1 bg-slate-100">
-            {objectUrl ? (
+            {kind === "docx" ? (
+              // Browsers can't render a Word file inline the way they do a PDF, so
+              // show what's attached and let them download it; analysis still uses it.
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-600">
+                  <FileText size={22} />
+                </span>
+                <p className="text-sm font-medium text-slate-800">Word resume attached</p>
+                <p className="max-w-[260px] text-xs text-slate-500">
+                  Word files can&apos;t be previewed here, but this role&apos;s analysis uses it. Upload a PDF if you
+                  want to see it on this page.
+                </p>
+                {objectUrl && (
+                  <a
+                    href={objectUrl}
+                    download="resume.docx"
+                    className="btn-press rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  >
+                    Download
+                  </a>
+                )}
+                {error && <p className="text-xs text-red-600">{error}</p>}
+              </div>
+            ) : objectUrl ? (
               // #toolbar=0 hides Chrome's own built-in PDF viewer toolbar
               // (the dark bar with page count/zoom/print) — that chrome is
               // drawn natively by the browser, not by this page, so it
@@ -138,7 +161,7 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
           </span>
           <div>
             <p className="text-sm font-medium text-slate-700">
-              {uploading ? "Uploading…" : "Drag and drop a resume for this role"}
+              {uploading ? "Uploading…" : "Drag and drop a PDF or Word resume for this role"}
             </p>
             <p className="mt-1 text-xs text-slate-500">or click to browse</p>
           </div>

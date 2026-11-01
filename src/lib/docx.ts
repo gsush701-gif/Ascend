@@ -2,12 +2,11 @@
 // the Analyzer's own resume-strength and ATS checks work for either format.
 // mammoth is loaded on demand: most visitors upload a PDF and never download it.
 
+export const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
 /** True for a .docx file, by MIME type or file name. */
 export function isDocxFile(file: { name: string; type: string }): boolean {
-  return (
-    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-    /\.docx$/i.test(file.name)
-  );
+  return file.type === DOCX_MIME || /\.docx$/i.test(file.name);
 }
 
 export async function extractTextFromDocx(file: File): Promise<string> {
