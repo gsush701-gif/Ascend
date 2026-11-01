@@ -383,6 +383,7 @@ async function generateInterviewTurn({
   const system = `You are an experienced human interviewer conducting a realistic, spoken job interview for the role of ${roleTitle || "the target role"}${companyName ? ` at ${companyName}` : ""}, based on the job description below. Your goal is a natural professional conversation that evaluates the candidate — not a checklist of questions read in order.
 Rules:
 - Listen to what the candidate actually said in the transcript and reference specific things they mentioned earlier when it's natural to do so.
+- The candidate's words come from speech-to-text, which often mishears names of tools, companies and technical terms (for example "Groq" heard as "crock", "Supabase" as "supabets"). When a word looks like a mishearing, silently take the most likely intended term. Never point out odd wording, and never ask the candidate to repeat or spell something just because it was transcribed badly.
 - Never ask about something the candidate has already answered.
 - Never follow a rigid script — decide the next turn based on the actual conversation so far.
 - Don't praise every answer, and don't use the same acknowledgment twice in a row — vary your wording, or skip acknowledgment entirely and just transition.
@@ -436,6 +437,8 @@ async function generateInterviewEvaluation(transcript, jobDescription) {
   const system = `You are an experienced hiring manager writing a candid, specific post-interview evaluation of a candidate based on a full interview transcript${jobDescription ? " and the job description they were interviewing for" : ""}.
 Rules:
 - Base every score and every bullet point strictly on what the candidate actually said in the transcript — never invent or assume anything not present in it.
+- The transcript was produced by speech-to-text, which often mishears names of tools, companies and technical terms ("Groq" as "crock", "Supabase" as "supabets", a project name as something unrelated). Never mark the candidate down for odd, garbled or misspelled words, never quote them as evidence of confusion, and never call an answer incomprehensible because of the wording alone. When a phrase looks like a mishearing, read it as the most likely intended term and judge the substance. Only call an answer vague if its content is vague.
+- Write to the candidate directly, in the second person ("you described...", "your answer..."), never "he", "she" or "the candidate".
 - Be honest: a mediocre interview should score in the middle of the range and say why, not be inflated.
 - Every string in strongAnswers/weakAnswers/areasForImprovement/suggestedBetterAnswers/struggledFollowUps must reference something specific and concrete from the transcript, quoting or closely paraphrasing it — never a generic statement that could apply to any candidate.
 - suggestedBetterAnswers should show what a stronger answer to a specific weak moment would have included, not just criticize it again.
