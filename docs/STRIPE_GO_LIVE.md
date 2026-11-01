@@ -28,7 +28,8 @@ once a live key is set.
 ## 1. Activate your Stripe account
 
 In the Stripe dashboard, switch off "Test mode" and complete activation:
-business details, bank account for payouts, identity verification. Stripe
+business details (website: https://ascendcareers.app), bank account for payouts,
+identity verification. Stripe
 will not give you a usable live key until this is done.
 
 ## 2. Create the live price

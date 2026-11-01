@@ -41,9 +41,9 @@ export function Landing() {
 
           <Reveal delay={0.12}>
             <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
-              Manage every internship role from analysis to outcome. Score your
-              fit, close skill gaps, rewrite weak resume bullets with AI, and
-              track every application in one place.
+              Paste an internship posting, upload your resume, and see your fit
+              score, the exact skills you are missing, and what to fix first.
+              Then track every application in one place.
             </p>
           </Reveal>
 
@@ -51,7 +51,7 @@ export function Landing() {
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link to="/signup" className="w-full sm:w-auto">
                 <Button variant="primary" className="w-full">
-                  Start free
+                  Check my resume, free
                 </Button>
               </Link>
               {/* Product preview temporarily disabled — see the commented-out
@@ -63,6 +63,9 @@ export function Landing() {
               </a>
               */}
             </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Sign in with Google in 10 seconds. You can delete your account and data any time.
+            </p>
           </Reveal>
 
           {/* Big background-style ambient glow behind the live preview */}
@@ -260,7 +263,7 @@ export function Landing() {
             <Reveal>
               <FaqItem
                 q="Is Ascend free?"
-                a="Yes. Every feature — fit scoring, skill gap detection, AI resume rewriting, and role tracking — is free during the beta. There's no paid tier yet."
+                a="Yes, to start. Fit scoring, skill gap detection, AI resume rewriting, cover letters, and role tracking are free during the beta. Voice interview practice is planned as a paid Pro feature and isn't open yet."
               />
             </Reveal>
             <Reveal delay={0.05}>
@@ -415,14 +418,18 @@ function AnimatedHeadline() {
         animate="show"
         variants={container}
       >
-        <motion.span variants={word} className="inline-block">
-          Your
-        </motion.span>{" "}
-        <motion.span variants={word} className="inline-block">
-          career,
-        </motion.span>{" "}
+        {["Know", "if", "your", "resume", "fits", "the"].map((w) => (
+          <span key={w}>
+            <motion.span variants={word} className="inline-block">
+              {w}
+            </motion.span>{" "}
+          </span>
+        ))}
         <motion.span variants={word} className="gradient-text inline-block">
-          elevated
+          internship
+        </motion.span>{" "}
+        <motion.span variants={word} className="inline-block">
+          before you apply
         </motion.span>
       </motion.h1>
       <motion.div
