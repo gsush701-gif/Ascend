@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { EXTENSION_STORE_URL } from "../../config/extension";
 import { BackgroundFX } from "./BackgroundFX";
 import { PublicNav } from "./PublicNav";
 import { pageContainer } from "../../lib/ui";
@@ -16,9 +17,12 @@ export function PublicShell({ children }: PublicShellProps) {
         {children}
       </main>
       <footer className="relative flex items-center justify-center gap-4 border-t border-slate-200 py-5 text-center text-xs text-slate-400">
-        <Link to="/extension" className="underline hover:text-slate-600">
-          Chrome extension
-        </Link>
+        {/* Only advertised once it's in the Chrome Web Store (one-click install). */}
+        {EXTENSION_STORE_URL && (
+          <Link to="/extension" className="underline hover:text-slate-600">
+            Chrome extension
+          </Link>
+        )}
         <Link to="/privacy" className="underline hover:text-slate-600">
           Privacy Policy
         </Link>

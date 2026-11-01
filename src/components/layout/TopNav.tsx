@@ -27,6 +27,7 @@ import {
 import { usePlanUsage } from "../../features/profile/hooks/usePlanUsage";
 import { useBillingActions } from "../../features/profile/hooks/useBillingActions";
 import { AI_NAME, AI_PATH } from "../../config/brand";
+import { EXTENSION_STORE_URL } from "../../config/extension";
 import { DeleteAccountPanel } from "../../features/profile/components/DeleteAccountPanel";
 import { MfaSettingsPanel } from "../../features/mfa/components/MfaSettingsPanel";
 
@@ -359,10 +360,12 @@ export function TopNav() {
                     item={{ to: "/contacts", label: "Contact" }}
                     onSelect={closeMenu}
                   />
-                  <MenuLink
-                    item={{ to: "/extension", label: "Chrome extension" }}
-                    onSelect={closeMenu}
-                  />
+                  {EXTENSION_STORE_URL && (
+                    <MenuLink
+                      item={{ to: "/extension", label: "Chrome extension" }}
+                      onSelect={closeMenu}
+                    />
+                  )}
                   <MenuLink
                     item={{ to: "/privacy", label: "Privacy policy" }}
                     onSelect={closeMenu}

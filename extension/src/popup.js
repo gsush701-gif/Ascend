@@ -98,6 +98,13 @@ loginForm.addEventListener("submit", async (e) => {
   }
 });
 
+// Google sign-in runs in its own tab (signin.html), not here: Chrome closes this
+// popup as soon as another window opens, which would end the sign-in half way.
+// The popup closing on its own is fine; the user clicks the icon again after.
+document.getElementById("login-google").addEventListener("click", () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL("signin.html") });
+});
+
 logoutBtn.addEventListener("click", async () => {
   try {
     await supabase.auth.signOut();

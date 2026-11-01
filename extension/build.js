@@ -21,6 +21,7 @@ const entryPoints = {
   "content-linkedin": path.join(SRC, "content-linkedin.js"),
   "content-indeed": path.join(SRC, "content-indeed.js"),
   popup: path.join(SRC, "popup.js"),
+  signin: path.join(SRC, "signin.js"),
 };
 
 function copyStaticFiles() {

@@ -62,10 +62,12 @@ export function Extension() {
 
         {!EXTENSION_STORE_URL && (
           <section className="mt-9">
-            <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900">Install it (2 minutes)</h2>
+            <h2 className="font-display text-lg font-semibold tracking-tight text-slate-900">
+              Early access: install it by hand (2 minutes)
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
-              It isn&apos;t in the Chrome Web Store yet, so you add it yourself. This is safe and Chrome will remind you
-              it&apos;s a developer extension.
+              It isn&apos;t in the Chrome Web Store yet, so for now you add it yourself, and Chrome will remind you it&apos;s
+              a developer extension. A one-click install is coming.
             </p>
             <ol className="mt-4 space-y-3">
               <Step n={1} title="Download and unzip the file">
@@ -103,15 +105,10 @@ export function Extension() {
         </section>
 
         <section className="mt-9 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          <h2 className="font-medium text-slate-900">Signed up with Google?</h2>
+          <h2 className="font-medium text-slate-900">Signing in</h2>
           <p className="mt-1">
-            The extension signs in with an email and password. If you only ever used &ldquo;Sign in with Google&rdquo;,
-            go to the{" "}
-            <Link to="/forgot-password" className="underline hover:text-slate-900">
-              forgot password page
-            </Link>{" "}
-            and enter your Google email. You&apos;ll get a link to set a password, and you can still use Google on the
-            website afterwards.
+            Use <strong>Continue with Google</strong> if that&apos;s how you signed up to Ascend, or your Ascend email and
+            password. It&apos;s the same account as on the website.
           </p>
         </section>
 

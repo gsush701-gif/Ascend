@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ascend – Save to Tracker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Save LinkedIn and Indeed job postings straight into your Ascend Roles tracker with one click.",
   "icons": {
     "16": "icons/icon16.png",
@@ -33,7 +33,7 @@
       "all_frames": false
     }
   ],
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "identity"],
   "host_permissions": [
     "https://dwiwayffvlbokffyyuwy.supabase.co/*"
   ]
