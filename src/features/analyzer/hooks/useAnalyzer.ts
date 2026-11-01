@@ -100,10 +100,11 @@ export function useAnalyzer() {
   }, [resume]);
 
   /** Set a resume from a plain file picker — clears any saved-resume link. */
-  function setResume(file: File | null) {
+  function setResume(file: File | null, source: "picker" | "example" = "picker") {
     setSelectedResumeId(null);
     setResumeState(file);
-    if (file) logEvent("resume_uploaded", { source: "picker" });
+    // The example resume isn't the user's own, so it doesn't count as an upload.
+    if (file && source === "picker") logEvent("resume_uploaded", { source });
   }
 
   /** Set a resume that came from the user's saved resumes (src/features/resumes). */

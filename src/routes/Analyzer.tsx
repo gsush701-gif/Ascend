@@ -29,6 +29,13 @@ import { cn } from "../lib/cn";
 import { alignmentToPreparedness, type Preparedness } from "../lib/preparedness";
 import { ResumeAdditionsPanel } from "../features/analyzer/components/ResumeAdditionsPanel";
 import type { ResumeAddition } from "../features/analyzer/additions";
+import { ResumeDropzone } from "../features/analyzer/components/ResumeDropzone";
+import { buildNextSteps, jdHint } from "../features/analyzer/inputChecks";
+import {
+  EXAMPLE_JOB_DESCRIPTION,
+  EXAMPLE_RESUME_NAME,
+  EXAMPLE_RESUME_URL,
+} from "../features/analyzer/exampleData";
 
 const QUICK_NEXT_STEPS = ["Tailor resume", "Apply", "Follow up", "Prepare for interview"];
 
@@ -146,6 +153,28 @@ export function Analyzer() {
     }
     void onAnalyze({ additions: additions.map((a) => a.text) });
   };
+
+  const jdState = jdHint(jd);
+  const [loadingExample, setLoadingExample] = useState(false);
+
+  // "Try an example": a made-up resume plus a sample posting, so a first-time
+  // visitor sees the product work without handing over anything of their own.
+  const handleTryExample = async () => {
+    setLoadingExample(true);
+    try {
+      const res = await fetch(EXAMPLE_RESUME_URL);
+      if (!res.ok) throw new Error("example resume not found");
+      const blob = await res.blob();
+      setResume(new File([blob], EXAMPLE_RESUME_NAME, { type: "application/pdf" }), "example");
+      setJd(EXAMPLE_JOB_DESCRIPTION);
+    } catch {
+      toast.error({ title: "Couldn't load the example", description: "Check your connection and try again." });
+    } finally {
+      setLoadingExample(false);
+    }
+  };
+
+  const nextSteps = report ? buildNextSteps(report) : [];
 
   const handleAnalyze = () => {
     setBaseline(null);
@@ -377,26 +406,28 @@ export function Analyzer() {
             )}
           >
             <div className="space-y-5">
+              {!resume && !jd.trim() && (
+                <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/[0.05] px-4 py-3 text-sm">
+                  <div className="font-medium text-slate-800">New here? See how it works in 10 seconds.</div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Loads a made-up resume and a sample internship posting. Nothing of yours is uploaded.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleTryExample}
+                    disabled={loadingExample}
+                    className="mt-2 text-xs font-semibold text-cyan-700 hover:text-cyan-800 disabled:opacity-50"
+                  >
+                    {loadingExample ? "Loading the example…" : "Try an example →"}
+                  </button>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-2">
-                  Upload resume <span className="text-slate-400">(optional for parse-only)</span>
+                  Your resume (PDF) <span className="text-slate-400">add it to get your fit score</span>
                 </label>
-                <label className="flex h-10 cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-900/[0.04] px-4 text-sm transition-colors hover:bg-slate-900/[0.06]">
-                  <span className="text-slate-700">
-                    {resume ? resume.name : "Choose PDF"}
-                  </span>
-                  <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                    Max 5MB
-                  </span>
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    className="hidden"
-                    onChange={(e) =>
-                      setResume(e.target.files?.[0] ?? null)
-                    }
-                  />
-                </label>
+                <ResumeDropzone fileName={resume ? resume.name : null} onFile={(file) => setResume(file)} />
                 {lastResumeFilename && !resume && (
                   <p className="mt-1.5 text-[11px] text-slate-400">
                     Last used: {lastResumeFilename}
@@ -441,9 +472,14 @@ export function Analyzer() {
                 <Textarea
                   value={jd}
                   onChange={(e) => setJd(e.target.value)}
-                  placeholder="Paste the job description here..."
+                  placeholder="Paste the full job posting here: the responsibilities and the requirements."
                   className="min-h-[250px]"
                 />
+                {jdState.message && (
+                  <p className={cn("mt-1.5 text-xs", jdState.ready ? "text-slate-500" : "text-amber-700")}>
+                    {jdState.message}
+                  </p>
+                )}
               </div>
 
               <Button
@@ -459,8 +495,15 @@ export function Analyzer() {
                     aria-hidden
                   />
                 )}
-                {loading ? "Analyzing…" : "Analyze"}
+                {loading ? "Analyzing…" : resume ? "Analyze my fit" : "Analyze"}
               </Button>
+
+              {!loading && jdState.ready && !resume && (
+                <p className="text-xs text-slate-500">
+                  No resume added, so you&apos;ll see what the job asks for but not your fit score. Add your resume
+                  above to get your score.
+                </p>
+              )}
 
               {loading && slowRequest && (
                 <p className="text-xs text-slate-500">
@@ -498,6 +541,17 @@ export function Analyzer() {
                     {report.meta.additionsCount === 1
                       ? "This counts 1 bullet you wrote here that isn't in your resume file yet, so it isn't saved. Add it to your resume, upload it, and analyze again to make it official."
                       : `This counts ${report.meta.additionsCount ?? "the"} bullets you wrote here that aren't in your resume file yet, so it isn't saved. Add them to your resume, upload it, and analyze again to make it official.`}
+                  </div>
+                )}
+
+                {nextSteps.length > 0 && (
+                  <div className="rounded-xl border border-emerald-300/60 bg-emerald-50/60 p-4">
+                    <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Your next steps</div>
+                    <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-slate-800">
+                      {nextSteps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
                   </div>
                 )}
 
