@@ -78,3 +78,31 @@ describe("buildNextSteps", () => {
     expect(buildNextSteps({ alignment: 95, skills: [], missingSignals: [] })).toHaveLength(1);
   });
 });
+
+import { guessRoleAndCompany } from "./inputChecks";
+
+describe("guessRoleAndCompany", () => {
+  it("reads a title line followed by a 'Company, City' line", () => {
+    const jd = "Software Engineer Intern, Backend (Summer 2027)\nNorthwind Labs, Dallas, TX (hybrid)\n\nAbout the role...";
+    expect(guessRoleAndCompany(jd)).toEqual({ role: "Software Engineer Intern, Backend", company: "Northwind Labs" });
+  });
+
+  it("splits 'Role at Company' and 'Role - Company' titles", () => {
+    expect(guessRoleAndCompany("Backend Intern at Stripe\nWe build payments")).toEqual({ role: "Backend Intern", company: "Stripe" });
+    expect(guessRoleAndCompany("Data Analyst Intern - Acme Corp\nRemote")).toEqual({ role: "Data Analyst Intern", company: "Acme Corp" });
+  });
+
+  it("uses a labelled company line when the title has none", () => {
+    expect(guessRoleAndCompany("Product Design Intern\nCompany: Globex\nResponsibilities...").company).toBe("Globex");
+  });
+
+  it("returns nulls rather than guessing from a sentence or an empty posting", () => {
+    expect(guessRoleAndCompany("We are looking for someone who loves building things and working with a great team.")).toEqual({ role: null, company: null });
+    expect(guessRoleAndCompany("")).toEqual({ role: null, company: null });
+  });
+
+  it("does not take a long description line as the company", () => {
+    const jd = "Engineering Intern\nYou will work on the platform team to build features that customers use every day.";
+    expect(guessRoleAndCompany(jd).company).toBeNull();
+  });
+});

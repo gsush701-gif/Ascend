@@ -170,13 +170,17 @@ export function Dashboard() {
             />
 
             <EmptyState
-              title="No applications yet"
-              subtitle="Add a few roles to unlock performance insights."
+              title="Start with a job you're thinking about"
+              subtitle="Paste a posting and upload your resume to see your fit score and the skills to fix. Roles you add are tracked here."
               primaryAction={{
-                label: "Add role",
-                onClick: () => setQuickAddOpen(true),
+                label: "Analyze a job against my resume",
+                onClick: () => navigate("/analyzer"),
               }}
               secondaryAction={{
+                label: "Add a role manually",
+                onClick: () => setQuickAddOpen(true),
+              }}
+              tertiaryAction={{
                 label: "Why tracking matters",
                 onClick: () => setWhyTrackingOpen(true),
               }}

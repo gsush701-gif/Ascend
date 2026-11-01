@@ -30,7 +30,7 @@ import { alignmentToPreparedness, type Preparedness } from "../lib/preparedness"
 import { ResumeAdditionsPanel } from "../features/analyzer/components/ResumeAdditionsPanel";
 import type { ResumeAddition } from "../features/analyzer/additions";
 import { ResumeDropzone } from "../features/analyzer/components/ResumeDropzone";
-import { buildNextSteps, jdHint } from "../features/analyzer/inputChecks";
+import { buildNextSteps, guessRoleAndCompany, jdHint } from "../features/analyzer/inputChecks";
 import {
   EXAMPLE_JOB_DESCRIPTION,
   EXAMPLE_RESUME_NAME,
@@ -153,6 +153,17 @@ export function Analyzer() {
     }
     void onAnalyze({ additions: additions.map((a) => a.text) });
   };
+
+  // When an analysis arrives, prefill the empty Company/Role fields from the top
+  // of the pasted posting so the role isn't saved as "Unknown company". Only
+  // fills blanks, never overwrites what the user typed.
+  useEffect(() => {
+    if (!report || report.meta?.projected) return;
+    const guess = guessRoleAndCompany(jd);
+    if (guess.company && !tracker.company.trim()) tracker.setCompany(guess.company);
+    if (guess.role && !tracker.role.trim()) tracker.setRole(guess.role);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report]);
 
   const jdState = jdHint(jd);
   const [loadingExample, setLoadingExample] = useState(false);

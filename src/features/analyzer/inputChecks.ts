@@ -102,3 +102,62 @@ export function buildNextSteps(report: ReportForSteps): string[] {
 
   return steps.slice(0, 3);
 }
+
+const ROLE_WORDS =
+  /\b(intern|internship|engineer|developer|analyst|associate|scientist|designer|manager|co-?op|apprentice|specialist|consultant|researcher|technician)\b/i;
+
+function clean(text: string): string | null {
+  const t = text.replace(/\s+/g, " ").trim().replace(/[,;:\-–—|]+$/, "").trim();
+  return t.length >= 2 ? t.slice(0, 80) : null;
+}
+
+/**
+ * Best-effort guess of the role title and company from the top of a pasted job
+ * posting, used only to prefill the empty "Add to Roles" fields so a student
+ * doesn't end up with "Unknown company". Heuristic and deliberately cautious:
+ * it returns null rather than guessing wildly, and the user can always edit.
+ */
+export function guessRoleAndCompany(jd: string): { role: string | null; company: string | null } {
+  const lines = jd
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  let role: string | null = null;
+  let company: string | null = null;
+
+  const first = lines[0];
+  if (first && first.length <= 90 && ROLE_WORDS.test(first)) {
+    const withCompany = first.match(/^(.*?)\s+(?:at|@)\s+(.+)$/i);
+    const dashed = first.match(/^(.*?)\s+[-–—|]\s+(.+)$/);
+    if (withCompany) {
+      role = clean(withCompany[1].replace(/\s*[([].*$/, ""));
+      company = clean(withCompany[2].replace(/\s*[([].*$/, ""));
+    } else if (dashed && !ROLE_WORDS.test(dashed[2])) {
+      role = clean(dashed[1].replace(/\s*[([].*$/, ""));
+      company = clean(dashed[2].replace(/\s*[([].*$/, ""));
+    } else {
+      role = clean(first.replace(/\s*[([].*$/, ""));
+    }
+  }
+
+  if (!company) {
+    for (const line of lines) {
+      const labelled = line.match(/^(?:company|employer|organi[sz]ation)\s*[:\-]\s*(.+)$/i);
+      if (labelled) {
+        company = clean(labelled[1]);
+        break;
+      }
+    }
+  }
+
+  // A short, plain second line right under a title is usually "Company, City".
+  if (!company && role && lines[1]) {
+    const second = lines[1];
+    if (second.length <= 70 && /^[A-Z]/.test(second) && !ROLE_WORDS.test(second) && !/[.:]$/.test(second)) {
+      company = clean(second.split(",")[0].replace(/\s*[([].*$/, ""));
+    }
+  }
+
+  return { role, company };
+}
