@@ -129,6 +129,18 @@ export function Login() {
         <OAuthButtons next={next} />
 
         <p className="text-center text-xs text-slate-400">
+          By continuing you agree to our{" "}
+          <Link to="/terms" className="text-slate-600 underline hover:text-slate-900">
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="text-slate-600 underline hover:text-slate-900">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
+        <p className="text-center text-xs text-slate-400">
           Don&apos;t have an account?{" "}
           <Link to="/signup" className="text-slate-600 underline hover:text-slate-900">
             Start free

@@ -33,6 +33,8 @@ import { ForgotPassword } from "./routes/ForgotPassword";
 import { ResetPassword } from "./routes/ResetPassword";
 import { NotFound } from "./routes/NotFound";
 import { Privacy } from "./routes/Privacy";
+import { Terms } from "./routes/Terms";
+import { Refunds } from "./routes/Refunds";
 import { Extension } from "./routes/Extension";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
@@ -46,6 +48,8 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
+      <Route path="/refunds" element={<Refunds />} />
       <Route path="/extension" element={<Extension />} />
       {/* Public shareable profile — see src/routes/PublicProfile.tsx and
           supabase/migrations/017_public_profiles.sql. Replaces the old

@@ -370,6 +370,14 @@ export function TopNav() {
                     item={{ to: "/privacy", label: "Privacy policy" }}
                     onSelect={closeMenu}
                   />
+                  <MenuLink
+                    item={{ to: "/terms", label: "Terms of service" }}
+                    onSelect={closeMenu}
+                  />
+                  <MenuLink
+                    item={{ to: "/refunds", label: "Refund policy" }}
+                    onSelect={closeMenu}
+                  />
                   <AccountMenuItem icon={LogOut} label="Log out" onClick={handleSignOut} />
                 </div>
               )}
