@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Sparkles } from "lucide-react";
+import { KairosAvatar } from "../ui/KairosAvatar";
 import { AI_NAME, AI_PATH } from "../../config/brand";
 
 /**
@@ -24,7 +24,7 @@ export function AssistantLauncher() {
       title={`Ask ${AI_NAME}`}
       className="btn-press fixed bottom-4 right-4 z-30 inline-flex items-center gap-2 rounded-full bg-cyan-500 p-3.5 text-sm font-semibold text-black shadow-lg ring-1 ring-black/5 transition hover:bg-cyan-400 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] sm:bottom-6 sm:right-6 sm:px-4 sm:py-3"
     >
-      <Sparkles className="h-5 w-5 shrink-0" aria-hidden />
+      <KairosAvatar size={26} className="shrink-0" />
       <span className="hidden sm:inline">{AI_NAME}</span>
     </button>
   );

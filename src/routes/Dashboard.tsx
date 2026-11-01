@@ -56,6 +56,7 @@ import { DashboardSkeleton } from "../components/dashboard/DashboardSkeleton";
 import { toast } from "../components/ui/toast";
 import { isResumeLabUsed } from "../lib/onboarding";
 import { AI_NAME, AI_PATH } from "../config/brand";
+import { KairosAvatar } from "../components/ui/KairosAvatar";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -674,9 +675,7 @@ function AdvisorEntryCard({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       className="group flex w-full items-center gap-4 rounded-xl border border-slate-200 bg-dash-card p-6 text-left transition hover:border-cyan-500/40 hover:shadow-md"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-600">
-        <Sparkles className="h-5 w-5" />
-      </span>
+      <KairosAvatar size={44} className="shrink-0" />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-slate-900">Ask {AI_NAME}</span>

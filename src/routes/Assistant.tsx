@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import { API_BASE } from "../config/api";
 import { AI_NAME } from "../config/brand";
+import { KairosAvatar } from "../components/ui/KairosAvatar";
 import { getApiErrorMessage } from "../lib/apiError";
 
 /**
@@ -84,9 +85,7 @@ export function Assistant() {
           <div>
             <h1 className={pageTitle}>
               <span className="inline-flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-600">
-                  <Sparkles className="h-4 w-4" />
-                </span>
+                <KairosAvatar size={34} state={loading ? "thinking" : "idle"} />
                 {AI_NAME}
               </span>
             </h1>
@@ -179,7 +178,7 @@ export function Assistant() {
                 )}
                 <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
                   <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-cyan-700">
-                    <Sparkles size={12} />
+                    <KairosAvatar size={18} />
                     {AI_NAME}
                   </div>
                   <p className="text-sm leading-relaxed text-slate-800">{answer}</p>

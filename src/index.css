@@ -174,3 +174,39 @@ select:focus-visible {
 .animate-modal-content {
   animation: modalContentIn 0.2s ease-out forwards;
 }
+
+/* Kairos avatar (src/components/ui/KairosAvatar.tsx) */
+@keyframes kairos-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes kairos-spark {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.82);
+    opacity: 0.85;
+  }
+}
+.kairos-orbit {
+  animation: kairos-orbit 14s linear infinite;
+}
+.kairos-orbit-fast {
+  animation-duration: 1.6s;
+}
+.kairos-spark {
+  animation: kairos-spark 4.5s ease-in-out infinite;
+}
+.kairos-spark-fast {
+  animation-duration: 1s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kairos-orbit,
+  .kairos-spark {
+    animation: none;
+  }
+}
