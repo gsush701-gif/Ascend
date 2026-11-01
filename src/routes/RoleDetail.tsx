@@ -14,13 +14,12 @@ import { alignmentToPreparedness } from "../lib/preparedness";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
 import { DarkSelect } from "../components/ui/DarkSelect";
+import { RoleGapsPanel } from "../components/roles/RoleGapsPanel";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { Modal } from "../components/ui/Modal";
 import { useTracker } from "../features/tracker/hooks/useTracker";
 import type { TrackerStatus } from "../types/tracker";
 import { TRACKER_STATUS_ORDER } from "../types/tracker";
-import { MissingSignals } from "../features/analyzer/components/MissingSignals";
-import { ActionsList } from "../features/analyzer/components/ActionsList";
 import { SkillGapHelper } from "../features/analyzer/components/SkillGapHelper";
 import { RoleResumePdfPanel } from "../components/roles/RoleResumePdfPanel";
 import { API_BASE } from "../config/api";
@@ -344,8 +343,6 @@ export function RoleDetail() {
 
   const snap = item.reportSnapshot;
   const alignment = snap?.alignment ?? item.alignment;
-  const missingSignals = snap?.missingSignals ?? [];
-  const actions = snap?.actions ?? [];
   const missingRequiredSkills = (snap?.skills ?? [])
     .filter((s) => s.status === "miss" && (s.importance ?? "required") === "required")
     .map((s) => s.name);
@@ -479,7 +476,7 @@ export function RoleDetail() {
               </Panel>
             )}
 
-            {missingSignals.length > 0 && (
+            {snap && (
               <Panel
                 title={
                   <span className="flex items-center gap-2">
@@ -487,22 +484,13 @@ export function RoleDetail() {
                     Skill gaps
                   </span>
                 }
-                subtitle="Focus on these to improve fit."
+                subtitle="What this job asks for that your resume doesn't show yet."
               >
-                <MissingSignals
-                  signals={missingSignals}
-                  resumeStrength={null}
-                />
+                <RoleGapsPanel item={item} />
               </Panel>
             )}
 
             <SkillGapHelper missingRequiredSkills={missingRequiredSkills} />
-
-            {actions.length > 0 && (
-              <Panel title="Suggested improvements" subtitle="From your last analysis.">
-                <ActionsList actions={actions} />
-              </Panel>
-            )}
 
             {!snap && (
               <Panel>

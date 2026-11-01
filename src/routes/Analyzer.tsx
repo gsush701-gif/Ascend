@@ -578,8 +578,8 @@ export function Analyzer() {
                 )}
 
                 {nextSteps.length > 0 && (
-                  <div className="rounded-xl border border-emerald-300/60 bg-emerald-50/60 p-4">
-                    <div className="text-xs font-medium uppercase tracking-wide text-emerald-700">Your next steps</div>
+                  <div className={cn(cardAlt, "p-4")}>
+                    <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Your next steps</div>
                     <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-slate-800">
                       {nextSteps.map((step) => (
                         <li key={step}>{step}</li>

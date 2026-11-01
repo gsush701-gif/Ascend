@@ -77,7 +77,13 @@ type ReportForSteps = {
  * skills the posting treats as required first, then the most common resume gap,
  * then what to do with the role. Deterministic, so it never invents advice.
  */
-export function buildNextSteps(report: ReportForSteps): string[] {
+export function buildNextSteps(
+  report: ReportForSteps,
+  options: { fixHint?: string } = {},
+): string[] {
+  // Which on-screen control to point at differs by page (the Analyzer has the
+  // "Fix gaps as you go" panel; a role's page has a button to the Analyzer).
+  const fixHint = options.fixHint ?? 'Use "Fix gaps as you go" below.';
   const steps: string[] = [];
   const missing = report.skills.filter((s) => s.status === "miss");
   const required = missing.filter((s) => (s.importance ?? "required") === "required");
@@ -85,7 +91,7 @@ export function buildNextSteps(report: ReportForSteps): string[] {
   if (required.length > 0) {
     const top = required.slice(0, 2).map((s) => s.name);
     steps.push(
-      `Show real evidence of ${joinNames(top)} on your resume: one true bullet${top.length > 1 ? " each" : ""}. Use "Fix gaps as you go" below.`,
+      `Show real evidence of ${joinNames(top)} on your resume: one true bullet${top.length > 1 ? " each" : ""}. ${fixHint}`,
     );
   } else if (missing.length > 0) {
     steps.push(

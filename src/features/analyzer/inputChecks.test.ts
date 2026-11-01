@@ -111,3 +111,15 @@ describe("guessRoleAndCompany", () => {
     expect(guessRoleAndCompany(jd).company).toBeNull();
   });
 });
+
+describe("buildNextSteps hint", () => {
+  it("points at the page-specific control when one is given", () => {
+    const report = {
+      alignment: 60,
+      skills: [{ name: "Docker", status: "miss" as const, importance: "required" }],
+      missingSignals: [],
+    };
+    expect(buildNextSteps(report)[0]).toContain("Fix gaps as you go");
+    expect(buildNextSteps(report, { fixHint: "Use the button below." })[0]).toContain("Use the button below.");
+  });
+});
