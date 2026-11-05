@@ -64,7 +64,12 @@ export function Landing() {
               */}
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Sign in with Google in 10 seconds. You can delete your account and data any time.
+              Sign in with Google in 10 seconds. Free to start, no card needed.
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
+              We never sell your data. Your resume text goes to an AI provider only to
+              produce your result, and you can delete your account and data any time.
+              Beta means we are still improving it, so tell us what is confusing.
             </p>
           </Reveal>
 
@@ -83,6 +88,61 @@ export function Landing() {
             <HeroPreview />
           </Reveal>
           */}
+        </section>
+
+        {/* SAMPLE RESULT — static, clearly labelled illustration of the output */}
+        <section className="mx-auto max-w-3xl">
+          <Reveal>
+            <div className={cn("p-8 text-left", card)}>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-2xl font-semibold tracking-tight">
+                  What you get back
+                </h2>
+                <span className="rounded-full border border-slate-200 bg-slate-900/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                  Example, not a real user
+                </span>
+              </div>
+              <div className="mt-6 grid gap-6 sm:grid-cols-2">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                    Fit score: Software Engineering Intern
+                  </div>
+                  <div className="mt-1 font-display gradient-text text-5xl font-semibold tracking-tight">
+                    62%
+                  </div>
+                  <div className="mt-4 text-xs font-medium text-slate-500">Missing skills</div>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700">
+                    {["Docker", "CI/CD", "Unit testing"].map((s) => (
+                      <span
+                        key={s}
+                        className="rounded-full border border-slate-200 bg-dash-surface px-3 py-1"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-4 text-xs font-medium text-slate-500">Fix first</div>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Add a project that uses automated tests, then list it near the top.
+                  </p>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div className="text-xs font-medium text-slate-500">Resume Lab rewrite</div>
+                  <div className="rounded-xl border border-slate-200 bg-dash-surface p-3 text-slate-600">
+                    <span className="text-[10px] uppercase tracking-wide text-slate-400">Before</span>
+                    <p className="mt-1">Worked on a website for a club.</p>
+                  </div>
+                  <div className="rounded-xl border border-cyan-200 bg-cyan-500/5 p-3 text-slate-800">
+                    <span className="text-[10px] uppercase tracking-wide text-cyan-600">After</span>
+                    <p className="mt-1">
+                      Built and launched a React site for a 60-member club, replacing a
+                      spreadsheet and cutting sign-up time from days to minutes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Reveal>
         </section>
 
         {/* PROBLEM → SOLUTION */}
