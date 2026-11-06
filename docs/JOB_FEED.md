@@ -56,6 +56,7 @@ Greenhouse postings carry their own company name, which is used when present.
 
 ## Limits
 
+- Postings first published more than a year ago are left out, because some boards leave old postings open for years.
 - Only companies on these three systems, and only those in the list. Employers on
   Workday, Taleo and similar are not covered.
 - No salary or visa-sponsorship data comes from these boards, so those filters are

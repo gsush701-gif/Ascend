@@ -15,6 +15,8 @@
 const { ADAPTERS, fetchJson: defaultFetchJson } = require("./feeds");
 const defaultBoards = require("../../data/jobBoards.json");
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_POSTING_AGE_DAYS = 365;
 const UPSERT_CHUNK = 100;
 const DETAIL_CONCURRENCY = 3;
 const BOARD_CONCURRENCY = 4;
@@ -40,7 +42,18 @@ async function pool(items, limit, fn) {
 }
 
 function emptyStats(board) {
-  return { board: board.name, ats: board.ats, ok: false, listed: 0, matched: 0, saved: 0, unchanged: 0, closed: 0, error: null };
+  return {
+    board: board.name,
+    ats: board.ats,
+    ok: false,
+    listed: 0,
+    matched: 0,
+    tooOld: 0,
+    saved: 0,
+    unchanged: 0,
+    closed: 0,
+    error: null,
+  };
 }
 
 async function syncBoard(board, { fetchJson, store, nowIso }) {
@@ -65,7 +78,18 @@ async function syncBoard(board, { fetchJson, store, nowIso }) {
 
   stats.ok = true;
   stats.listed = list.length;
-  const wanted = list.filter((job) => adapter.classify(job));
+  // Some boards leave postings open for years. Anything posted more than a year
+  // ago is treated as stale: not saved, and closed if it was saved before.
+  const cutoffMs = Date.parse(nowIso) - MAX_POSTING_AGE_DAYS * DAY_MS;
+  const wanted = list.filter((job) => {
+    if (!adapter.classify(job)) return false;
+    const posted = adapter.postedAt(job);
+    if (posted && Date.parse(posted) < cutoffMs) {
+      stats.tooOld += 1;
+      return false;
+    }
+    return true;
+  });
   stats.matched = wanted.length;
 
   const known = await store.loadKnown(adapter.source, board.token);
@@ -77,7 +101,7 @@ async function syncBoard(board, { fetchJson, store, nowIso }) {
     const needDetail = [];
     for (const job of wanted) {
       const id = adapter.externalId(board.token, job);
-      const version = adapter.version(job);
+      const version = adapter.version(job, board);
       if (known.has(id) && version && known.get(id) === version) unchangedIds.push(id);
       else needDetail.push(job);
     }
@@ -163,6 +187,7 @@ async function syncBoards({
     incomplete,
     listed: sum("listed"),
     matched: sum("matched"),
+    tooOld: sum("tooOld"),
     saved: sum("saved"),
     unchanged: sum("unchanged"),
     closed: sum("closed"),

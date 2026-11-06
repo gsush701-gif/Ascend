@@ -100,7 +100,7 @@ describe("board adapters", () => {
     expect(out).toMatchObject({
       externalId: "spacex:8621770002",
       boardToken: "spacex",
-      sourceUpdatedAt: "2026-11-04T18:30:16-05:00",
+      sourceUpdatedAt: "2026-11-04T18:30:16-05:00|SpaceX",
       company: "SpaceX",
       description: "Build rockets with Python",
       url: "https://boards.greenhouse.io/spacex/jobs/8621770002",
@@ -110,6 +110,19 @@ describe("board adapters", () => {
     });
     expect(out.postedAt).toBe("2026-08-03T17:40:16.000Z");
     expect(out.deadline).toBeUndefined();
+  });
+
+  it("uses our company name even when Greenhouse's own name is wrong or a legal name", () => {
+    const job = { id: 1, title: "SWE Intern", company_name: "Rubrik Job Board", absolute_url: "https://x" };
+    const out = ADAPTERS.greenhouse.toJob({ name: "Rubrik", ats: "greenhouse", token: "rubrik" }, job, { content: "" });
+    expect(out.company).toBe("Rubrik");
+  });
+
+  it("re-saves a company's postings after its display name is corrected", () => {
+    const job = { id: 1, title: "SWE Intern", updated_at: "2026-11-04" };
+    const before = ADAPTERS.greenhouse.version(job, { name: "Rubrik Job Board" });
+    const after = ADAPTERS.greenhouse.version(job, { name: "Rubrik" });
+    expect(before).not.toBe(after);
   });
 
   it("maps a Lever posting, including its requirement lists", () => {
@@ -237,7 +250,7 @@ describe("syncBoards", () => {
   });
 
   it("does not re-download a Greenhouse posting that has not changed", async () => {
-    const store = fakeStore({ "Greenhouse:acme": { "acme:1": "v1" } });
+    const store = fakeStore({ "Greenhouse:acme": { "acme:1": "v1|Acme" } });
     const fetched = [];
     const fetchJsonFake = async (url) => {
       fetched.push(url);
@@ -250,16 +263,16 @@ describe("syncBoards", () => {
   });
 
   it("re-downloads an edited posting", async () => {
-    const store = fakeStore({ "Greenhouse:acme": { "acme:1": "v1" } });
+    const store = fakeStore({ "Greenhouse:acme": { "acme:1": "v1|Acme" } });
     const fetchJsonFake = async (url) =>
       url.endsWith("/jobs") ? { jobs: [ghJob(1, "SWE Intern", "v2")] } : { content: "new" };
     const summary = await syncBoards({ boards: [ghBoard], fetchJson: fetchJsonFake, store });
     expect(summary).toMatchObject({ saved: 1, unchanged: 0 });
-    expect(store.calls.upserts[0].sourceUpdatedAt).toBe("v2");
+    expect(store.calls.upserts[0].sourceUpdatedAt).toBe("v2|Acme");
   });
 
   it("keeps an already-saved posting open when its detail download fails", async () => {
-    const store = fakeStore({ "Greenhouse:acme": { "acme:1": "v1" } });
+    const store = fakeStore({ "Greenhouse:acme": { "acme:1": "v1|Acme" } });
     const fetchJsonFake = async (url) => {
       if (url.endsWith("/jobs")) return { jobs: [ghJob(1, "SWE Intern", "v2"), ghJob(4, "ML Intern", "v1")] };
       throw new Error("boom");
@@ -280,6 +293,23 @@ describe("syncBoards", () => {
     expect(summary.failures[0]).toMatchObject({ board: "Acme", error: "HTTP 500" });
     expect(store.calls.closed).toEqual([]);
     expect(store.calls.upserts).toEqual([]);
+  });
+
+  it("leaves out postings more than a year old, and closes them if they were saved before", async () => {
+    const store = fakeStore();
+    const fetchJsonFake = async (url) =>
+      url.endsWith("/jobs")
+        ? {
+            jobs: [
+              { ...ghJob(1, "SWE Intern"), first_published: "2020-03-01T00:00:00Z" },
+              { ...ghJob(2, "ML Intern"), first_published: new Date().toISOString() },
+            ],
+          }
+        : { content: "desc" };
+    const summary = await syncBoards({ boards: [ghBoard], fetchJson: fetchJsonFake, store });
+    expect(summary).toMatchObject({ matched: 1, tooOld: 1, saved: 1 });
+    expect(store.calls.upserts.map((r) => r.externalId)).toEqual(["acme:2"]);
+    expect(store.calls.closed).toEqual(["Greenhouse:acme"]); // the old one is not touched, so it gets closed
   });
 
   it("does not close anything when a board lists no postings at all", async () => {

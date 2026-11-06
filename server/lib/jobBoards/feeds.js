@@ -47,17 +47,24 @@ const greenhouse = {
   detailUrl: (token, job) => `https://boards-api.greenhouse.io/v1/boards/${enc(token)}/jobs/${enc(String(job.id))}`,
   parseList: (data) => (data && Array.isArray(data.jobs) ? data.jobs : null),
   classify: (job) => classifyEarlyCareer({ title: job.title }),
+  postedAt: (job) => isoOrUndefined(job.first_published || job.updated_at),
   externalId: (token, job) => `${token}:${job.id}`,
-  /** Changes whenever the company edits the posting, so unchanged ones need no re-download. */
-  version: (job) => (job.updated_at ? String(job.updated_at) : null),
+  /**
+   * Changes whenever the company edits the posting, so unchanged ones need no
+   * re-download. It includes our display name for the company, so correcting a
+   * name in the board list re-saves that company's postings on the next run.
+   */
+  version: (job, board) => (job.updated_at ? `${job.updated_at}|${board.name}` : null),
   toJob(board, job, detail) {
     const level = this.classify(job);
     const location = job.location && job.location.name;
     return {
       externalId: this.externalId(board.token, job),
       boardToken: board.token,
-      sourceUpdatedAt: this.version(job),
-      company: job.company_name || board.name,
+      sourceUpdatedAt: this.version(job, board),
+      // Always our curated name: Greenhouse's own company_name is sometimes a
+      // legal name ("Gusto, Inc.") or wrong ("Rubrik Job Board").
+      company: board.name,
       title: job.title,
       description: htmlToText(detail && detail.content),
       url: job.absolute_url,
@@ -78,6 +85,7 @@ const lever = {
   detailUrl: null,
   parseList: (data) => (Array.isArray(data) ? data : null),
   classify: (job) => classifyEarlyCareer({ title: job.text, employmentType: job.categories && job.categories.commitment }),
+  postedAt: (job) => isoOrUndefined(job.createdAt),
   externalId: (token, job) => `${token}:${job.id}`,
   version: () => null,
   toJob(board, job) {
@@ -113,6 +121,7 @@ const ashby = {
   detailUrl: null,
   parseList: (data) => (data && Array.isArray(data.jobs) ? data.jobs.filter((j) => j.isListed !== false) : null),
   classify: (job) => classifyEarlyCareer({ title: job.title, employmentType: job.employmentType }),
+  postedAt: (job) => isoOrUndefined(job.publishedAt),
   externalId: (token, job) => `${token}:${job.id}`,
   version: () => null,
   toJob(board, job) {
