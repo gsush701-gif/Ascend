@@ -60,7 +60,7 @@ import { KairosAvatar } from "../components/ui/KairosAvatar";
 export function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
   const { tracker: items, addManualTrackerItem } = useTracker(undefined);
   const { profile, loading: profileLoading } = useProfile();
@@ -87,11 +87,11 @@ export function Dashboard() {
     return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    if (!loading && !profileLoading && profile && !profile.major) {
-      setShowOnboarding(true);
-    }
-  }, [loading, profileLoading, profile]);
+  // Ask about major / target role only after the person has a role tracked, so
+  // a new account's first screen shows the product, not a form. (They can still
+  // skip it, and skipping stores a value so it never comes back.)
+  const showOnboarding =
+    !onboardingDismissed && !loading && !profileLoading && !!profile && !profile.major && items.length > 0;
 
   const totalApplications = getApplicationsSentCount(items);
   const interviewRate = getResponseRate(items);
@@ -117,7 +117,7 @@ export function Dashboard() {
         existingItems={items}
       />
       {showOnboarding && (
-        <OnboardingModal onComplete={() => setShowOnboarding(false)} />
+        <OnboardingModal onComplete={() => setOnboardingDismissed(true)} />
       )}
 
       <div className="space-y-6">

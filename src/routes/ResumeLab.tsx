@@ -19,6 +19,7 @@ import { extractTextFromPdf } from "../lib/pdf";
 import { supabase } from "../lib/supabaseClient";
 import { getApiErrorMessage } from "../lib/apiError";
 import { ResumesBody } from "./Resumes";
+import { WakingNotice } from "../components/ui/WakingNotice";
 
 const HISTORY_KEY = "internos_resume_lab_history_v1";
 const HISTORY_MAX = 20;
@@ -483,11 +484,7 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
                   </>
                 )}
               </Button>
-              {loading && slowRequest && (
-                <p className="text-xs text-slate-500">
-                  Still working — the server may be waking up from idle, this can take up to a minute.
-                </p>
-              )}
+              {loading && slowRequest && <WakingNotice />}
             </section>
 
             {/* Output */}

@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { warmBackend } from "../../lib/warmBackend";
 import { EXTENSION_STORE_URL } from "../../config/extension";
 import { BackgroundFX } from "./BackgroundFX";
 import { PublicNav } from "./PublicNav";
@@ -9,6 +11,11 @@ type PublicShellProps = {
 };
 
 export function PublicShell({ children }: PublicShellProps) {
+  // Start waking the sleeping backend while the visitor is still reading.
+  useEffect(() => {
+    warmBackend();
+  }, []);
+
   return (
     // overflow-x-clip: decorative glows must never widen the page on a phone.
     <div className="min-h-screen overflow-x-clip bg-[#F4F5FA] text-slate-900">

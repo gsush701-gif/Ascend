@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { warmBackend } from "../../lib/warmBackend";
 import { BackgroundFX } from "./BackgroundFX";
 import { TopNav } from "./TopNav";
 import { AssistantLauncher } from "./AssistantLauncher";
@@ -9,6 +11,10 @@ type AppShellProps = {
 };
 
 export function AppShell({ children }: AppShellProps) {
+  useEffect(() => {
+    warmBackend();
+  }, []);
+
   return (
     <div className="min-h-screen overflow-x-clip bg-[#F4F5FA] text-slate-900">
       <BackgroundFX />

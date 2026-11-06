@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PublicShell } from "../components/layout/PublicShell";
 import { Button } from "../components/ui/Button";
+import { WakingNotice } from "../components/ui/WakingNotice";
 import { ResumeDropzone } from "../features/analyzer/components/ResumeDropzone";
 import { useAnalyzer } from "../features/analyzer/hooks/useAnalyzer";
 import {
@@ -153,11 +154,7 @@ export function Try() {
             {a.loading ? "Analyzing…" : "See my fit score"}
           </Button>
 
-          {a.loading && a.slowRequest && (
-            <p className="text-center text-xs text-slate-500">
-              Still working. The first run can take up to a minute while the server wakes up.
-            </p>
-          )}
+          {a.loading && a.slowRequest && <WakingNotice />}
           {a.analyzeError && (
             <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
               {a.analyzeError}{" "}

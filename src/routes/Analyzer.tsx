@@ -32,6 +32,7 @@ import type { ResumeAddition } from "../features/analyzer/additions";
 import { ResumeDropzone } from "../features/analyzer/components/ResumeDropzone";
 import { isDocxFile } from "../lib/docx";
 import { kindOfFile, mimeFor } from "../lib/resumeFile";
+import { WakingNotice } from "../components/ui/WakingNotice";
 import type { TrackerStatus } from "../types/tracker";
 import { buildNextSteps, guessRoleAndCompany, jdHint } from "../features/analyzer/inputChecks";
 import {
@@ -559,11 +560,7 @@ export function Analyzer() {
                 </p>
               )}
 
-              {loading && slowRequest && (
-                <p className="text-xs text-slate-500">
-                  Still working — the server may be waking up from idle, this can take up to a minute.
-                </p>
-              )}
+              {loading && slowRequest && <WakingNotice />}
 
               {analyzeError && (
                 <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-sm text-red-700">
