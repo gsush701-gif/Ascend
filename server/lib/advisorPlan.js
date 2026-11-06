@@ -242,6 +242,49 @@ function roleSignals(row, now) {
   return out;
 }
 
+function joinList(items) {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/**
+ * The "new match" item: a fresh posting from the job feed that fits this
+ * student (picked by server/lib/newMatch.js). Every number and name in it comes
+ * from the posting and the matcher. `trackJob` carries what the page needs to
+ * add it to their roles with one click.
+ */
+function newMatchItem(m, now) {
+  const { job } = m;
+  const when = m.daysAgo === 0 ? "today" : m.daysAgo === 1 ? "yesterday" : `${m.daysAgo} days ago`;
+  const matched = m.matchedSkills || [];
+  const missing = m.missingSkills || [];
+  const have = joinList(matched.slice(0, 4));
+  const total = m.skillsConsidered || matched.length + missing.length;
+
+  // Said as what the student has, not as a percentage: a "100%" built from three
+  // recognised skills would overclaim.
+  let why = `Posted ${when}.`;
+  if (matched.length > 0 && missing.length === 0) {
+    why += ` You have all ${total} skills it lists: ${have}.`;
+  } else if (matched.length > 0) {
+    why += ` You have ${matched.length} of the ${total} skills it lists (${have}), and it also asks for ${joinList(missing.slice(0, 2))}.`;
+  }
+  const where = job.location ? job.location.split(" • ").slice(0, 2).join(" • ") : "";
+  if (where) why += ` Location: ${where}.`;
+  const closes = parseDate(job.deadline);
+  if (closes && daysFromNow(closes, now) >= 0) why += ` Closes ${shortDate(closes)}.`;
+  return {
+    id: `new-match:${job.id}`,
+    signal: "new-match",
+    priority: 62,
+    roleId: null,
+    title: `${job.title} at ${job.company}`,
+    why,
+    action: { label: "Track it", path: "/jobs" },
+    trackJob: job,
+  };
+}
+
 function goalSignals(goal, rows, now) {
   const out = [];
   if (!goal) {
@@ -291,10 +334,11 @@ function goalSignals(goal, rows, now) {
  * @param {Array<object>} input.roles raw `roles` rows
  * @param {object|null} [input.goal] the student's current (most recent) career goal row
  * @param {number} [input.resumeCount] how many saved resumes they have
+ * @param {object|null} [input.jobMatch] the best fresh posting for them, from pickNewMatch
  * @param {Date} [input.now]
  * @returns {{ items: object[], thin: boolean, roleCount: number }}
  */
-function computePlan({ roles = [], goal = null, resumeCount = 0, now = new Date() } = {}) {
+function computePlan({ roles = [], goal = null, resumeCount = 0, jobMatch = null, now = new Date() } = {}) {
   const rows = Array.isArray(roles) ? roles : [];
   const all = [];
 
@@ -332,7 +376,11 @@ function computePlan({ roles = [], goal = null, resumeCount = 0, now = new Date(
     );
   }
 
-  if (rows.length === 0) {
+  if (jobMatch && jobMatch.job) all.push(newMatchItem(jobMatch, now));
+
+  // With no roles yet, a real matching posting is a better first step than the
+  // generic "start with one posting".
+  if (rows.length === 0 && !(jobMatch && jobMatch.job)) {
     all.push(
       item(
         "first-role",
@@ -344,7 +392,7 @@ function computePlan({ roles = [], goal = null, resumeCount = 0, now = new Date(
         "/analyzer",
       ),
     );
-  } else {
+  } else if (rows.length > 0) {
     // Applications in the last two weeks: too few, and there are saved roles waiting.
     const since = now.getTime() - THIN_PIPELINE_WINDOW_DAYS * DAY_MS;
     const recentApplied = rows.filter((r) => {

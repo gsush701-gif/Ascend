@@ -315,6 +315,38 @@ function computeOverallScore(components) {
   return round(weightedSum / weightTotal);
 }
 
+/** A `jobs` table row as the camelCase shape computeJobMatch expects. */
+function jobRowToMatchJob(row) {
+  return {
+    title: row.title,
+    description: row.description ?? undefined,
+    location: row.location ?? undefined,
+    remoteType: row.remote_type ?? undefined,
+    sponsorship: row.sponsorship ?? undefined,
+    salaryMin: row.salary_min ?? undefined,
+    salaryMax: row.salary_max ?? undefined,
+    experienceLevel: row.experience_level ?? undefined,
+  };
+}
+
+/**
+ * The student side of a match: skills read from their resume text, plus the
+ * target role and the work-authorization and location preferences on their
+ * profile. Used by the Recommendations tab and by the "This week" card so both
+ * score a posting the same way.
+ */
+function buildMatchProfile(profileRow, resumeText) {
+  const row = profileRow || {};
+  return {
+    skills: resumeText ? extractSkills(resumeText) : [],
+    targetRole: row.target_role || undefined,
+    workAuthorization: row.work_authorization || undefined,
+    requiresSponsorship: row.requires_sponsorship ?? undefined,
+    preferredLocations: row.preferred_locations || undefined,
+    remotePreference: row.remote_preference || undefined,
+  };
+}
+
 /**
  * Sort key for ordering a list of recommendations. The score shown to the
  * student is never changed; this only decides the order. A posting that names
@@ -381,6 +413,8 @@ function computeJobMatch(profile, job) {
 
 module.exports = {
   rankValue,
+  jobRowToMatchJob,
+  buildMatchProfile,
   MATCH_WEIGHTS,
   EXPERIENCE_LEVEL_ORDER,
   locationsMatch,

@@ -3,6 +3,21 @@ import { API_BASE } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 import { getApiErrorMessage } from "../../lib/apiError";
 
+/** A posting from the job feed, as the "new match" item carries it. */
+export type AdvisorJob = {
+  id: string;
+  company: string;
+  title: string;
+  url: string | null;
+  source: string | null;
+  location: string | null;
+  remoteType: string | null;
+  employmentType: string | null;
+  deadline: string | null;
+  postedAt: string;
+  description: string | null;
+};
+
 export type AdvisorItem = {
   id: string;
   signal: string;
@@ -11,6 +26,8 @@ export type AdvisorItem = {
   title: string;
   why: string;
   action: { label: string; path: string };
+  /** Present on a "new match" item: the posting, so it can be tracked in one click. */
+  trackJob?: AdvisorJob;
 };
 
 export type AdvisorPlan = {

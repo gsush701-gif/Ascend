@@ -12,6 +12,7 @@ import { AI_NAME } from "../config/brand";
 import { KairosAvatar } from "../components/ui/KairosAvatar";
 import { getApiErrorMessage } from "../lib/apiError";
 import { ThisWeekCard } from "../features/advisor/ThisWeekCard";
+import { trackAdvisorJob } from "../features/advisor/trackJob";
 
 /**
  * Standalone home for the AI career advisor. This is a new,
@@ -37,7 +38,7 @@ const SUGGESTED_QUESTIONS = [
 
 export function Assistant() {
   const { session } = useAuth();
-  const { tracker } = useTracker(undefined);
+  const { tracker, addManualTrackerItem, updateRoleFields } = useTracker(undefined);
 
   const [roleId, setRoleId] = useState("");
   const [question, setQuestion] = useState("");
@@ -96,7 +97,7 @@ export function Assistant() {
           </div>
         </header>
 
-        <ThisWeekCard />
+        <ThisWeekCard onTrackJob={(job) => trackAdvisorJob({ addManualTrackerItem, updateRoleFields }, job)} />
 
         <Panel>
           <div className="space-y-4">

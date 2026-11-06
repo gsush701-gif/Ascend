@@ -89,13 +89,14 @@ const {
 const { parsePagination, buildPageResult } = require("./lib/pagination");
 const { parseFeedback } = require("./lib/feedback");
 const { computePlan } = require("./lib/advisorPlan");
+const { pickNewMatch, FRESH_DAYS: NEW_MATCH_FRESH_DAYS } = require("./lib/newMatch");
 const { createJobSyncRunner } = require("./lib/jobBoards/sync");
 const { createJobsStore } = require("./lib/jobBoards/store");
 const jobBoardList = require("./data/jobBoards.json");
 const { runWeeklyReportJob } = require("./lib/weeklyReport");
 const { sendWeeklyReportEmail } = require("./lib/resend");
 const { activeProvider: activeJobProvider, isJobProviderConfigured } = require("./lib/jobProviders");
-const { computeJobMatch, rankValue } = require("./lib/jobMatching");
+const { computeJobMatch, rankValue, jobRowToMatchJob, buildMatchProfile } = require("./lib/jobMatching");
 const github = require("./lib/github");
 const { encryptToken, decryptToken } = require("./lib/tokenCrypto");
 const { computeProjectMatch } = require("./lib/projectMatching");
@@ -314,6 +315,28 @@ const advisorPlanLimiter = createRateLimiter({
   keyPrefix: "advisor-plan",
 });
 
+// Recent open postings for the "new match" item. The same list serves every
+// student, so it is read once and kept for a few minutes instead of re-reading a
+// few hundred descriptions on each dashboard load.
+const RECENT_JOBS_TTL_MS = 10 * 60 * 1000;
+let recentJobsCache = { at: 0, rows: [] };
+async function getRecentOpenJobs() {
+  if (Date.now() - recentJobsCache.at < RECENT_JOBS_TTL_MS) return recentJobsCache.rows;
+  const cutoff = new Date(Date.now() - NEW_MATCH_FRESH_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from("jobs")
+    .select(
+      "id, company, title, description, url, source, location, remote_type, employment_type, experience_level, posted_at, deadline",
+    )
+    .eq("active", true)
+    .gte("posted_at", cutoff)
+    .order("posted_at", { ascending: false })
+    .limit(400);
+  if (error) throw error;
+  recentJobsCache = { at: Date.now(), rows: data || [] };
+  return recentJobsCache.rows;
+}
+
 // GET /api/public-profile/:slug is unauthenticated by design (anyone with a
 // link can view a public profile) and cheap (a couple of indexed reads, no
 // AI call) — same shape of concern as /api/track above, not the Groq-cost
@@ -428,6 +451,7 @@ const TRACKABLE_EVENT_TYPES = new Set([
   "advisor_plan_viewed",
   "advisor_item_clicked",
   "advisor_item_dismissed",
+  "advisor_job_tracked",
 ]);
 
 /**
@@ -2290,7 +2314,7 @@ app.get("/api/advisor/plan", advisorPlanLimiter, optionalAuth, async (req, res) 
         userId,
         token,
         columns:
-          "id, company, role, status, alignment, created_at, updated_at, deadline, deadline_at, follow_up_at, interview_at, applied_at, priority, report_snapshot, cover_letter",
+          "id, company, role, status, alignment, created_at, updated_at, deadline, deadline_at, follow_up_at, interview_at, applied_at, priority, report_snapshot, cover_letter, job_id",
         limit: 300,
         orderBy: "updated_at",
       }),
@@ -2308,10 +2332,48 @@ app.get("/api/advisor/plan", advisorPlanLimiter, optionalAuth, async (req, res) 
     const firstError = rolesRes.error || goalsRes.error || resumesRes.error;
     if (firstError) throw new Error(firstError);
 
+    // A fresh posting that fits them, for students who have a resume. Best effort:
+    // if anything here fails, the rest of the plan is still returned.
+    let jobMatch = null;
+    if (supabaseAdmin && resumesRes.rows.length > 0) {
+      try {
+        const [profileRes, resumeTextRes, dismissedRes, recentJobs] = await Promise.all([
+          supabaseAdmin
+            .from("profiles")
+            .select("target_role, work_authorization, requires_sponsorship, preferred_locations, remote_preference")
+            .eq("id", userId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from("resumes")
+            .select("extracted_text")
+            .eq("user_id", userId)
+            .is("deleted_at", null)
+            .order("is_default", { ascending: false })
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabaseAdmin.from("dismissed_jobs").select("job_id").eq("user_id", userId),
+          getRecentOpenJobs(),
+        ]);
+        for (const r of [profileRes, resumeTextRes, dismissedRes]) if (r.error) throw r.error;
+        const roleKey = (r) => `${(r.company || "").trim().toLowerCase()}|${(r.role || "").trim().toLowerCase()}`;
+        jobMatch = pickNewMatch({
+          jobs: recentJobs,
+          profile: buildMatchProfile(profileRes.data, resumeTextRes.data && resumeTextRes.data.extracted_text),
+          dismissedIds: new Set((dismissedRes.data || []).map((r) => r.job_id)),
+          trackedJobIds: new Set(rolesRes.rows.map((r) => r.job_id).filter(Boolean)),
+          trackedKeys: new Set(rolesRes.rows.map(roleKey)),
+        });
+      } catch (err) {
+        console.warn("[advisor/plan] new match skipped:", err && err.message ? err.message : err);
+      }
+    }
+
     const plan = computePlan({
       roles: rolesRes.rows,
       goal: goalsRes.rows[0] || null,
       resumeCount: resumesRes.rows.length,
+      jobMatch,
     });
     return res.json({ ...plan, generatedAt: new Date().toISOString() });
   } catch (err) {
@@ -2392,20 +2454,6 @@ app.get("/api/jobs/search", jobsLimiter, optionalAuth, async (req, res) => {
   }
 });
 
-/** Row -> camelCase MatchJob shape jobMatching.js's computeJobMatch expects. */
-function jobRowToMatchJob(row) {
-  return {
-    title: row.title,
-    description: row.description ?? undefined,
-    location: row.location ?? undefined,
-    remoteType: row.remote_type ?? undefined,
-    sponsorship: row.sponsorship ?? undefined,
-    salaryMin: row.salary_min ?? undefined,
-    salaryMax: row.salary_max ?? undefined,
-    experienceLevel: row.experience_level ?? undefined,
-  };
-}
-
 app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res) => {
   if (!req.user) {
     return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
@@ -2440,15 +2488,7 @@ app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res)
     if (resumeError) throw resumeError;
     if (dismissedError) throw dismissedError;
 
-    const resumeSkills = resumeRow?.extracted_text ? extractSkills(resumeRow.extracted_text) : [];
-    const profile = {
-      skills: resumeSkills,
-      targetRole: profileRow?.target_role || undefined,
-      workAuthorization: profileRow?.work_authorization || undefined,
-      requiresSponsorship: profileRow?.requires_sponsorship ?? undefined,
-      preferredLocations: profileRow?.preferred_locations || undefined,
-      remotePreference: profileRow?.remote_preference || undefined,
-    };
+    const profile = buildMatchProfile(profileRow, resumeRow?.extracted_text);
 
     const dismissedJobIds = new Set((dismissedRows || []).map((r) => r.job_id));
 

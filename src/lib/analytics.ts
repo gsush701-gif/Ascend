@@ -18,7 +18,8 @@ export type TrackedEvent =
   | "try_signup_clicked"
   | "advisor_plan_viewed"
   | "advisor_item_clicked"
-  | "advisor_item_dismissed";
+  | "advisor_item_dismissed"
+  | "advisor_job_tracked";
 
 const VISITOR_KEY = "ascend.vid";
 

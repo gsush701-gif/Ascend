@@ -49,13 +49,14 @@ import { isResumeLabUsed } from "../lib/onboarding";
 import { AI_NAME, AI_PATH } from "../config/brand";
 import { KairosAvatar } from "../components/ui/KairosAvatar";
 import { ThisWeekCard } from "../features/advisor/ThisWeekCard";
+import { trackAdvisorJob } from "../features/advisor/trackJob";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [onboardingDismissed, setOnboardingDismissed] = useState(false);
 
-  const { tracker: items, addManualTrackerItem } = useTracker(undefined);
+  const { tracker: items, addManualTrackerItem, updateRoleFields } = useTracker(undefined);
   const { profile, loading: profileLoading } = useProfile();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
@@ -143,7 +144,7 @@ export function Dashboard() {
               </div>
             </header>
 
-            <ThisWeekCard />
+            <ThisWeekCard onTrackJob={(job) => trackAdvisorJob({ addManualTrackerItem, updateRoleFields }, job)} />
 
             <OnboardingChecklist
               rolesCount={items.length}
@@ -204,7 +205,7 @@ export function Dashboard() {
           </div>
         </header>
 
-        <ThisWeekCard />
+        <ThisWeekCard onTrackJob={(job) => trackAdvisorJob({ addManualTrackerItem, updateRoleFields }, job)} />
 
         <div className="grid gap-6 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-7">
