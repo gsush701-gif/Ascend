@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
   ChevronDown,
@@ -195,12 +195,31 @@ export function Analyzer() {
       const blob = await res.blob();
       setResume(new File([blob], EXAMPLE_RESUME_NAME, { type: "application/pdf" }), "example");
       setJd(EXAMPLE_JOB_DESCRIPTION);
+      return true;
     } catch {
       toast.error({ title: "Couldn't load the example", description: "Check your connection and try again." });
+      return false;
     } finally {
       setLoadingExample(false);
     }
   };
+
+  // Arriving from the landing page's "See an example" button (?example=1): load
+  // the example straight away so a first-time visitor only has to press Analyze.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const exampleRequested = useRef(false);
+  useEffect(() => {
+    if (searchParams.get("example") !== "1" || exampleRequested.current) return;
+    exampleRequested.current = true;
+    const params = new URLSearchParams(searchParams);
+    params.delete("example");
+    setSearchParams(params, { replace: true });
+    if (resume || jd.trim()) return;
+    void handleTryExample().then((loaded) => {
+      if (loaded) toast.success({ title: "Example loaded", description: "Press Analyze to see the fit score." });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const nextSteps = report ? buildNextSteps(report) : [];
 

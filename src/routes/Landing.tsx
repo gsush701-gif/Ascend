@@ -54,6 +54,11 @@ export function Landing() {
                   Check my resume, free
                 </Button>
               </Link>
+              <Link to="/analyzer?example=1" className="w-full sm:w-auto">
+                <Button variant="secondary" className="w-full">
+                  See it on an example
+                </Button>
+              </Link>
               {/* Product preview temporarily disabled — see the commented-out
                   "PRODUCT PREVIEW MOCKUP" section and HeroPreview below.
               <a href="#preview" className="w-full sm:w-auto">

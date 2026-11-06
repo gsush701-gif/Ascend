@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { PublicShell } from "../components/layout/PublicShell";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -11,6 +11,12 @@ import { OAuthButtons } from "../components/auth/OAuthButtons";
 export function Signup() {
   const { user, loading: authLoading, signUp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Where to go once signed up (e.g. the Analyze page with the example loaded).
+  // Only a path on this site is accepted.
+  const rawNext = searchParams.get("next") ?? "";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
+  const nextQuery = next === "/dashboard" ? "" : `?next=${encodeURIComponent(next)}`;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,8 +32,8 @@ export function Signup() {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user) navigate("/dashboard", { replace: true });
-  }, [authLoading, user, navigate]);
+    if (!authLoading && user) navigate(next, { replace: true });
+  }, [authLoading, user, navigate, next]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,7 +70,7 @@ export function Signup() {
             We sent a confirmation link to <span className="text-slate-800">{email}</span>.
             Confirm your email, then log in.
           </p>
-          <Link to="/login" className="block">
+          <Link to={`/login${nextQuery}`} className="block">
             <Button variant="primary" className="w-full">
               Go to login
             </Button>
@@ -142,7 +148,7 @@ export function Signup() {
           {submitting ? "Creating account…" : "Get started"}
         </Button>
 
-        <OAuthButtons />
+        <OAuthButtons next={next} />
 
         <p className="text-center text-xs text-slate-400">
           By creating an account you agree to our{" "}
@@ -158,7 +164,7 @@ export function Signup() {
 
         <p className="text-center text-xs text-slate-400">
           Already have an account?{" "}
-          <Link to="/login" className="text-slate-600 underline hover:text-slate-900">
+          <Link to={`/login${nextQuery}`} className="text-slate-600 underline hover:text-slate-900">
             Log in
           </Link>
         </p>

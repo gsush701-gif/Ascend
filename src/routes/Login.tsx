@@ -142,7 +142,10 @@ export function Login() {
 
         <p className="text-center text-xs text-slate-400">
           Don&apos;t have an account?{" "}
-          <Link to="/signup" className="text-slate-600 underline hover:text-slate-900">
+          <Link
+            to={searchParams.get("next") ? `/signup?next=${encodeURIComponent(next)}` : "/signup"}
+            className="text-slate-600 underline hover:text-slate-900"
+          >
             Start free
           </Link>
         </p>
