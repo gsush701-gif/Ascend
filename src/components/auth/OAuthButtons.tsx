@@ -43,7 +43,18 @@ import { cn } from "../../lib/cn";
  * broken button, but jarring enough that the owner should configure both
  * providers (or hide these buttons) before announcing this feature.
  */
-export function OAuthButtons({ next }: { next?: string }) {
+export function OAuthButtons({
+  next,
+  position = "below",
+}: {
+  next?: string;
+  /**
+   * "below" (default) puts the "or continue with" divider on top, for use after
+   * an email form. "above" puts the buttons first with an "or with email"
+   * divider underneath, for use before the form.
+   */
+  position?: "below" | "above";
+}) {
   const [pending, setPending] = useState<"google" | "github" | null>(null);
 
   const handleOAuth = async (provider: "google" | "github") => {
@@ -61,13 +72,17 @@ export function OAuthButtons({ next }: { next?: string }) {
     }
   };
 
+  const divider = (text: string) => (
+    <div className="flex items-center gap-3">
+      <div className="h-px flex-1 bg-slate-200" />
+      <span className="text-xs text-slate-400">{text}</span>
+      <div className="h-px flex-1 bg-slate-200" />
+    </div>
+  );
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-slate-200" />
-        <span className="text-xs text-slate-400">or continue with</span>
-        <div className="h-px flex-1 bg-slate-200" />
-      </div>
+      {position === "below" && divider("or continue with")}
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -92,6 +107,7 @@ export function OAuthButtons({ next }: { next?: string }) {
           <span className="ml-1.5">GitHub</span>
         </button>
       </div>
+      {position === "above" && divider("or with email")}
     </div>
   );
 }

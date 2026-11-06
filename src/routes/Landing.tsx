@@ -24,9 +24,9 @@ import { cn } from "../lib/cn";
 export function Landing() {
   return (
     <PublicShell>
-      <div className="space-y-28 pb-10">
+      <div className="space-y-12 pb-10 sm:space-y-28">
         {/* HERO */}
-        <section className="relative pt-6 text-center">
+        <section className="relative pt-2 text-center sm:pt-6">
           <Reveal>
             <div className="mx-auto inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-900/[0.04] px-4 py-2 text-xs text-slate-600">
               <span className="h-2 w-2 rounded-full bg-cyan-400" />
@@ -40,7 +40,7 @@ export function Landing() {
           <AnimatedHeadline />
 
           <Reveal delay={0.12}>
-            <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">
+            <p className="mx-auto mt-4 max-w-2xl text-base text-slate-600 sm:mt-6 sm:text-lg">
               Paste an internship posting, upload your resume, and see your fit
               score, the exact skills you are missing, and what to fix first.
               Then track every application in one place.
@@ -48,7 +48,7 @@ export function Landing() {
           </Reveal>
 
           <Reveal delay={0.18}>
-            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:mt-10 sm:flex-row">
               <Link to="/signup" className="w-full sm:w-auto">
                 <Button variant="primary" className="w-full">
                   Check my resume, free
@@ -69,12 +69,11 @@ export function Landing() {
               */}
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Sign in with Google in 10 seconds. Free to start, no card needed.
+              Free during beta. No card, sign in with Google in 10 seconds.
             </p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-slate-500">
+            <p className="mx-auto mt-1 max-w-md text-xs text-slate-400">
               We never sell your data. Your resume text goes to an AI provider only to
               produce your result, and you can delete your account and data any time.
-              Beta means we are still improving it, so tell us what is confusing.
             </p>
           </Reveal>
 
@@ -97,23 +96,34 @@ export function Landing() {
 
         {/* SAMPLE RESULT — static, clearly labelled illustration of the output */}
         <section className="mx-auto max-w-3xl">
-          <Reveal>
-            <div className={cn("p-8 text-left", card)}>
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-2xl font-semibold tracking-tight">
-                  What you get back
-                </h2>
-                <span className="rounded-full border border-slate-200 bg-slate-900/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-                  Example, not a real user
+          <Reveal amount={0.05}>
+            <div className={cn(card, "overflow-hidden !p-0 text-left shadow-xl shadow-slate-900/5")}>
+              {/* Window bar, so this reads as a screenshot of the product */}
+              <div className="flex items-center justify-between border-b border-slate-200 bg-slate-900/[0.03] px-4 py-2.5">
+                <div className="flex items-center gap-1.5" aria-hidden>
+                  <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+                </div>
+                <span className="text-xs text-slate-500">What you get back</span>
+                <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                  Sample data
                 </span>
               </div>
-              <div className="mt-6 grid gap-6 sm:grid-cols-2">
+              <div className="grid gap-6 p-5 sm:grid-cols-2 sm:p-8">
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-slate-500">
                     Fit score: Software Engineering Intern
                   </div>
-                  <div className="mt-1 font-display gradient-text text-5xl font-semibold tracking-tight">
-                    62%
+                  <div className="mt-1 flex items-end gap-2">
+                    <span className="font-display gradient-text text-5xl font-semibold tracking-tight">62%</span>
+                    <span className="pb-1.5 text-sm text-slate-500">Good fit</span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200/70" aria-hidden>
+                    <div
+                      className="h-full w-[62%] rounded-full"
+                      style={{ background: "linear-gradient(90deg, #22d3ee, #a78bfa)" }}
+                    />
                   </div>
                   <div className="mt-4 text-xs font-medium text-slate-500">Missing skills</div>
                   <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700">
@@ -476,9 +486,9 @@ function AnimatedHeadline() {
   };
 
   return (
-    <div className="mx-auto mt-6 max-w-4xl">
+    <div className="mx-auto mt-4 max-w-4xl sm:mt-6">
       <motion.h1
-        className="font-display text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl"
+        className="font-display text-4xl font-semibold leading-[1.08] tracking-tight sm:text-6xl sm:leading-[1.05]"
         initial="hidden"
         animate="show"
         variants={container}

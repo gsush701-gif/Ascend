@@ -69,7 +69,12 @@ export function ResumeDropzone({ fileName, onFile }: Props) {
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium text-slate-800">
-            {fileName ?? "Drop your resume here, or click to choose"}
+            {fileName ?? (
+              <>
+                <span className="sm:hidden">Choose your resume</span>
+                <span className="hidden sm:inline">Drop your resume here, or click to choose</span>
+              </>
+            )}
           </div>
           <div className="text-[11px] text-slate-500">
             {fileName ? "Click to choose a different file" : "PDF or Word (.docx), up to 5MB"}

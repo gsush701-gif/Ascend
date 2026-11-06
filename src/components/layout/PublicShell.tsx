@@ -10,7 +10,8 @@ type PublicShellProps = {
 
 export function PublicShell({ children }: PublicShellProps) {
   return (
-    <div className="min-h-screen bg-[#F4F5FA] text-slate-900">
+    // overflow-x-clip: decorative glows must never widen the page on a phone.
+    <div className="min-h-screen overflow-x-clip bg-[#F4F5FA] text-slate-900">
       <BackgroundFX />
       <PublicNav />
       <main className={`relative pb-20 pt-16 ${pageContainer}`}>

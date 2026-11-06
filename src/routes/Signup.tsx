@@ -84,7 +84,7 @@ export function Signup() {
     <PublicShell>
       <form
         onSubmit={handleSubmit}
-        className={cn("mx-auto max-w-sm space-y-5 p-8", card)}
+        className={cn("mx-auto mt-4 max-w-sm space-y-5 p-6 sm:mt-8 sm:p-8", card)}
       >
         <div className="text-center">
           <h1 className="font-display text-xl font-semibold tracking-tight text-slate-900">Start free</h1>
@@ -98,6 +98,8 @@ export function Signup() {
             {error}
           </div>
         )}
+
+        <OAuthButtons next={next} position="above" />
 
         <div className="space-y-3">
           <div>
@@ -147,8 +149,6 @@ export function Signup() {
         <Button type="submit" variant="primary" className="w-full" disabled={submitting}>
           {submitting ? "Creating account…" : "Get started"}
         </Button>
-
-        <OAuthButtons next={next} />
 
         <p className="text-center text-xs text-slate-400">
           By creating an account you agree to our{" "}

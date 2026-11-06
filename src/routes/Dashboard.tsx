@@ -50,7 +50,6 @@ import { KpiCard } from "../components/dashboard/KpiCard";
 import { AlignmentChart } from "../components/ui/AlignmentChart";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { EmptyState } from "../components/ui/EmptyState";
-import { Modal } from "../components/ui/Modal";
 import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklist";
 import { DashboardSkeleton } from "../components/dashboard/DashboardSkeleton";
 import { toast } from "../components/ui/toast";
@@ -66,7 +65,6 @@ export function Dashboard() {
   const { tracker: items, addManualTrackerItem } = useTracker(undefined);
   const { profile, loading: profileLoading } = useProfile();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [whyTrackingOpen, setWhyTrackingOpen] = useState(false);
 
   const handleQuickAdd = useCallback(
     (company: string, role: string) => {
@@ -122,18 +120,6 @@ export function Dashboard() {
         <OnboardingModal onComplete={() => setShowOnboarding(false)} />
       )}
 
-      <Modal
-        isOpen={whyTrackingOpen}
-        onClose={() => setWhyTrackingOpen(false)}
-        title="Why tracking matters"
-      >
-        <ul className="space-y-2">
-          <li>• See which applications get responses</li>
-          <li>• Spot patterns (company size, role type)</li>
-          <li>• Stay on top of follow-ups</li>
-        </ul>
-      </Modal>
-
       <div className="space-y-6">
         {loading ? (
           <DashboardSkeleton />
@@ -179,12 +165,12 @@ export function Dashboard() {
                 onClick: () => navigate("/analyzer"),
               }}
               secondaryAction={{
-                label: "Add a role manually",
-                onClick: () => setQuickAddOpen(true),
+                label: "See it on an example",
+                onClick: () => navigate("/analyzer?example=1"),
               }}
               tertiaryAction={{
-                label: "Why tracking matters",
-                onClick: () => setWhyTrackingOpen(true),
+                label: "Add a role manually",
+                onClick: () => setQuickAddOpen(true),
               }}
             />
 

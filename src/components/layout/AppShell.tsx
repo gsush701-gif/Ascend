@@ -10,7 +10,7 @@ type AppShellProps = {
 
 export function AppShell({ children }: AppShellProps) {
   return (
-    <div className="min-h-screen bg-[#F4F5FA] text-slate-900">
+    <div className="min-h-screen overflow-x-clip bg-[#F4F5FA] text-slate-900">
       <BackgroundFX />
       <TopNav />
       <main className={`relative pb-16 pt-16 ${pageContainer}`}>
