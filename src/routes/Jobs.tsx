@@ -37,8 +37,9 @@ export function Jobs() {
           <div>
             <h1 className={pageTitle}>Jobs</h1>
             <p className={pageSubtitle}>
-              Search live listings once a provider is connected, see recommendations scored against your own
-              profile, and keep track of the ones worth revisiting.
+              Internship and new-grad postings from companies' own career pages, refreshed every day. See
+              recommendations scored against your own profile, and keep the ones worth revisiting. You apply on the
+              company's own site.
             </p>
           </div>
         </header>
@@ -134,9 +135,8 @@ export function Jobs() {
               <div className={`${card} py-12 text-center`}>
                 <h3 className="text-lg font-semibold text-slate-900">No recommendations yet</h3>
                 <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-500">
-                  Ascend doesn't have a live job-listing provider connected yet, so there are no postings in the
-                  system to score against your profile. This is expected — recommendations will appear here
-                  automatically once real listings exist.
+                  There are no open postings to score against your profile yet. The listings come from companies'
+                  own career pages and refresh once a day, so check back soon. You can also try the Search tab.
                 </p>
               </div>
             ) : (

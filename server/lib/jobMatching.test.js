@@ -7,7 +7,24 @@ import {
   computeSalaryMatch,
   computeExperienceMatch,
   computeJobMatch,
+  rankValue,
 } from "./jobMatching.js";
+
+describe("rankValue: ordering recommendations without changing scores", () => {
+  const m = (overall, considered) => ({ overallMatchScore: overall, skillMatch: { totalConsidered: considered } });
+
+  it("ranks a strong multi-skill match above a lucky one-skill 100", () => {
+    expect(rankValue(m(85, 6))).toBeGreaterThan(rankValue(m(100, 1)));
+    expect(rankValue(m(100, 3))).toBe(100);
+  });
+
+  it("puts unscored postings last and tolerates missing data", () => {
+    expect(rankValue(m(null, 0))).toBe(-1);
+    expect(rankValue(undefined)).toBe(-1);
+    expect(rankValue({ overallMatchScore: 50 })).toBe(30);
+    expect(rankValue(m(0, 4))).toBeGreaterThan(rankValue(m(null, 0)));
+  });
+});
 
 // All job/profile fixtures below are clearly-synthetic test data, not real
 // postings or real user profiles — per the no-fake-data rule, this module

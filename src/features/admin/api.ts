@@ -156,6 +156,31 @@ export function fetchAdminTryFunnel(accessToken: string | undefined, days = 30) 
   return adminGet<AdminTryFunnel>(`/api/admin/try-funnel?days=${days}`, accessToken);
 }
 
+export type AdminJobsFeed = {
+  boardsTracked: number;
+  activeListings: number;
+  bySource: Record<string, number>;
+  byLevel: Record<string, number>;
+  lastRefreshedAt: string | null;
+  running: boolean;
+  lastRun: {
+    finishedAt: string;
+    error: string | null;
+    boardsOk?: number;
+    boardsTotal?: number;
+    boardsFailed?: number;
+    matched?: number;
+    saved?: number;
+    closed?: number;
+    incomplete?: boolean;
+    failures?: { board: string; ats: string; error: string }[];
+  } | null;
+};
+
+export function fetchAdminJobsFeed(accessToken: string | undefined) {
+  return adminGet<AdminJobsFeed>("/api/admin/jobs-feed", accessToken);
+}
+
 export type AdminFeedbackItem = {
   id: string;
   message: string;

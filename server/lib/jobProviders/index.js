@@ -14,13 +14,19 @@
 // or any frontend code — they only depend on the JobProvider shape.
 
 const { NullJobProvider } = require("./nullProvider");
+const { BoardsJobProvider } = require("./boardsProvider");
+const { isSupabaseConfigured } = require("../supabaseAdmin");
 
-const JOB_PROVIDER = (process.env.JOB_PROVIDER || "none").trim().toLowerCase();
+// Default: search the company-board feed (server/lib/jobBoards) whenever the
+// database is configured. Set JOB_PROVIDER=none to turn job search off.
+const JOB_PROVIDER = (process.env.JOB_PROVIDER || (isSupabaseConfigured ? "boards" : "none")).trim().toLowerCase();
 
 function selectProvider(name) {
   switch (name) {
     case "none":
       return NullJobProvider;
+    case "boards":
+      return BoardsJobProvider;
     default:
       console.warn(
         `[jobProviders] Unknown JOB_PROVIDER "${name}" — falling back to NullJobProvider (no live listings).`,

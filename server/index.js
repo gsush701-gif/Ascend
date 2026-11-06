@@ -89,10 +89,13 @@ const {
 const { parsePagination, buildPageResult } = require("./lib/pagination");
 const { parseFeedback } = require("./lib/feedback");
 const { computePlan } = require("./lib/advisorPlan");
+const { createJobSyncRunner } = require("./lib/jobBoards/sync");
+const { createJobsStore } = require("./lib/jobBoards/store");
+const jobBoardList = require("./data/jobBoards.json");
 const { runWeeklyReportJob } = require("./lib/weeklyReport");
 const { sendWeeklyReportEmail } = require("./lib/resend");
 const { activeProvider: activeJobProvider, isJobProviderConfigured } = require("./lib/jobProviders");
-const { computeJobMatch } = require("./lib/jobMatching");
+const { computeJobMatch, rankValue } = require("./lib/jobMatching");
 const github = require("./lib/github");
 const { encryptToken, decryptToken } = require("./lib/tokenCrypto");
 const { computeProjectMatch } = require("./lib/projectMatching");
@@ -2461,7 +2464,11 @@ app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res)
       .select(
         "id, company, title, description, url, source, location, remote_type, employment_type, salary_min, salary_max, salary_currency, sponsorship, experience_level, posted_at, deadline",
       )
-      .order("posted_at", { ascending: false, nullsFirst: false });
+      // Only postings still open on the company's board, newest first. Capped so
+      // scoring stays quick as the feed grows.
+      .eq("active", true)
+      .order("posted_at", { ascending: false, nullsFirst: false })
+      .limit(1000);
     if (jobsError) throw jobsError;
 
     const candidates = (jobRows || []).filter((row) => !dismissedJobIds.has(row.id));
@@ -2471,11 +2478,8 @@ app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res)
       return { ...row, match };
     });
 
-    scored.sort((a, b) => {
-      const aScore = a.match.overallMatchScore ?? -1;
-      const bScore = b.match.overallMatchScore ?? -1;
-      return bScore - aScore;
-    });
+    // Newest first from the query above; the sort is stable, so equal ranks stay in that order.
+    scored.sort((a, b) => rankValue(b.match) - rankValue(a.match));
 
     const total = scored.length;
     const offset = (page - 1) * pageSize;
@@ -3400,6 +3404,77 @@ app.post("/api/cron/send-weekly-reports", cronLimiter, async (req, res) => {
     console.error("[cron] send-weekly-reports failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to run weekly report job");
+  }
+});
+
+// The job feed syncs from companies' public boards (server/lib/jobBoards). One
+// runner per server process holds the "already running" flag and the last result.
+const jobSyncRunner = supabaseAdmin ? createJobSyncRunner({ store: createJobsStore(supabaseAdmin) }) : null;
+
+// POST /api/cron/sync-jobs: triggered daily by .github/workflows/sync-jobs.yml.
+// Same shared-secret protection as send-weekly-reports above (503 when
+// CRON_SECRET is unset, never open by default; 401 on a wrong secret; a
+// constant-time comparison). The sync takes a few minutes, so this answers 202
+// straight away and the work continues in the background.
+app.post("/api/cron/sync-jobs", cronLimiter, async (req, res) => {
+  const configuredSecret = process.env.CRON_SECRET;
+  if (!configuredSecret) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Job syncing is not configured on the server");
+  }
+  const configuredBuf = Buffer.from(configuredSecret);
+  const providedBuf = Buffer.from(req.get("X-Cron-Secret") || "");
+  const matches = configuredBuf.length === providedBuf.length && crypto.timingSafeEqual(configuredBuf, providedBuf);
+  if (!matches) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Invalid or missing cron secret");
+  }
+  if (!jobSyncRunner) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Job syncing needs the database to be configured");
+  }
+  if (!jobSyncRunner.start()) {
+    return res.status(409).json({ ok: false, started: false, message: "A job sync is already running" });
+  }
+  return res.status(202).json({ ok: true, started: true, boards: jobBoardList.length });
+});
+
+// GET /api/admin/jobs-feed: how the job feed is doing, for the Admin page.
+app.get("/api/admin/jobs-feed", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    // Count queries, not row fetches: Supabase returns at most 1000 rows per request.
+    const active = () => supabaseAdmin.from("jobs").select("id", { count: "exact", head: true }).eq("active", true);
+    const sources = ["Greenhouse", "Lever", "Ashby"];
+    const levels = ["Internship", "Entry"];
+    const [total, latest, ...counts] = await Promise.all([
+      active(),
+      supabaseAdmin
+        .from("jobs")
+        .select("last_seen_at")
+        .eq("active", true)
+        .order("last_seen_at", { ascending: false, nullsFirst: false })
+        .limit(1),
+      ...sources.map((s) => active().eq("source", s)),
+      ...levels.map((l) => active().eq("experience_level", l)),
+    ]);
+    for (const r of [total, latest, ...counts]) if (r.error) throw r.error;
+    const bySource = {};
+    sources.forEach((s, i) => (bySource[s] = counts[i].count || 0));
+    const byLevel = {};
+    levels.forEach((l, i) => (byLevel[l] = counts[sources.length + i].count || 0));
+    return res.json({
+      boardsTracked: jobBoardList.length,
+      activeListings: total.count || 0,
+      bySource,
+      byLevel,
+      lastRefreshedAt: (latest.data && latest.data[0] && latest.data[0].last_seen_at) || null,
+      running: jobSyncRunner ? jobSyncRunner.isRunning() : false,
+      lastRun: jobSyncRunner ? jobSyncRunner.lastRun() : null,
+    });
+  } catch (err) {
+    console.error("admin/jobs-feed failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load job feed data");
   }
 });
 

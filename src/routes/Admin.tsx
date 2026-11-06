@@ -17,8 +17,10 @@ import {
   fetchAdminFunnel,
   fetchAdminTryFunnel,
   fetchAdminFeedback,
+  fetchAdminJobsFeed,
   fetchAdminBilling,
   fetchAdminSystem,
+  type AdminJobsFeed,
   type AdminTryFunnel,
   type AdminFeedbackItem,
   type AdminOverview,
@@ -109,6 +111,7 @@ export function Admin() {
   const [funnelLoading, setFunnelLoading] = useState(true);
   const [tryFunnel, setTryFunnel] = useState<AdminTryFunnel | null>(null);
   const [feedback, setFeedback] = useState<AdminFeedbackItem[] | null>(null);
+  const [jobsFeed, setJobsFeed] = useState<AdminJobsFeed | null>(null);
 
   const [billing, setBilling] = useState<AdminBilling | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
@@ -214,6 +217,9 @@ export function Admin() {
       .catch(() => {});
     fetchAdminFeedback(accessToken)
       .then((r) => setFeedback(r.items))
+      .catch(() => {});
+    fetchAdminJobsFeed(accessToken)
+      .then(setJobsFeed)
       .catch(() => {});
     // Only re-run when we first become "ready" for this session's token —
     // per-section pagination is handled by the page-change handlers below.
@@ -380,6 +386,59 @@ export function Admin() {
                   { header: "Created", render: (r) => fmtDate(r.created_at) },
                 ]}
               />
+            </div>
+          )}
+        </Panel>
+
+        {/* --- Job feed --- */}
+        <Panel
+          title="Job feed"
+          subtitle="Internship and new-grad postings copied daily from companies' own career pages."
+        >
+          {!jobsFeed ? (
+            <Skeleton className="h-24" />
+          ) : (
+            <div className="space-y-3">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard
+                  label="Open listings"
+                  value={fmtNumber(jobsFeed.activeListings)}
+                  hint={`${fmtNumber(jobsFeed.byLevel.Internship ?? 0)} internships, ${fmtNumber(jobsFeed.byLevel.Entry ?? 0)} new-grad`}
+                />
+                <StatCard
+                  label="Companies followed"
+                  value={fmtNumber(jobsFeed.boardsTracked)}
+                  hint={Object.entries(jobsFeed.bySource)
+                    .map(([s, n]) => `${s} ${fmtNumber(n)}`)
+                    .join(", ")}
+                />
+                <StatCard
+                  label="Last refreshed"
+                  value={jobsFeed.lastRefreshedAt ? new Date(jobsFeed.lastRefreshedAt).toLocaleDateString() : "Never"}
+                  hint={
+                    jobsFeed.running
+                      ? "A refresh is running now"
+                      : jobsFeed.lastRefreshedAt
+                        ? new Date(jobsFeed.lastRefreshedAt).toLocaleTimeString()
+                        : "Run the Sync job feed workflow on GitHub"
+                  }
+                />
+              </div>
+              {jobsFeed.lastRun && (
+                <p className="text-xs text-slate-500">
+                  {jobsFeed.lastRun.error
+                    ? `Last run since this server started failed: ${jobsFeed.lastRun.error}`
+                    : `Last run since this server started: ${jobsFeed.lastRun.boardsOk}/${jobsFeed.lastRun.boardsTotal} boards loaded, ${jobsFeed.lastRun.matched} postings kept, ${jobsFeed.lastRun.closed} closed${
+                        jobsFeed.lastRun.incomplete ? " (stopped early on time)" : ""
+                      }.`}
+                  {jobsFeed.lastRun.failures && jobsFeed.lastRun.failures.length > 0
+                    ? ` Failed: ${jobsFeed.lastRun.failures
+                        .slice(0, 5)
+                        .map((f) => f.board)
+                        .join(", ")}.`
+                    : ""}
+                </p>
+              )}
             </div>
           )}
         </Panel>

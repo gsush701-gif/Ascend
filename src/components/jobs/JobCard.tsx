@@ -113,7 +113,7 @@ export function JobCard({ job, match, saved, dismissed, savedAt, onSave, onUnsav
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-sm font-medium text-cyan-700 hover:underline"
           >
-            View posting
+            View posting and apply
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
         )}

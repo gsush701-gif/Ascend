@@ -1,11 +1,10 @@
 // Job provider contract (Phase 7 Task 8 — Job Discovery architecture).
 //
-// This app has no compliant job-listing data provider configured today —
-// no job-board API is wired in, and scraping any job site is explicitly out
-// of scope (many prohibit it in their terms). This file exists so that when
-// the owner does sign up for a real, licensed job-listing API later, the
-// integration point is a single new file implementing the interface below,
-// not a rewrite of the routes/matching logic that already exist.
+// Scraping any job site is explicitly out of scope (many prohibit it in their
+// terms). The default provider is boardsProvider.js, which searches postings
+// copied from companies' own public career boards (see docs/JOB_FEED.md). A
+// licensed job-listing API could be added later as one more file implementing
+// the interface below, with no change to the routes or the matching logic.
 //
 // This codebase is mostly-plain-JS on the server (see server/lib/scoring.js,
 // server/lib/stripe.js), so the contract here is documented as JSDoc typedefs

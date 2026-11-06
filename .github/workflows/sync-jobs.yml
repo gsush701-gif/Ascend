@@ -1,0 +1,27 @@
+name: Sync job feed
+
+# Daily refresh of the job feed: the backend reads internship and new-grad
+# postings from companies' own public Greenhouse, Lever and Ashby boards and
+# saves them to the `jobs` table (server/lib/jobBoards). This workflow only
+# calls the secret-protected endpoint; the work happens on the server, in the
+# background (the endpoint answers 202 straight away).
+#
+# Uses the same two repository secrets as weekly-report.yml:
+#   ASCEND_API_URL, CRON_SECRET
+#
+# "workflow_dispatch" lets this be run by hand (Actions tab -> this workflow ->
+# "Run workflow"), which is the way to fill the feed the first time.
+on:
+  schedule:
+    # 09:00 UTC every day. GitHub may run it a few minutes late.
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the job feed sync
+        run: |
+          curl -sf --max-time 120 -X POST "${{ secrets.ASCEND_API_URL }}/api/cron/sync-jobs" \
+            -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"

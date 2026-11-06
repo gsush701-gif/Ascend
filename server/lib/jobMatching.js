@@ -315,6 +315,20 @@ function computeOverallScore(components) {
   return round(weightedSum / weightTotal);
 }
 
+/**
+ * Sort key for ordering a list of recommendations. The score shown to the
+ * student is never changed; this only decides the order. A posting that names
+ * just one skill we recognise can score 100% by matching that one skill, and
+ * should not outrank a strong match across several. Unscored postings go last.
+ */
+function rankValue(match) {
+  const overall = match && typeof match.overallMatchScore === "number" ? match.overallMatchScore : null;
+  if (overall === null) return -1;
+  const n = (match.skillMatch && match.skillMatch.totalConsidered) || 0;
+  const confidence = n >= 3 ? 1 : n === 2 ? 0.85 : n === 1 ? 0.7 : 0.6;
+  return overall * confidence;
+}
+
 function lowerFirst(s) {
   return s.length > 0 ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 }
@@ -366,6 +380,7 @@ function computeJobMatch(profile, job) {
 }
 
 module.exports = {
+  rankValue,
   MATCH_WEIGHTS,
   EXPERIENCE_LEVEL_ORDER,
   locationsMatch,
