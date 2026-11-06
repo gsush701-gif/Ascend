@@ -51,8 +51,9 @@ Check it first by opening the public address in a browser:
 - Lever: `https://api.lever.co/v0/postings/<token>?mode=json`
 - Ashby: `https://api.ashbyhq.com/posting-api/job-board/<token>`
 
-Use the company's exact name; a wrong name would put a posting under the wrong company.
-Greenhouse postings carry their own company name, which is used when present.
+Use the company's everyday name; it is always the name shown, because the boards' own
+company names are sometimes legal names ("Gusto, Inc.") or wrong ("Rubrik Job Board").
+A wrong name would put a posting under the wrong company, so check it.
 
 ## Limits
 
