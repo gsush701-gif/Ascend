@@ -216,7 +216,13 @@ async function syncBoards({
  * the last run (it resets when the server restarts; the jobs table is the
  * durable record).
  */
-function createJobSyncRunner({ store, boards = defaultBoards, fetchJson = defaultFetchJson, log = console } = {}) {
+function createJobSyncRunner({
+  store,
+  boards = defaultBoards,
+  fetchJson = defaultFetchJson,
+  log = console,
+  onFinish = () => {},
+} = {}) {
   let running = false;
   let last = null;
   return {
@@ -241,6 +247,11 @@ function createJobSyncRunner({ store, boards = defaultBoards, fetchJson = defaul
         })
         .finally(() => {
           running = false;
+          try {
+            onFinish();
+          } catch {
+            // A callback problem must not break the runner.
+          }
         });
       return true;
     },

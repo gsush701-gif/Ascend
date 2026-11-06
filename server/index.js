@@ -89,7 +89,8 @@ const {
 const { parsePagination, buildPageResult } = require("./lib/pagination");
 const { parseFeedback } = require("./lib/feedback");
 const { computePlan } = require("./lib/advisorPlan");
-const { pickNewMatch, FRESH_DAYS: NEW_MATCH_FRESH_DAYS } = require("./lib/newMatch");
+const { pickNewMatch } = require("./lib/newMatch");
+const { createJobFeedCache } = require("./lib/jobFeedCache");
 const { createJobSyncRunner } = require("./lib/jobBoards/sync");
 const { createJobsStore } = require("./lib/jobBoards/store");
 const jobBoardList = require("./data/jobBoards.json");
@@ -315,27 +316,25 @@ const advisorPlanLimiter = createRateLimiter({
   keyPrefix: "advisor-plan",
 });
 
-// Recent open postings for the "new match" item. The same list serves every
-// student, so it is read once and kept for a few minutes instead of re-reading a
-// few hundred descriptions on each dashboard load.
-const RECENT_JOBS_TTL_MS = 10 * 60 * 1000;
-let recentJobsCache = { at: 0, rows: [] };
-async function getRecentOpenJobs() {
-  if (Date.now() - recentJobsCache.at < RECENT_JOBS_TTL_MS) return recentJobsCache.rows;
-  const cutoff = new Date(Date.now() - NEW_MATCH_FRESH_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabaseAdmin
-    .from("jobs")
-    .select(
-      "id, company, title, description, url, source, location, remote_type, employment_type, experience_level, posted_at, deadline",
-    )
-    .eq("active", true)
-    .gte("posted_at", cutoff)
-    .order("posted_at", { ascending: false })
-    .limit(400);
-  if (error) throw error;
-  recentJobsCache = { at: Date.now(), rows: data || [] };
-  return recentJobsCache.rows;
-}
+// The open postings, kept in memory for a few minutes (server/lib/jobFeedCache.js).
+// Recommendations and the "new match" item score the same list for every
+// student, and the descriptions add up to megabytes, so it is read once and
+// reused instead of re-read on every page view. A finished sync clears it.
+// Capped at 1000 rows, the most Supabase returns per request.
+const jobFeedCache = createJobFeedCache({
+  fetchRows: async () => {
+    const { data, error } = await supabaseAdmin
+      .from("jobs")
+      .select(
+        "id, company, title, description, url, source, location, remote_type, employment_type, salary_min, salary_max, salary_currency, sponsorship, experience_level, posted_at, deadline",
+      )
+      .eq("active", true)
+      .order("posted_at", { ascending: false, nullsFirst: false })
+      .limit(1000);
+    if (error) throw error;
+    return data || [];
+  },
+});
 
 // GET /api/public-profile/:slug is unauthenticated by design (anyone with a
 // link can view a public profile) and cheap (a couple of indexed reads, no
@@ -2353,7 +2352,7 @@ app.get("/api/advisor/plan", advisorPlanLimiter, optionalAuth, async (req, res) 
             .limit(1)
             .maybeSingle(),
           supabaseAdmin.from("dismissed_jobs").select("job_id").eq("user_id", userId),
-          getRecentOpenJobs(),
+          jobFeedCache.get(),
         ]);
         for (const r of [profileRes, resumeTextRes, dismissedRes]) if (r.error) throw r.error;
         const roleKey = (r) => `${(r.company || "").trim().toLowerCase()}|${(r.role || "").trim().toLowerCase()}`;
@@ -2465,7 +2464,12 @@ app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res)
   try {
     const userId = req.user.id;
 
-    const [{ data: profileRow, error: profileError }, { data: resumeRow, error: resumeError }, { data: dismissedRows, error: dismissedError }] =
+    const [
+      { data: profileRow, error: profileError },
+      { data: resumeRow, error: resumeError },
+      { data: dismissedRows, error: dismissedError },
+      jobRows,
+    ] =
       await Promise.all([
         supabaseAdmin
           .from("profiles")
@@ -2482,6 +2486,9 @@ app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res)
           .limit(1)
           .maybeSingle(),
         supabaseAdmin.from("dismissed_jobs").select("job_id").eq("user_id", userId),
+        // The shared in-memory list of open postings (see jobFeedCache above):
+        // read in parallel with the student's own data, newest first.
+        jobFeedCache.get(),
       ]);
 
     if (profileError) throw profileError;
@@ -2489,44 +2496,41 @@ app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res)
     if (dismissedError) throw dismissedError;
 
     const profile = buildMatchProfile(profileRow, resumeRow?.extracted_text);
-
     const dismissedJobIds = new Set((dismissedRows || []).map((r) => r.job_id));
-
     const { page, pageSize } = parsePagination(req.query, { defaultPageSize: 20, maxPageSize: 50 });
 
-    // `jobs` is shared reference data with zero RLS policies (009_jobs.sql)
-    // — reading it via the service-role client is the only way any server
-    // route ever reads it, same as every other admin-client read in this
-    // file. Honestly empty today (no provider has ever written a row here);
-    // this query and everything below it is correct against zero rows.
-    const { data: jobRows, error: jobsError } = await supabaseAdmin
-      .from("jobs")
-      .select(
-        "id, company, title, description, url, source, location, remote_type, employment_type, salary_min, salary_max, salary_currency, sponsorship, experience_level, posted_at, deadline",
-      )
-      // Only postings still open on the company's board, newest first. Capped so
-      // scoring stays quick as the feed grows.
-      .eq("active", true)
-      .order("posted_at", { ascending: false, nullsFirst: false })
-      .limit(1000);
-    if (jobsError) throw jobsError;
+    const candidates = jobRows.filter((row) => !dismissedJobIds.has(row.id));
 
-    const candidates = (jobRows || []).filter((row) => !dismissedJobIds.has(row.id));
+    // Optional filters from the page: ?level=Internship|Entry and ?remote=1.
+    // The counts are taken before filtering so the filter chips can show them.
+    const counts = {
+      all: candidates.length,
+      internship: candidates.filter((r) => r.experience_level === "Internship").length,
+      entry: candidates.filter((r) => r.experience_level === "Entry").length,
+      remote: candidates.filter((r) => r.remote_type === "Remote").length,
+    };
+    const level = ["Internship", "Entry"].includes(req.query.level) ? req.query.level : null;
+    const remoteOnly = req.query.remote === "1";
+    const wanted = candidates.filter(
+      (r) => (!level || r.experience_level === level) && (!remoteOnly || r.remote_type === "Remote"),
+    );
 
-    const scored = candidates.map((row) => {
-      const match = computeJobMatch(profile, jobRowToMatchJob(row));
-      return { ...row, match };
-    });
+    const scored = wanted.map((row) => ({ ...row, match: computeJobMatch(profile, jobRowToMatchJob(row)) }));
 
-    // Newest first from the query above; the sort is stable, so equal ranks stay in that order.
+    // Newest first from the query; the sort is stable, so equal ranks stay in that order.
     scored.sort((a, b) => rankValue(b.match) - rankValue(a.match));
 
     const total = scored.length;
     const offset = (page - 1) * pageSize;
-    const items = scored.slice(offset, offset + pageSize);
+    // The cards show only a few lines, so send a short description, not the whole posting.
+    const items = scored.slice(offset, offset + pageSize).map((row) => ({
+      ...row,
+      description: row.description ? row.description.slice(0, 600) : row.description,
+    }));
 
     return res.json({
       ...buildPageResult({ page, pageSize, total, items }),
+      counts,
       hasResumeOnFile: Boolean(resumeRow?.extracted_text),
     });
   } catch (err) {
@@ -3449,7 +3453,9 @@ app.post("/api/cron/send-weekly-reports", cronLimiter, async (req, res) => {
 
 // The job feed syncs from companies' public boards (server/lib/jobBoards). One
 // runner per server process holds the "already running" flag and the last result.
-const jobSyncRunner = supabaseAdmin ? createJobSyncRunner({ store: createJobsStore(supabaseAdmin) }) : null;
+const jobSyncRunner = supabaseAdmin
+  ? createJobSyncRunner({ store: createJobsStore(supabaseAdmin), onFinish: () => jobFeedCache.clear() })
+  : null;
 
 // POST /api/cron/sync-jobs: triggered daily by .github/workflows/sync-jobs.yml.
 // Same shared-secret protection as send-weekly-reports above (503 when

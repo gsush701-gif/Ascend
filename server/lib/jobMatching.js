@@ -104,9 +104,27 @@ function locationsMatch(preferred, jobLocation) {
  * when the job listing has no recognizable skills at all to compare against
  * — never fabricates a percentage from an empty comparison set.
  */
-function computeSkillMatch(profile, job) {
+// Reading a posting's skills means running every skill pattern over several
+// thousand characters, and the same postings are scored for every student. The
+// result depends only on the posting's text, so it is remembered. The entries
+// are shared and must be treated as read-only.
+const SKILL_INFO_CACHE = new Map();
+const SKILL_INFO_CACHE_MAX = 3000;
+
+function jobSkillInfo(job) {
   const jobText = [job.title, job.description].filter(Boolean).join("\n");
+  const hit = SKILL_INFO_CACHE.get(jobText);
+  if (hit) return hit;
   const jobSkills = extractSkills(jobText);
+  const importance = jobSkills.length > 0 ? classifySkillsImportance(job.description || job.title || "", jobSkills) : {};
+  const info = { jobSkills, importance };
+  if (SKILL_INFO_CACHE.size >= SKILL_INFO_CACHE_MAX) SKILL_INFO_CACHE.clear();
+  SKILL_INFO_CACHE.set(jobText, info);
+  return info;
+}
+
+function computeSkillMatch(profile, job) {
+  const { jobSkills, importance } = jobSkillInfo(job);
 
   if (jobSkills.length === 0) {
     return {
@@ -119,7 +137,6 @@ function computeSkillMatch(profile, job) {
     };
   }
 
-  const importance = classifySkillsImportance(job.description || job.title || "", jobSkills);
   const requiredSkills = jobSkills.filter((s) => importance[s] === "required");
   const usedRequiredOnly = requiredSkills.length > 0;
   const basis = usedRequiredOnly ? requiredSkills : jobSkills;

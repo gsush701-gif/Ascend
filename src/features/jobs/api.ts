@@ -101,6 +101,9 @@ export async function searchJobs(
   return jobsFetch<JobSearchResult>(`/api/jobs/search?${query}`);
 }
 
+/** How many open postings there are in each group, before the page's filters are applied. */
+export type JobCounts = { all: number; internship: number; entry: number; remote: number };
+
 export type JobRecommendationsResult = {
   page: number;
   pageSize: number;
@@ -108,6 +111,7 @@ export type JobRecommendationsResult = {
   totalPages: number;
   items: RecommendedJob[];
   hasResumeOnFile: boolean;
+  counts: JobCounts;
 };
 
 type JobRecommendationsResponse = {
@@ -117,19 +121,27 @@ type JobRecommendationsResponse = {
   totalPages: number;
   items: (JobRow & { match: RecommendedJob["match"] })[];
   hasResumeOnFile: boolean;
+  counts?: JobCounts;
 };
+
+export type JobRecommendationFilters = { level?: "Internship" | "Entry" | null; remoteOnly?: boolean };
 
 export async function fetchJobRecommendations(
   accessToken: string,
   page = 1,
   pageSize = 20,
+  filters: JobRecommendationFilters = {},
 ): Promise<JobRecommendationsResult> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (filters.level) params.set("level", filters.level);
+  if (filters.remoteOnly) params.set("remote", "1");
   const data = await jobsFetch<JobRecommendationsResponse>(
-    `/api/jobs/recommendations?page=${page}&pageSize=${pageSize}`,
+    `/api/jobs/recommendations?${params.toString()}`,
     accessToken,
   );
   return {
     ...data,
+    counts: data.counts ?? { all: data.total, internship: 0, entry: 0, remote: 0 },
     items: data.items.map((row) => ({ ...rowToJob(row), match: row.match })),
   };
 }
