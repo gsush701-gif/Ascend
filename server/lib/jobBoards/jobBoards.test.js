@@ -206,7 +206,7 @@ describe("fetchJson", () => {
 describe("syncBoards", () => {
   /** An in-memory stand-in for the jobs table. */
   function fakeStore(known = {}) {
-    const calls = { upserts: [], touched: [], closed: [] };
+    const calls = { upserts: [], touched: [], closed: [], removed: [] };
     return {
       calls,
       async loadKnown(source, token) {
@@ -221,6 +221,10 @@ describe("syncBoards", () => {
       async deactivateMissing(source, token) {
         calls.closed.push(`${source}:${token}`);
         return 2;
+      },
+      async deactivateRemovedBoards(source, keepTokens) {
+        calls.removed.push({ source, keepTokens });
+        return 3;
       },
     };
   }
@@ -310,6 +314,29 @@ describe("syncBoards", () => {
     expect(summary).toMatchObject({ matched: 1, tooOld: 1, saved: 1 });
     expect(store.calls.upserts.map((r) => r.externalId)).toEqual(["acme:2"]);
     expect(store.calls.closed).toEqual(["Greenhouse:acme"]); // the old one is not touched, so it gets closed
+  });
+
+  it("closes postings left behind by companies removed from the list", async () => {
+    const store = fakeStore();
+    const lever = { name: "Palantir", ats: "lever", token: "palantir" };
+    const summary = await syncBoards({
+      boards: [ghBoard, lever],
+      fetchJson: async (url) => (url.includes("lever.co") ? [] : { jobs: [] }),
+      store,
+    });
+    const bySource = Object.fromEntries(store.calls.removed.map((r) => [r.source, r.keepTokens]));
+    expect(bySource).toEqual({ Greenhouse: ["acme"], Lever: ["palantir"], Ashby: [] });
+    expect(summary.removedClosed).toBe(9);
+  });
+
+  it("does not clean up removed boards after an incomplete run or with an empty list", async () => {
+    const incompleteStore = fakeStore();
+    await syncBoards({ boards: [ghBoard], fetchJson: async () => ({ jobs: [] }), store: incompleteStore, budgetMs: -1 });
+    expect(incompleteStore.calls.removed).toEqual([]);
+
+    const emptyStore = fakeStore();
+    await syncBoards({ boards: [], fetchJson: async () => ({ jobs: [] }), store: emptyStore });
+    expect(emptyStore.calls.removed).toEqual([]);
   });
 
   it("does not close anything when a board lists no postings at all", async () => {

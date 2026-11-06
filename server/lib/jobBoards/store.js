@@ -74,6 +74,24 @@ function createJobsStore(db) {
       check(error, "mark jobs seen");
     },
 
+    /**
+     * Closes postings from boards that are no longer in the company list (so
+     * removing a company from jobBoards.json also removes what it left behind).
+     * Only touches rows that came from a board feed (they have an external id).
+     */
+    async deactivateRemovedBoards(source, keepTokens, nowIso) {
+      let q = db
+        .from("jobs")
+        .update({ active: false, updated_at: nowIso })
+        .eq("source", source)
+        .eq("active", true)
+        .not("external_id", "is", null);
+      if (keepTokens.length) q = q.not("board_token", "in", `(${keepTokens.join(",")})`);
+      const { data, error } = await q.select("id");
+      check(error, "close postings from removed boards");
+      return (data || []).length;
+    },
+
     /** Closes this board's postings that were not seen in the run that started at `startedIso`. */
     async deactivateMissing(source, boardToken, startedIso) {
       const { data, error } = await db

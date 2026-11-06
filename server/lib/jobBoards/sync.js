@@ -177,8 +177,23 @@ async function syncBoards({
     }
   });
 
+  // Postings left behind by companies that were removed from the list. Only after
+  // a complete run, and never when the list is empty (that would close everything).
+  let removedClosed = 0;
+  if (!incomplete && boards.length > 0 && perBoard.some((b) => b.ok)) {
+    for (const adapter of Object.values(ADAPTERS)) {
+      const keep = boards.filter((b) => ADAPTERS[b.ats] === adapter).map((b) => b.token);
+      try {
+        removedClosed += await store.deactivateRemovedBoards(adapter.source, keep, nowIso);
+      } catch {
+        // Cleanup only; the next run tries again.
+      }
+    }
+  }
+
   const sum = (key) => perBoard.reduce((n, b) => n + b[key], 0);
   return {
+    removedClosed,
     startedAt: nowIso,
     durationMs: Date.now() - startedAt,
     boardsTotal: boards.length,

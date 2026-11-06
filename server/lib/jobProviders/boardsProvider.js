@@ -107,6 +107,8 @@ const BoardsJobProvider = {
       const { data, error, count } = await q
         .order("posted_at", { ascending: false, nullsFirst: false })
         .range(from, from + pageSize - 1);
+      // Asking for a page past the end is "no more results", not a failure.
+      if (error && error.code === "PGRST103") return empty(true);
       if (error) throw error;
 
       return {
