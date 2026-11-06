@@ -11,6 +11,7 @@ import { API_BASE } from "../config/api";
 import { AI_NAME } from "../config/brand";
 import { KairosAvatar } from "../components/ui/KairosAvatar";
 import { getApiErrorMessage } from "../lib/apiError";
+import { ThisWeekCard } from "../features/advisor/ThisWeekCard";
 
 /**
  * Standalone home for the AI career advisor. This is a new,
@@ -94,6 +95,8 @@ export function Assistant() {
             </p>
           </div>
         </header>
+
+        <ThisWeekCard />
 
         <Panel>
           <div className="space-y-4">

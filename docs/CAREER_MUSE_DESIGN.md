@@ -1,6 +1,6 @@
 # Ascend as a career advisor ("Kairos as a muse"): audit and design
 
-Status: proposal, nothing built yet. Written 2026-11-06.
+Status: phase 1 built (the "This week" card and its server engine); phases 2 to 5 are still proposals. Written 2026-11-06.
 
 The idea: Ascend should not wait to be asked. It should know the student's goal, resume and
 applications, notice what matters this week, say it in a warm and honest voice, and send them

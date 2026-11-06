@@ -67,7 +67,7 @@ const groq = require("./lib/groq");
 const elevenlabs = require("./lib/elevenlabs");
 const { stripe, isStripeConfigured, stripeMode } = require("./lib/stripe");
 const billing = require("./lib/billing");
-const { fetchOwnedRow } = require("./lib/supabaseUser");
+const { fetchOwnedRow, listOwnedRows } = require("./lib/supabaseUser");
 const { isUuid } = require("./lib/validation");
 const {
   getResumeStoragePathsToDelete,
@@ -88,6 +88,7 @@ const {
 } = require("./lib/admin");
 const { parsePagination, buildPageResult } = require("./lib/pagination");
 const { parseFeedback } = require("./lib/feedback");
+const { computePlan } = require("./lib/advisorPlan");
 const { runWeeklyReportJob } = require("./lib/weeklyReport");
 const { sendWeeklyReportEmail } = require("./lib/resend");
 const { activeProvider: activeJobProvider, isJobProviderConfigured } = require("./lib/jobProviders");
@@ -301,6 +302,15 @@ const feedbackLimiter = createRateLimiter({
   keyPrefix: "feedback",
 });
 
+// GET /api/advisor/plan reads a handful of the caller's own rows and does plain
+// arithmetic: no AI call, so no quota, just a limit that stops it being hammered.
+const advisorPlanLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  message: "Too many requests. Please try again in a few minutes.",
+  keyPrefix: "advisor-plan",
+});
+
 // GET /api/public-profile/:slug is unauthenticated by design (anyone with a
 // link can view a public profile) and cheap (a couple of indexed reads, no
 // AI call) — same shape of concern as /api/track above, not the Groq-cost
@@ -411,6 +421,10 @@ const TRACKABLE_EVENT_TYPES = new Set([
   "interview_started",
   // The public /try page (anonymous visitors); see computeTryStats in lib/admin.js.
   ...TRY_EVENTS,
+  // The "This week" advisor card: shown, acted on, or dismissed.
+  "advisor_plan_viewed",
+  "advisor_item_clicked",
+  "advisor_item_dismissed",
 ]);
 
 /**
@@ -2253,6 +2267,54 @@ app.post("/api/feedback", feedbackLimiter, optionalAuth, async (req, res) => {
     console.error("feedback insert failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Couldn't save your feedback. Please try again.");
+  }
+});
+
+// "This week": the advisor's plan for the signed-in student, up to three things
+// to do, computed by server/lib/advisorPlan.js from their own roles, goal and
+// resumes. No AI is involved; see docs/CAREER_MUSE_DESIGN.md.
+app.get("/api/advisor/plan", advisorPlanLimiter, optionalAuth, async (req, res) => {
+  if (!req.user) {
+    return sendError(req, res, 401, ErrorCodes.UNAUTHORIZED, "Login required");
+  }
+  try {
+    const token = getBearerToken(req);
+    const userId = req.user.id;
+
+    const [rolesRes, goalsRes, resumesRes] = await Promise.all([
+      listOwnedRows({
+        table: "roles",
+        userId,
+        token,
+        columns:
+          "id, company, role, status, alignment, created_at, updated_at, deadline, deadline_at, follow_up_at, interview_at, applied_at, priority, report_snapshot, cover_letter",
+        limit: 300,
+        orderBy: "updated_at",
+      }),
+      listOwnedRows({
+        table: "career_goals",
+        userId,
+        token,
+        columns: "id, title, target_date, applications_target, created_at",
+        limit: 1,
+        orderBy: "created_at",
+      }),
+      listOwnedRows({ table: "resumes", userId, token, columns: "id", limit: 1 }),
+    ]);
+
+    const firstError = rolesRes.error || goalsRes.error || resumesRes.error;
+    if (firstError) throw new Error(firstError);
+
+    const plan = computePlan({
+      roles: rolesRes.rows,
+      goal: goalsRes.rows[0] || null,
+      resumeCount: resumesRes.rows.length,
+    });
+    return res.json({ ...plan, generatedAt: new Date().toISOString() });
+  } catch (err) {
+    console.error("advisor/plan failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Couldn't build your plan right now");
   }
 });
 

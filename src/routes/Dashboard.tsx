@@ -6,12 +6,6 @@ import {
   Send,
   TrendingUp,
   CalendarCheck,
-  AlertCircle,
-  Clock3,
-  Sparkles,
-  RefreshCw,
-  CheckCircle2,
-  type LucideIcon,
 } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { QuickAddModal } from "../components/QuickAddModal";
@@ -34,13 +28,11 @@ import {
   getAlignmentTrend,
   getAlignmentHistoryFromTracker,
   getReadinessScores,
-  getFocusAction,
   getRecentActivity,
   formatRelativeDate,
   type UpcomingDeadline,
   type FunnelCounts,
   type ReadinessScores,
-  type FocusAction,
   type ActivityItem,
 } from "../lib/dashboardStats";
 import { TRACKER_STATUS_ORDER } from "../types/tracker";
@@ -56,6 +48,7 @@ import { toast } from "../components/ui/toast";
 import { isResumeLabUsed } from "../lib/onboarding";
 import { AI_NAME, AI_PATH } from "../config/brand";
 import { KairosAvatar } from "../components/ui/KairosAvatar";
+import { ThisWeekCard } from "../features/advisor/ThisWeekCard";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -103,7 +96,6 @@ export function Dashboard() {
   // );
 
   const hasStatusUpdate = items.some((i) => i.status !== "Applied");
-  const focusAction = getFocusAction(items);
   const recentActivity = getRecentActivity(items);
 
   return (
@@ -150,6 +142,8 @@ export function Dashboard() {
                 </button>
               </div>
             </header>
+
+            <ThisWeekCard />
 
             <OnboardingChecklist
               rolesCount={items.length}
@@ -209,6 +203,8 @@ export function Dashboard() {
             </button>
           </div>
         </header>
+
+        <ThisWeekCard />
 
         <div className="grid gap-6 lg:grid-cols-12">
           <div className="space-y-6 lg:col-span-7">
@@ -314,11 +310,6 @@ export function Dashboard() {
                 Resume readiness
               </h2>
               <ReadinessBars scores={getReadinessScores(items)} />
-            </section>
-
-            <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
-              <h2 className="text-sm font-semibold text-slate-900">Focus next</h2>
-              <FocusPanel action={focusAction} onNavigate={navigate} />
             </section>
 
             <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
@@ -550,57 +541,6 @@ function ReadinessBars({ scores }: { scores: ReadinessScores }) {
         </div>
       </div>
     </div>
-  );
-}
-
-const FOCUS_ICONS: Record<FocusAction["type"], LucideIcon> = {
-  overdue: AlertCircle,
-  "deadline-soon": Clock3,
-  "needs-analysis": Sparkles,
-  stale: RefreshCw,
-  none: CheckCircle2,
-};
-
-const FOCUS_STYLES: Record<FocusAction["type"], string> = {
-  overdue: "border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600",
-  "deadline-soon": "border-cyan-500/20 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-600",
-  "needs-analysis": "border-violet-500/20 bg-violet-500/5 hover:bg-violet-500/10 text-violet-600",
-  stale: "border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600",
-  none: "border-emerald-500/20 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600",
-};
-
-/** Single, dynamic "what to do next" card — derived from the user's own tracker data (deadlines,
- * missing analysis, stale applications). No fabricated benchmarks or generic static links. */
-function FocusPanel({
-  action,
-  onNavigate,
-}: {
-  action: FocusAction;
-  onNavigate: (path: string) => void;
-}) {
-  const Icon = FOCUS_ICONS[action.type];
-  const handleClick = () => {
-    if (action.roleId) {
-      onNavigate(`/roles/${action.roleId}`);
-    } else {
-      onNavigate("/analyzer");
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className={`btn-press mt-4 flex w-full items-start gap-3 rounded-xl border p-4 text-left transition ${FOCUS_STYLES[action.type]}`}
-    >
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/60">
-        <Icon className="h-4 w-4" strokeWidth={2.25} />
-      </span>
-      <div>
-        <div className="text-sm font-semibold text-slate-900">{action.title}</div>
-        <div className="mt-1 text-xs text-slate-500">{action.desc}</div>
-      </div>
-    </button>
   );
 }
 

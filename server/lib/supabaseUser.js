@@ -75,4 +75,27 @@ async function fetchOwnedRow({ table, id, userId, token }) {
   return fetchOwnedRowViaAdmin(table, id, userId);
 }
 
-module.exports = { getUserScopedClient, fetchOwnedRow, isUserScopedConfigured: userScopedConfigured };
+/**
+ * All of a user's rows from `table` (newest first, capped), with the same
+ * preference as fetchOwnedRow: an RLS-scoped client when the anon key is set,
+ * otherwise the admin client with an explicit `user_id` filter. `columns` is a
+ * Supabase select string so callers fetch only what they need.
+ * Returns `{ rows, error }`; `rows` is always an array.
+ */
+async function listOwnedRows({ table, userId, token, columns = "*", limit = 500, orderBy = "created_at" }) {
+  const run = (client, filterByUser) => {
+    let q = client.from(table).select(columns);
+    if (filterByUser) q = q.eq("user_id", userId);
+    return q.order(orderBy, { ascending: false }).limit(limit);
+  };
+  const scoped = getUserScopedClient(token);
+  if (scoped) {
+    const { data, error } = await run(scoped, false);
+    return { rows: data || [], error: error ? error.message : null };
+  }
+  if (!isSupabaseConfigured || !supabaseAdmin) return { rows: [], error: "Database not configured" };
+  const { data, error } = await run(supabaseAdmin, true);
+  return { rows: data || [], error: error ? error.message : null };
+}
+
+module.exports = { getUserScopedClient, fetchOwnedRow, listOwnedRows, isUserScopedConfigured: userScopedConfigured };
