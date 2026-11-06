@@ -41,6 +41,7 @@ type NavItem = { to: string; label: string };
 const PRIMARY_LINKS: NavItem[] = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/roles", label: "Roles" },
+  { to: "/jobs", label: "Jobs" },
   { to: "/analyzer", label: "Analyze" },
   { to: AI_PATH, label: AI_NAME },
   { to: "/resume-lab", label: "Resume Lab" },
