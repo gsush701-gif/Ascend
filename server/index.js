@@ -82,7 +82,9 @@ const {
   topByCount,
   computeEventTypeStats,
   computeFunnel,
+  computeTryStats,
   FUNNEL_STEPS,
+  TRY_EVENTS,
 } = require("./lib/admin");
 const { parsePagination, buildPageResult } = require("./lib/pagination");
 const { runWeeklyReportJob } = require("./lib/weeklyReport");
@@ -396,6 +398,8 @@ const TRACKABLE_EVENT_TYPES = new Set([
   "role_created",
   "cover_letter_generated",
   "interview_started",
+  // The public /try page (anonymous visitors); see computeTryStats in lib/admin.js.
+  ...TRY_EVENTS,
 ]);
 
 /**
@@ -3046,6 +3050,35 @@ app.get("/api/admin/funnel", adminLimiter, optionalAuth, requireAdmin, async (re
     console.error("admin/funnel failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load funnel data");
+  }
+});
+
+// GET /api/admin/try-funnel — the logged-out /try page: visitors, fit scores
+// run, and clicks on "Create a free account". Anonymous events carry a random
+// per-browser id (metadata.vid), so visitors are distinct browsers, not people.
+app.get("/api/admin/try-funnel", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    let windowDays = parseInt(req.query.days, 10);
+    if (!Number.isFinite(windowDays) || windowDays < 1) windowDays = 30;
+    windowDays = Math.min(windowDays, 90);
+    const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("usage_events")
+      .select("event_type, metadata")
+      .in("event_type", TRY_EVENTS)
+      .gte("created_at", since)
+      .limit(20000);
+    if (error) throw error;
+
+    return res.json({ windowDays, ...computeTryStats(rows || []) });
+  } catch (err) {
+    console.error("admin/try-funnel failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load try-page data");
   }
 });
 

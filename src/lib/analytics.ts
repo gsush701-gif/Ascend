@@ -12,7 +12,30 @@ export type TrackedEvent =
   | "analysis_completed"
   | "role_created"
   | "cover_letter_generated"
-  | "interview_started";
+  | "interview_started"
+  | "try_viewed"
+  | "try_analysis_completed"
+  | "try_signup_clicked";
+
+const VISITOR_KEY = "ascend.vid";
+
+/**
+ * A random id kept in this browser so the admin page can count distinct
+ * visitors to the logged-out /try page. It is not tied to a person or account
+ * and is never sent anywhere except our own /api/track.
+ */
+export function getVisitorId(): string | undefined {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) {
+      id = (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36));
+      localStorage.setItem(VISITOR_KEY, id);
+    }
+    return id;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Fire-and-forget product analytics ping to POST /api/track (usage_events

@@ -140,6 +140,22 @@ export type AdminFunnel = {
   didNothing: { users: number; pctOfSignups: number | null };
 };
 
+export type AdminTryFunnel = {
+  windowDays: number;
+  visitors: number;
+  pageViews: number;
+  analyses: number;
+  analysesVisitors: number;
+  analysesOnExample: number;
+  analysesOnOwn: number;
+  signupClicks: number;
+  signupClickVisitors: number;
+};
+
+export function fetchAdminTryFunnel(accessToken: string | undefined, days = 30) {
+  return adminGet<AdminTryFunnel>(`/api/admin/try-funnel?days=${days}`, accessToken);
+}
+
 export function fetchAdminWhoAmI(accessToken: string | undefined) {
   return adminGet<{ isAdmin: true; email: string }>("/api/admin/whoami", accessToken);
 }

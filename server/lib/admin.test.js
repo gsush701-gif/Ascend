@@ -6,7 +6,38 @@ import {
   topByCount,
   computeEventTypeStats,
   computeFunnel,
+  computeTryStats,
 } from "./admin.js";
+
+describe("computeTryStats — the logged-out /try page", () => {
+  it("counts distinct visitors by vid and splits example from own-resume runs", () => {
+    const stats = computeTryStats([
+      { event_type: "try_viewed", metadata: { vid: "a" } },
+      { event_type: "try_viewed", metadata: { vid: "a" } },
+      { event_type: "try_viewed", metadata: { vid: "b" } },
+      { event_type: "try_analysis_completed", metadata: { vid: "a", example: true } },
+      { event_type: "try_analysis_completed", metadata: { vid: "b", example: false } },
+      { event_type: "try_signup_clicked", metadata: { vid: "b" } },
+      { event_type: "analysis_completed", metadata: { vid: "z" } },
+    ]);
+    expect(stats).toEqual({
+      visitors: 2,
+      pageViews: 3,
+      analyses: 2,
+      analysesVisitors: 2,
+      analysesOnExample: 1,
+      analysesOnOwn: 1,
+      signupClicks: 1,
+      signupClickVisitors: 1,
+    });
+  });
+
+  it("copes with missing metadata and empty input", () => {
+    expect(computeTryStats([{ event_type: "try_viewed", metadata: null }]).visitors).toBe(0);
+    expect(computeTryStats([{ event_type: "try_viewed", metadata: null }]).pageViews).toBe(1);
+    expect(computeTryStats(undefined).pageViews).toBe(0);
+  });
+});
 
 describe("isAdminEmail — the real server-side admin boundary", () => {
   it("allows an exact match", () => {

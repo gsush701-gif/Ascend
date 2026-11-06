@@ -9,6 +9,7 @@ import {
   EXAMPLE_RESUME_NAME,
   EXAMPLE_RESUME_URL,
 } from "../features/analyzer/exampleData";
+import { getVisitorId, logEvent } from "../lib/analytics";
 import { card } from "../lib/ui";
 import { cn } from "../lib/cn";
 
@@ -35,6 +36,7 @@ export function Try() {
 
   useEffect(() => {
     document.title = "Try Ascend, no account needed";
+    logEvent("try_viewed", { vid: getVisitorId() });
     return () => {
       document.title = "Ascend";
     };
@@ -70,12 +72,14 @@ export function Try() {
 
   const { report } = a;
   // The result renders below the form, which on a phone is off screen.
+  const usingExample = a.resume?.name === EXAMPLE_RESUME_NAME;
   useEffect(() => {
     if (!report) return;
     resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    logEvent("try_analysis_completed", { vid: getVisitorId(), example: usingExample });
+    // Only when a new report arrives; usingExample is read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report]);
-
-  const usingExample = a.resume?.name === EXAMPLE_RESUME_NAME;
   const missing = report?.skills.filter((s) => s.status === "miss") ?? [];
   const matched = report?.skills.filter((s) => s.status === "hit") ?? [];
 
@@ -223,7 +227,11 @@ export function Try() {
                 Create an account to save your results, rewrite weak resume bullets with AI, and track every
                 application in one place.
               </p>
-              <Link to="/signup?next=%2Fanalyzer" className="mt-4 inline-block">
+              <Link
+                to="/signup?next=%2Fanalyzer"
+                className="mt-4 inline-block"
+                onClick={() => logEvent("try_signup_clicked", { vid: getVisitorId() })}
+              >
                 <Button variant="primary">Create a free account</Button>
               </Link>
               <p className="mt-2 text-xs text-slate-400">Sign in with Google in seconds. No card needed.</p>

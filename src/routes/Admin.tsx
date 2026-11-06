@@ -15,8 +15,10 @@ import {
   fetchAdminApplications,
   fetchAdminAiUsage,
   fetchAdminFunnel,
+  fetchAdminTryFunnel,
   fetchAdminBilling,
   fetchAdminSystem,
+  type AdminTryFunnel,
   type AdminOverview,
   type AdminApplications,
   type AdminAiUsage,
@@ -103,6 +105,7 @@ export function Admin() {
   const [aiUsageLoading, setAiUsageLoading] = useState(true);
   const [funnel, setFunnel] = useState<AdminFunnel | null>(null);
   const [funnelLoading, setFunnelLoading] = useState(true);
+  const [tryFunnel, setTryFunnel] = useState<AdminTryFunnel | null>(null);
 
   const [billing, setBilling] = useState<AdminBilling | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
@@ -203,6 +206,9 @@ export function Admin() {
       .then(setFunnel)
       .catch(() => {})
       .finally(() => setFunnelLoading(false));
+    fetchAdminTryFunnel(accessToken)
+      .then(setTryFunnel)
+      .catch(() => {});
     // Only re-run when we first become "ready" for this session's token —
     // per-section pagination is handled by the page-change handlers below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -368,6 +374,40 @@ export function Admin() {
                   { header: "Created", render: (r) => fmtDate(r.created_at) },
                 ]}
               />
+            </div>
+          )}
+        </Panel>
+
+        {/* --- Public try page --- */}
+        <Panel
+          title="Try page (no account)"
+          subtitle="People who opened /try, ran a fit score, and clicked Create a free account."
+        >
+          {!tryFunnel ? (
+            <Skeleton className="h-24" />
+          ) : (
+            <div className="space-y-3">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard
+                  label="Visitors"
+                  value={fmtNumber(tryFunnel.visitors)}
+                  hint={`${fmtNumber(tryFunnel.pageViews)} page views, last ${tryFunnel.windowDays} days`}
+                />
+                <StatCard
+                  label="Ran a fit score"
+                  value={fmtNumber(tryFunnel.analysesVisitors)}
+                  hint={`${fmtNumber(tryFunnel.analysesOnOwn)} own resume, ${fmtNumber(tryFunnel.analysesOnExample)} example`}
+                />
+                <StatCard
+                  label="Clicked sign up"
+                  value={fmtNumber(tryFunnel.signupClickVisitors)}
+                  hint={`${fmtNumber(tryFunnel.signupClicks)} clicks in total`}
+                />
+              </div>
+              <p className="text-xs text-slate-500">
+                Visitors are distinct browsers, not people, and include your own tests. Only runs on your own resume
+                (not the example) are strong evidence.
+              </p>
             </div>
           )}
         </Panel>
