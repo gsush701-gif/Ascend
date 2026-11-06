@@ -54,7 +54,7 @@ export function Landing() {
                   Check my resume, free
                 </Button>
               </Link>
-              <Link to="/analyzer?example=1" className="w-full sm:w-auto">
+              <Link to="/try?example=1" className="w-full sm:w-auto">
                 <Button variant="secondary" className="w-full">
                   See it on an example
                 </Button>
