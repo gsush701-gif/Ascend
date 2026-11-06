@@ -16,9 +16,11 @@ import {
   fetchAdminAiUsage,
   fetchAdminFunnel,
   fetchAdminTryFunnel,
+  fetchAdminFeedback,
   fetchAdminBilling,
   fetchAdminSystem,
   type AdminTryFunnel,
+  type AdminFeedbackItem,
   type AdminOverview,
   type AdminApplications,
   type AdminAiUsage,
@@ -106,6 +108,7 @@ export function Admin() {
   const [funnel, setFunnel] = useState<AdminFunnel | null>(null);
   const [funnelLoading, setFunnelLoading] = useState(true);
   const [tryFunnel, setTryFunnel] = useState<AdminTryFunnel | null>(null);
+  const [feedback, setFeedback] = useState<AdminFeedbackItem[] | null>(null);
 
   const [billing, setBilling] = useState<AdminBilling | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
@@ -208,6 +211,9 @@ export function Admin() {
       .finally(() => setFunnelLoading(false));
     fetchAdminTryFunnel(accessToken)
       .then(setTryFunnel)
+      .catch(() => {});
+    fetchAdminFeedback(accessToken)
+      .then((r) => setFeedback(r.items))
       .catch(() => {});
     // Only re-run when we first become "ready" for this session's token —
     // per-section pagination is handled by the page-change handlers below.
@@ -375,6 +381,27 @@ export function Admin() {
                 ]}
               />
             </div>
+          )}
+        </Panel>
+
+        {/* --- Feedback --- */}
+        <Panel title="Feedback" subtitle="What testers typed into the Feedback box. Newest first.">
+          {!feedback ? (
+            <Skeleton className="h-24" />
+          ) : feedback.length === 0 ? (
+            <p className="text-sm text-slate-500">No feedback yet.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {feedback.map((f) => (
+                <li key={f.id} className="py-3">
+                  <p className="whitespace-pre-wrap text-sm text-slate-800">{f.message}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {new Date(f.createdAt).toLocaleString()} · {f.email ?? (f.signedIn ? "signed in" : "anonymous")}
+                    {f.page ? ` · ${f.page}` : ""}
+                  </p>
+                </li>
+              ))}
+            </ul>
           )}
         </Panel>
 

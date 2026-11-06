@@ -1,6 +1,7 @@
 import { BackgroundFX } from "./BackgroundFX";
 import { TopNav } from "./TopNav";
 import { AssistantLauncher } from "./AssistantLauncher";
+import { FeedbackButton } from "../feedback/FeedbackButton";
 import { pageContainer } from "../../lib/ui";
 
 type AppShellProps = {
@@ -16,6 +17,7 @@ export function AppShell({ children }: AppShellProps) {
         {children}
       </main>
       <AssistantLauncher />
+      <FeedbackButton />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import {
   EXAMPLE_RESUME_NAME,
   EXAMPLE_RESUME_URL,
 } from "../features/analyzer/exampleData";
+import { FeedbackButton } from "../components/feedback/FeedbackButton";
 import { getVisitorId, logEvent } from "../lib/analytics";
 import { card } from "../lib/ui";
 import { cn } from "../lib/cn";
@@ -239,6 +240,7 @@ export function Try() {
           </section>
         )}
       </div>
+      <FeedbackButton />
     </PublicShell>
   );
 }

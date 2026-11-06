@@ -6,7 +6,32 @@ import {
   missingSignals,
   extractSalary,
   computeDetailedAtsAnalysis,
+  makeActions,
 } from "./scoring.js";
+
+describe("makeActions — next steps for missing skills", () => {
+  it("gives a step for skills it used to ignore (the example's missing list)", () => {
+    const actions = makeActions(["express", "kubernetes", "testing", "jest", "ci/cd"]);
+    expect(actions.length).toBeGreaterThanOrEqual(3);
+    expect(actions.filter((a) => a.startsWith("Add tests")).length).toBe(1);
+    expect(actions.some((a) => a.includes("GitHub Actions"))).toBe(true);
+  });
+
+  it("keeps the existing wording for the original five skills", () => {
+    expect(makeActions(["docker"])).toContain("Containerize one project with Docker");
+    expect(makeActions(["rest api"])).toContain("Build one REST API project");
+  });
+
+  it("covers skills with no dedicated step and never returns an empty list", () => {
+    expect(makeActions(["python"]).some((a) => a.includes("python"))).toBe(true);
+    expect(makeActions([]).length).toBeGreaterThan(0);
+  });
+
+  it("returns at most five", () => {
+    const many = ["rest api", "aws", "testing", "docker", "sql", "ci/cd", "express", "kubernetes"];
+    expect(makeActions(many).length).toBe(5);
+  });
+});
 
 describe("extractSkills — word-boundary matching (Task 1)", () => {
   it("does NOT match 'java' inside 'javascript'", () => {

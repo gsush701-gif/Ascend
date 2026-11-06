@@ -88,24 +88,48 @@ function extractSkills(text) {
   return unique(hits);
 }
 
+// One concrete next step per skill a posting asks for that the resume lacks.
+// Ordered by how quickly a student can act on it. Skills that share an action
+// (the three clouds, the test tools) list it once.
+const ACTION_RULES = [
+  { match: ["rest api"], text: "Build one REST API project" },
+  {
+    match: ["aws", "azure", "gcp"],
+    text: "Deploy a project to a cloud platform (AWS/Render/Vercel)",
+  },
+  {
+    match: ["testing", "jest", "pytest"],
+    text: "Add tests (unit/integration) to one project",
+  },
+  { match: ["docker"], text: "Containerize one project with Docker" },
+  { match: ["sql"], text: "Add a SQL-backed feature to a project" },
+  { match: ["ci/cd"], text: "Add a GitHub Actions workflow that runs your tests on every push" },
+  { match: ["express"], text: "Build a small Express server with a few routes and show it on your resume" },
+  { match: ["kubernetes"], text: "Deploy one containerized project to a local Kubernetes cluster (minikube or kind)" },
+  { match: ["next.js"], text: "Rebuild one project page in Next.js" },
+  { match: ["linux"], text: "Run one project on a Linux server or VM and mention the commands you used" },
+  { match: ["git"], text: "Put your projects on GitHub with a clear README and regular commits" },
+  { match: ["data structures", "algorithms"], text: "Solve a few data structures problems and list a project that uses them" },
+];
+
 function makeActions(missing) {
   const actions = [];
-  const m = missing.map((x) => x.toLowerCase());
+  const m = new Set((missing || []).map((x) => String(x).toLowerCase()));
 
-  if (m.some((x) => x.includes("rest")))
-    actions.push("Build one REST API project");
-  if (
-    m.some((x) => x.includes("aws") || x.includes("azure") || x.includes("gcp"))
-  )
-    actions.push("Deploy a project to a cloud platform (AWS/Render/Vercel)");
-  if (m.some((x) => x.includes("testing")))
-    actions.push("Add tests (unit/integration) to one project");
-  if (m.some((x) => x.includes("docker")))
-    actions.push("Containerize one project with Docker");
-  if (m.some((x) => x.includes("sql")))
-    actions.push("Add a SQL-backed feature to a project");
+  for (const rule of ACTION_RULES) {
+    if (rule.match.some((skill) => m.has(skill))) actions.push(rule.text);
+  }
 
-  if (actions.length === 0)
+  // Missing languages and frameworks have no single "build this" step, so give
+  // a general one rather than leaving the list empty or thin.
+  const covered = new Set(ACTION_RULES.flatMap((r) => r.match));
+  const other = [...m].filter((x) => !covered.has(x));
+  if (other.length > 0) {
+    const shown = other.slice(0, 2).join(" and ");
+    actions.push(`Add a project or bullet that shows hands-on ${shown} work`);
+  }
+
+  if (actions.length < 3)
     actions.push("Add metrics + impact to 2 strongest bullet points");
   return actions.slice(0, 5);
 }

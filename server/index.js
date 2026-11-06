@@ -87,6 +87,7 @@ const {
   TRY_EVENTS,
 } = require("./lib/admin");
 const { parsePagination, buildPageResult } = require("./lib/pagination");
+const { parseFeedback } = require("./lib/feedback");
 const { runWeeklyReportJob } = require("./lib/weeklyReport");
 const { sendWeeklyReportEmail } = require("./lib/resend");
 const { activeProvider: activeJobProvider, isJobProviderConfigured } = require("./lib/jobProviders");
@@ -288,6 +289,16 @@ const trackLimiter = createRateLimiter({
   max: 120,
   message: "Too many requests. Please try again in a few minutes.",
   keyPrefix: "track",
+});
+
+// POST /api/feedback is open to logged-out visitors too (testers on /try), so
+// it gets a tight per-IP limit: a handful of messages per window is plenty for
+// a person and keeps it from being used to fill the table.
+const feedbackLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  message: "Too many messages. Please try again in a few minutes.",
+  keyPrefix: "feedback",
 });
 
 // GET /api/public-profile/:slug is unauthenticated by design (anyone with a
@@ -2218,6 +2229,33 @@ app.post("/api/track", trackLimiter, optionalAuth, async (req, res) => {
   return res.json({ ok: true });
 });
 
+// In-app feedback box. Open to anonymous visitors; a signed-in sender is tied
+// to their account so you can see who said it, an anonymous one only by the
+// optional email they typed.
+app.post("/api/feedback", feedbackLimiter, optionalAuth, async (req, res) => {
+  const parsed = parseFeedback(req.body);
+  if (!parsed.ok) {
+    return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, parsed.error);
+  }
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Feedback is not available right now");
+  }
+  try {
+    const { error } = await supabaseAdmin.from("feedback").insert({
+      user_id: (req.user && req.user.id) || null,
+      message: parsed.value.message,
+      email: parsed.value.email,
+      page: parsed.value.page,
+    });
+    if (error) throw error;
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("feedback insert failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Couldn't save your feedback. Please try again.");
+  }
+});
+
 // --- Job Discovery (Phase 7 Task 8) ---
 //
 // This app has no compliant job-listing data provider configured today (see
@@ -3050,6 +3088,51 @@ app.get("/api/admin/funnel", adminLimiter, optionalAuth, requireAdmin, async (re
     console.error("admin/funnel failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load funnel data");
+  }
+});
+
+// GET /api/admin/feedback — the latest feedback messages, newest first, with
+// the sender's email (their account's, or the one they typed) when there is one.
+app.get("/api/admin/feedback", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  try {
+    const { data: rows, error } = await supabaseAdmin
+      .from("feedback")
+      .select("id, user_id, message, email, page, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+
+    // Look up account emails for signed-in senders (a handful at most).
+    const accountEmail = new Map();
+    const ids = [...new Set((rows || []).map((r) => r.user_id).filter(Boolean))];
+    await Promise.all(
+      ids.map(async (id) => {
+        try {
+          const { data } = await supabaseAdmin.auth.admin.getUserById(id);
+          if (data && data.user && data.user.email) accountEmail.set(id, data.user.email);
+        } catch {
+          // A missing account just shows no email.
+        }
+      }),
+    );
+
+    return res.json({
+      items: (rows || []).map((r) => ({
+        id: r.id,
+        message: r.message,
+        email: (r.user_id && accountEmail.get(r.user_id)) || r.email || null,
+        signedIn: Boolean(r.user_id),
+        page: r.page,
+        createdAt: r.created_at,
+      })),
+    });
+  } catch (err) {
+    console.error("admin/feedback failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load feedback");
   }
 });
 

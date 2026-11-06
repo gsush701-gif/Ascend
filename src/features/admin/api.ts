@@ -156,6 +156,19 @@ export function fetchAdminTryFunnel(accessToken: string | undefined, days = 30) 
   return adminGet<AdminTryFunnel>(`/api/admin/try-funnel?days=${days}`, accessToken);
 }
 
+export type AdminFeedbackItem = {
+  id: string;
+  message: string;
+  email: string | null;
+  signedIn: boolean;
+  page: string | null;
+  createdAt: string;
+};
+
+export function fetchAdminFeedback(accessToken: string | undefined) {
+  return adminGet<{ items: AdminFeedbackItem[] }>("/api/admin/feedback", accessToken);
+}
+
 export function fetchAdminWhoAmI(accessToken: string | undefined) {
   return adminGet<{ isAdmin: true; email: string }>("/api/admin/whoami", accessToken);
 }
