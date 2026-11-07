@@ -19,6 +19,7 @@ import {
   getPerformanceSentence,
   getApplicationsThisWeek,
   getApplicationsLastWeek,
+  getApplicationsByWeek,
   getAlignmentTrend,
   getAlignmentHistoryFromTracker,
   getReadinessScores,
@@ -26,7 +27,6 @@ import {
   formatRelativeDate,
   type UpcomingDeadline,
   type FunnelCounts,
-  type ReadinessScores,
   type ActivityItem,
 } from "../lib/dashboardStats";
 import { TRACKER_STATUS_ORDER } from "../types/tracker";
@@ -35,6 +35,7 @@ import { useProfile } from "../lib/profile";
 import { KpiCard } from "../components/dashboard/KpiCard";
 import { AlignmentChart } from "../components/ui/AlignmentChart";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
+import { Sparkline } from "../components/ui/Sparkline";
 import { EmptyState } from "../components/ui/EmptyState";
 import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklist";
 import { DashboardSkeleton } from "../components/dashboard/DashboardSkeleton";
@@ -96,6 +97,14 @@ export function Dashboard() {
   //   totalApplications,
   //   interviewRate
   // );
+
+  const interviews = getInterviewCount(items);
+  const thisWeek = getApplicationsThisWeek(items);
+  const lastWeek = getApplicationsLastWeek(items);
+  const weeklyApps = getApplicationsByWeek(items, 8).map((w) => w.applications);
+  const fitSpark = getAlignmentHistoryFromTracker(items, 12).map((p) => p.alignment);
+  const fitTrend = getAlignmentTrend(items);
+  const readiness = getReadinessScores(items);
 
   const hasStatusUpdate = items.some((i) => i.status !== "Applied");
   const recentActivity = getRecentActivity(items);
@@ -161,7 +170,7 @@ export function Dashboard() {
             />
           </div>
         ) : (
-          <div className="animate-fade-in space-y-8">
+          <div className="animate-fade-in space-y-6">
         <header className={pageHeader}>
           <div>
             <h1 className={pageTitle}>Dashboard</h1>
@@ -187,64 +196,68 @@ export function Dashboard() {
 
         <ThisWeekCard onTrackJob={(job) => trackAdvisorJob({ addManualTrackerItem, updateRoleFields }, job)} />
 
-        <div className="grid gap-8 lg:grid-cols-12">
-          <div className="space-y-8 lg:col-span-7">
-            <section className={`${card} overflow-hidden !p-0`} aria-label="Summary">
-              <div className="grid divide-y divide-slate-100 md:grid-cols-4 md:divide-x md:divide-y-0">
-                <FitScoreHero
-                  avgAlignment={avgAlignment}
-                  insight={getFitScoreInsight(items)}
-                  trend={getAlignmentTrend(items)}
-                />
-                <KpiCard
-                  label="Apps sent"
-                  value={totalApplications}
-                  badge={
-                    getApplicationsThisWeek(items) > 0
-                      ? `+${getApplicationsThisWeek(items)} this wk`
-                      : undefined
-                  }
-                />
-                <KpiCard
-                  label="Interview rate"
-                  value={interviewRate != null ? `${interviewRate}%` : "—"}
-                  badge={
-                    interviewRate != null && interviewRate >= 30
-                      ? "Above avg"
-                      : interviewRate != null
-                        ? "Below 30%"
-                        : undefined
-                  }
-                  hint={
-                    interviewRate != null && interviewRate < 30
-                      ? "Improve fit score to increase interview probability."
-                      : undefined
-                  }
-                />
-                <KpiCard label="Interviews" value={getInterviewCount(items)} />
-              </div>
-            </section>
-
-            <OnboardingChecklist
-              rolesCount={items.length}
-              hasStatusUpdate={hasStatusUpdate}
-              resumeLabUsed={isResumeLabUsed()}
+        <section className={`${card} overflow-hidden !p-0`} aria-label="Summary">
+          <div className="grid grid-cols-2 gap-px bg-slate-100 lg:grid-cols-4">
+            <KpiCard
+              label="Fit score"
+              value={avgAlignment != null ? `${avgAlignment}%` : "—"}
+              badge={fitQualifier(avgAlignment) ?? undefined}
+              visual={
+                fitSpark.length >= 2 ? (
+                  <Sparkline values={fitSpark} className="w-full" />
+                ) : (
+                  <AnimatedBar pct={avgAlignment ?? 0} gradient="linear-gradient(90deg, #22d3ee, #a78bfa)" />
+                )
+              }
+              hint={fitTrend === "up" ? "Trending up" : fitTrend === "down" ? "Trending down" : undefined}
             />
+            <KpiCard
+              label="Applications sent"
+              value={totalApplications}
+              badge={thisWeek > 0 ? `+${thisWeek} this week` : undefined}
+              visual={<Sparkline values={weeklyApps} className="w-full" color="#8b5cf6" />}
+              hint={lastWeek > 0 || thisWeek > 0 ? `${thisWeek} this week, ${lastWeek} last week` : undefined}
+            />
+            <KpiCard
+              label="Interview rate"
+              value={interviewRate != null ? `${interviewRate}%` : "—"}
+              badge={
+                interviewRate != null && totalApplications >= 3
+                  ? interviewRate >= 30
+                    ? "Above avg"
+                    : "Below 30% avg"
+                  : undefined
+              }
+              visual={<AnimatedBar pct={interviewRate ?? 0} colorClassName="bg-violet-500" />}
+              hint={`${interviews} interview${interviews === 1 ? "" : "s"} from ${totalApplications} application${totalApplications === 1 ? "" : "s"}`}
+            />
+            <KpiCard
+              label="Resume strength"
+              value={readiness.resume != null ? `${readiness.resume}%` : "—"}
+              visual={<AnimatedBar pct={readiness.resume ?? 0} colorClassName="bg-cyan-500" />}
+              hint={readiness.resume == null ? "Analyze a resume against a role to see this." : undefined}
+            />
+          </div>
+        </section>
 
+        <OnboardingChecklist
+          rolesCount={items.length}
+          hasStatusUpdate={hasStatusUpdate}
+          resumeLabUsed={isResumeLabUsed()}
+        />
+
+        <div className="grid gap-6 lg:grid-cols-12">
+          <div className="min-w-0 space-y-6 lg:col-span-8">
             <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">
-                Fit score trend
-              </h2>
-              <AlignmentChart
-                points={getAlignmentHistoryFromTracker(items)}
-                className="mt-4"
-              />
+              <h2 className="text-sm font-semibold text-slate-900">Fit score trend</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {getFitScoreInsight(items) ?? "Your average fit score by day, from the roles you analyze."}
+              </p>
+              <AlignmentChart points={getAlignmentHistoryFromTracker(items)} className="mt-4" />
             </section>
 
             <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">
-                Upcoming deadlines
-              </h2>
+              <h2 className="text-sm font-semibold text-slate-900">Upcoming deadlines</h2>
               <UpcomingDeadlinesList
                 deadlines={getUpcomingDeadlines(items)}
                 onRoleClick={(id) => navigate(`/roles/${id}`)}
@@ -252,25 +265,16 @@ export function Dashboard() {
             </section>
           </div>
 
-          <div className="space-y-8 lg:col-span-5">
+          <div className="min-w-0 space-y-6 lg:col-span-4">
             <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">By status</h2>
-              <ByStatusBars
+              <h2 className="text-sm font-semibold text-slate-900">Pipeline</h2>
+              <PipelineCard
                 counts={funnel}
                 total={items.length}
                 appliedCount={totalApplications}
                 interviewRate={interviewRate}
                 rejectionRate={getRejectionRate(items)}
-                thisWeek={getApplicationsThisWeek(items)}
-                lastWeek={getApplicationsLastWeek(items)}
               />
-            </section>
-
-            <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">
-                Resume readiness
-              </h2>
-              <ReadinessBars scores={getReadinessScores(items)} />
             </section>
 
             <section className={card}>
@@ -290,51 +294,10 @@ export function Dashboard() {
   );
 }
 
-function FitScoreHero({
-  avgAlignment,
-  insight,
-  trend,
-}: {
-  avgAlignment: number | null;
-  insight: string | null;
-  trend: "up" | "down" | "stable" | null;
-}) {
-  const pct = avgAlignment ?? 0;
-  const level =
-    avgAlignment != null ? alignmentToPreparedness(avgAlignment) : null;
-  const qualifier =
-    level === "High"
-      ? "Strong"
-      : level === "Medium"
-        ? "On track"
-        : level === "Low"
-          ? "Needs improvement"
-          : null;
-
-  return (
-    <div className="px-5 py-4 sm:px-6 sm:py-5">
-      <div className="text-sm text-slate-500">Fit score</div>
-      <div className="mt-1 flex flex-wrap items-baseline gap-2">
-        <span className="font-display text-3xl font-semibold tracking-tight text-slate-900">
-          {avgAlignment != null ? `${avgAlignment}%` : "—"}
-        </span>
-        {qualifier != null && <span className="text-xs font-medium text-slate-500">{qualifier}</span>}
-        {trend != null && trend !== "stable" && (
-          <span
-            className={`text-xs font-medium ${trend === "up" ? "text-emerald-600" : "text-rose-600"}`}
-          >
-            {trend === "up" ? "↑ Trending up" : "↓ Trending down"}
-          </span>
-        )}
-      </div>
-      <div className="mt-3">
-        <AnimatedBar pct={pct} gradient="linear-gradient(90deg, #22d3ee, #a78bfa)" />
-      </div>
-      <p className="mt-2 text-xs leading-relaxed text-slate-500">
-        {insight ?? "Based on resume vs job requirements"}
-      </p>
-    </div>
-  );
+function fitQualifier(avgAlignment: number | null): string | null {
+  if (avgAlignment == null) return null;
+  const level = alignmentToPreparedness(avgAlignment);
+  return level === "High" ? "Strong" : level === "Medium" ? "On track" : "Needs work";
 }
 
 function UpcomingDeadlinesList({
@@ -398,100 +361,61 @@ const STATUS_BAR_COLORS: Record<keyof FunnelCounts, string> = {
   Withdrawn: "bg-slate-500",
 };
 
-function ByStatusBars({
+function PipelineCard({
   counts,
   total,
   appliedCount,
   interviewRate,
   rejectionRate,
-  thisWeek,
-  lastWeek,
 }: {
   counts: FunnelCounts;
   total: number;
   appliedCount: number;
   interviewRate: number | null;
   rejectionRate: number | null;
-  thisWeek: number;
-  lastWeek: number;
 }) {
   if (total === 0) {
     return (
-      <p className="mt-4 text-sm text-slate-500 italic">
-        No applications yet. Add roles to see status breakdown.
+      <p className="mt-4 text-sm italic text-slate-500">
+        No applications yet. Add roles to see your pipeline.
       </p>
     );
   }
   const rows = STATUS_ORDER.filter((s) => (counts[s] ?? 0) > 0).map((status) => ({
     status,
     count: counts[status] ?? 0,
-    pct: ((counts[status] ?? 0) / total) * 100,
   }));
-  const trendText =
-    lastWeek > 0
-      ? thisWeek > lastWeek
-        ? `↑ ${thisWeek} vs ${lastWeek} last week`
-        : thisWeek < lastWeek
-          ? `↓ ${thisWeek} vs ${lastWeek} last week`
-          : null
-      : null;
-  const interviewRateContext =
-    interviewRate != null && appliedCount >= 3
-      ? interviewRate >= 30
-        ? `Interview rate: ${interviewRate}% (above avg)`
-        : `Interview rate: ${interviewRate}% (below 30% avg)`
-      : null;
-  const rejectionRateContext =
-    rejectionRate != null && appliedCount >= 3
-      ? `Rejection rate: ${rejectionRate}%`
-      : null;
+  const notes = [
+    interviewRate != null && appliedCount >= 3 ? `Interview rate ${interviewRate}%` : null,
+    rejectionRate != null && appliedCount >= 3 ? `Rejection rate ${rejectionRate}%` : null,
+  ].filter((n): n is string => n != null);
 
   return (
-    <div className="mt-4 space-y-2">
-      {rows.map(({ status, count, pct }, i) => (
-        <div key={status}>
-          <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>{status}</span>
-            <span>{count} ({Math.round(pct)}%)</span>
-          </div>
-          <div className="mt-1.5">
-            <AnimatedBar pct={pct} colorClassName={STATUS_BAR_COLORS[status]} delayMs={i * 80} />
-          </div>
-        </div>
-      ))}
-      <div className="mt-3 space-y-0.5 border-t border-slate-200 pt-3 text-xs text-slate-500">
-        {interviewRateContext && <div>{interviewRateContext}</div>}
-        {rejectionRateContext && <div>{rejectionRateContext}</div>}
-        {trendText && <div>Apps: {trendText}</div>}
+    <div className="mt-4">
+      <div className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full bg-slate-100" role="img" aria-label="Roles by status">
+        {rows.map(({ status, count }) => (
+          <span
+            key={status}
+            className={`h-full ${STATUS_BAR_COLORS[status]}`}
+            style={{ width: `${(count / total) * 100}%` }}
+            title={`${status}: ${count}`}
+          />
+        ))}
       </div>
-    </div>
-  );
-}
-
-/**
- * Single real, data-backed readiness bar. This used to also show "Projects", "Deployments",
- * and "Interview prep" bars fixed at 45% / 15% / 25% for every user — flat placeholders with no
- * signal behind them. Cut in favor of the one score that actually traces to saved analysis data.
- */
-function ReadinessBars({ scores }: { scores: ReadinessScores }) {
-  if (scores.resume == null) {
-    return (
-      <p className="mt-4 text-sm text-slate-500 italic">
-        Analyze a resume against a role to see your resume readiness here.
-      </p>
-    );
-  }
-  return (
-    <div className="mt-4 space-y-3">
-      <div>
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <span>Resume strength</span>
-          <span>{scores.resume}%</span>
-        </div>
-        <div className="mt-1.5">
-          <AnimatedBar pct={scores.resume} colorClassName="bg-cyan-500" />
-        </div>
-      </div>
+      <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2.5">
+        {rows.map(({ status, count }) => (
+          <li key={status} className="flex items-center justify-between text-xs">
+            <span className="flex min-w-0 items-center gap-2 text-slate-600">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_BAR_COLORS[status]}`} />
+              <span className="truncate">{status}</span>
+            </span>
+            <span className="font-medium tabular-nums text-slate-900">{count}</span>
+          </li>
+        ))}
+      </ul>
+      {notes.length > 0 && (
+        <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">{notes.join("  ·  ")}</p>
+      )}
     </div>
   );
 }

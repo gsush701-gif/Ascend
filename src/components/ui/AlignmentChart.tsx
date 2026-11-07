@@ -17,7 +17,7 @@ type AlignmentChartProps = {
 
 export function AlignmentChart({
   points,
-  height = 160,
+  height = 200,
   className = "",
 }: AlignmentChartProps) {
   if (points.length === 0) {
@@ -31,13 +31,22 @@ export function AlignmentChart({
     );
   }
 
-  const data = points.map((p) => ({
-    label: new Date(p.createdAt).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-    }),
-    alignment: p.alignment,
-  }));
+  // Several analyses on one day would draw as a cluster with the same date under
+  // each point, so each day is shown once, as the average of that day's scores.
+  const byDay = new Map<string, { label: string; total: number; count: number }>();
+  for (const p of points) {
+    const d = new Date(p.createdAt);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const day = byDay.get(key) ?? {
+      label: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      total: 0,
+      count: 0,
+    };
+    day.total += p.alignment;
+    day.count += 1;
+    byDay.set(key, day);
+  }
+  const data = [...byDay.values()].map((d) => ({ label: d.label, alignment: Math.round(d.total / d.count) }));
 
   return (
     <div className={className} style={{ height }}>
@@ -45,12 +54,12 @@ export function AlignmentChart({
         <AreaChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
           <defs>
             <linearGradient id="alignmentFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="#a78bfa" stopOpacity={0.03} />
+              <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.2} />
+              <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="alignmentStroke" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor="#22d3ee" />
-              <stop offset="100%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#06b6d4" />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} stroke="rgba(15,23,42,0.06)" />
@@ -77,9 +86,9 @@ export function AlignmentChart({
             type="monotone"
             dataKey="alignment"
             stroke="url(#alignmentStroke)"
-            strokeWidth={2.5}
+            strokeWidth={2}
             fill="url(#alignmentFill)"
-            dot={{ r: 3, fill: "#22d3ee", strokeWidth: 0 }}
+            dot={false}
             activeDot={{ r: 5, fill: "#22d3ee", stroke: "#FFFFFF", strokeWidth: 2 }}
             animationDuration={900}
             animationEasing="ease-out"

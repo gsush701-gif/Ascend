@@ -13,7 +13,7 @@ export const pageHeader =
 
 /** Page title (H1) */
 export const pageTitle =
-  "font-display text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl";
+  "font-display text-2xl font-semibold tracking-tight text-slate-900";
 
 /** Page subtitle (one-line muted) */
 export const pageSubtitle =
@@ -29,7 +29,7 @@ export const pageContentGap =
 
 /** Card: Dashboard-style panel */
 export const card =
-  "rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]";
+  "rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]";
 
 /** Soft inset box: for a group of content inside a card, or a quiet standalone block */
 export const cardAlt =

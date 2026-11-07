@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, ChevronUp, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import {
   isChecklistDismissed,
   setChecklistDismissed,
@@ -21,7 +21,6 @@ export function OnboardingChecklist({
   resumeLabUsed,
 }: OnboardingChecklistProps) {
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
   const [dismissed, setDismissed] = useState(isChecklistDismissed());
 
   const step1Done = rolesCount >= 3;
@@ -64,51 +63,37 @@ export function OnboardingChecklist({
     return null;
   }
 
+  const doneCount = [step1Done, step2Done, step3Done].filter(Boolean).length;
+
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-      <button
-        type="button"
-        onClick={() => setCollapsed((c) => !c)}
-        className="flex w-full items-center justify-between text-left"
-      >
-        <span className="text-sm font-semibold text-slate-900">
-          Get started
-        </span>
-        {collapsed ? (
-          <ChevronDown className="h-4 w-4 text-slate-500" />
-        ) : (
-          <ChevronUp className="h-4 w-4 text-slate-500" />
-        )}
-      </button>
-      {!collapsed && (
-        <div className="mt-3 space-y-2">
-          <Step
-            done={step1Done}
-            label="Add 3 roles"
-            onClick={() => navigate("/analyzer")}
-          />
-          <Step
-            done={step2Done}
-            label="Update status for at least 1 role"
-            onClick={() => navigate("/roles")}
-          />
-          <Step
-            done={step3Done}
-            label="Run 1 resume improvement"
-            onClick={() => navigate("/resume-lab")}
-          />
-          <button
-            type="button"
-            onClick={() => {
-              setChecklistDismissed();
-              setDismissed(true);
-            }}
-            className="mt-2 text-xs text-slate-500 hover:text-slate-600"
-          >
-            Dismiss
-          </button>
+    <div className="rounded-2xl border border-slate-200/80 bg-white px-5 py-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-semibold text-slate-900">Get started</span>
+          <span className="text-xs text-slate-500">{doneCount} of 3 done</span>
+          <span className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100" aria-hidden>
+            <span
+              className="block h-full rounded-full bg-cyan-500 transition-[width]"
+              style={{ width: `${(doneCount / 3) * 100}%` }}
+            />
+          </span>
         </div>
-      )}
+        <div className="flex flex-1 flex-wrap items-center gap-x-5 gap-y-2">
+          <Step done={step1Done} label="Add 3 roles" onClick={() => navigate("/analyzer")} />
+          <Step done={step2Done} label="Update a role's status" onClick={() => navigate("/roles")} />
+          <Step done={step3Done} label="Run 1 resume improvement" onClick={() => navigate("/resume-lab")} />
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setChecklistDismissed();
+            setDismissed(true);
+          }}
+          className="text-xs text-slate-400 transition hover:text-slate-600"
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 }
