@@ -354,7 +354,7 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
   }, [result]);
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 pb-12">
+    <div className={cn("max-w-3xl space-y-6 pb-12", !embedded && "mx-auto")}>
         {/* Hero — hidden when embedded in the Resume Lab workspace (it has its own header) */}
         {!embedded && (
           <section className="text-center">
@@ -369,8 +369,8 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
         )}
 
         {/* Mode toggle */}
-        <section className="flex justify-center">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-900/[0.04] p-1">
+        <section className={cn("flex", embedded ? "justify-start" : "justify-center")}>
+          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1">
             <button
               type="button"
               onClick={() => setMode("bullet")}
@@ -436,7 +436,7 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
                   "rounded-xl border px-4 py-3 focus-within:ring-1",
                   showEmptyError
                     ? "border-red-400/50 bg-red-500/5 focus-within:border-red-400/50 focus-within:ring-red-400/20"
-                    : "border-slate-200 bg-slate-900/[0.04] focus-within:border-slate-300 focus-within:ring-slate-200"
+                    : "border-slate-200 bg-white focus-within:border-cyan-400 focus-within:ring-cyan-200"
                 )}
               >
                 <Textarea
@@ -506,7 +506,7 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
                   <button
                     type="button"
                     onClick={handleCopy}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     <Copy size={14} />
                     {copyLabel}
@@ -584,7 +584,7 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
                 </p>
               </div>
               <label className="block cursor-pointer">
-                <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm hover:bg-slate-900/[0.06] transition">
+                <div className="flex items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm transition hover:bg-slate-50">
                   <div className="flex items-center gap-2 text-slate-700">
                     <FileText size={16} />
                     <span>{resumeFile ? resumeFile.name : "Choose PDF"}</span>
@@ -725,7 +725,7 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
                   "rounded-xl border px-4 py-3 focus-within:ring-1",
                   linkedinShowEmptyError
                     ? "border-red-400/50 bg-red-500/5 focus-within:border-red-400/50 focus-within:ring-red-400/20"
-                    : "border-slate-200 bg-slate-900/[0.04] focus-within:border-slate-300 focus-within:ring-slate-200"
+                    : "border-slate-200 bg-white focus-within:border-cyan-400 focus-within:ring-cyan-200"
                 )}
               >
                 <Textarea
@@ -812,7 +812,7 @@ export function ResumeLabBody({ embedded = false }: { embedded?: boolean }) {
                   <button
                     type="button"
                     onClick={handleCopyLinkedin}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     <Copy size={14} />
                     {linkedinCopyLabel}
@@ -868,31 +868,29 @@ export function ResumeLab() {
           </Link>
         </div>
 
-        <div className="inline-flex rounded-lg border border-slate-200 bg-slate-900/[0.04] p-1">
-          <button
-            type="button"
-            onClick={() => setTab("resumes")}
-            className={cn(
-              "rounded-md px-4 py-1.5 text-sm font-medium transition",
-              tab === "resumes"
-                ? "bg-white text-black shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            )}
-          >
-            My Resumes
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("improve")}
-            className={cn(
-              "rounded-md px-4 py-1.5 text-sm font-medium transition",
-              tab === "improve"
-                ? "bg-white text-black shadow-sm"
-                : "text-slate-500 hover:text-slate-900"
-            )}
-          >
-            AI Improve
-          </button>
+        <div className="flex gap-6 border-b border-slate-200" role="tablist">
+          {(
+            [
+              ["resumes", "My Resumes"],
+              ["improve", "AI Improve"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={cn(
+                "-mb-px border-b-2 px-1 pb-2.5 pt-1 text-sm font-medium transition",
+                tab === key
+                  ? "border-cyan-500 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {tab === "resumes" ? (
