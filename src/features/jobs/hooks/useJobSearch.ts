@@ -1,20 +1,20 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { searchJobs } from "../api";
 import type { Job, JobSearchFilters } from "../../../types/jobs";
 
-const PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 20;
 
 /**
- * Search state for the /jobs "Search" tab, over GET /api/jobs/search (the job
- * feed). `providerConfigured: false` means search is switched off or the
- * listings could not be reached, which the page shows differently from "no
- * results matched".
+ * Search state for the job feed pages, over GET /api/jobs/search.
+ * `providerConfigured: false` means search is switched off or the listings could
+ * not be reached, which the page shows differently from "no results matched".
  *
  * `runSearch` starts a new search from the first page; `loadMore` appends the
  * next page of the same search. A reply that arrives after a newer search has
- * started is ignored.
+ * started is ignored. `pageSize` is how many roles one request returns (the
+ * public page asks for a handful).
  */
-export function useJobSearch() {
+export function useJobSearch(pageSize: number = DEFAULT_PAGE_SIZE) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -26,46 +26,47 @@ export function useJobSearch() {
   const lastFilters = useRef<JobSearchFilters | null>(null);
   const latestRequest = useRef(0);
 
-  async function run(filters: JobSearchFilters, targetPage: number, append: boolean) {
-    const requestId = ++latestRequest.current;
-    lastFilters.current = filters;
-    if (append) setLoadingMore(true);
-    else setLoading(true);
-    setError(null);
-    try {
-      const result = await searchJobs(filters, targetPage, PAGE_SIZE);
-      if (requestId !== latestRequest.current) return;
-      setJobs((prev) => (append ? [...prev, ...result.jobs] : result.jobs));
-      setTotalCount(result.totalCount);
-      setPage(result.page);
-      setProviderConfigured(result.providerConfigured);
-      setHasSearched(true);
-    } catch (err) {
-      if (requestId !== latestRequest.current) return;
-      console.error("[useJobSearch] search failed:", err);
-      setError(err instanceof Error ? err.message : "Search failed");
-    } finally {
-      if (requestId === latestRequest.current) {
-        setLoading(false);
-        setLoadingMore(false);
+  const run = useCallback(
+    async (filters: JobSearchFilters, targetPage: number, append: boolean) => {
+      const requestId = ++latestRequest.current;
+      lastFilters.current = filters;
+      if (append) setLoadingMore(true);
+      else setLoading(true);
+      setError(null);
+      try {
+        const result = await searchJobs(filters, targetPage, pageSize);
+        if (requestId !== latestRequest.current) return;
+        setJobs((prev) => (append ? [...prev, ...result.jobs] : result.jobs));
+        setTotalCount(result.totalCount);
+        setPage(result.page);
+        setProviderConfigured(result.providerConfigured);
+        setHasSearched(true);
+      } catch (err) {
+        if (requestId !== latestRequest.current) return;
+        console.error("[useJobSearch] search failed:", err);
+        setError(err instanceof Error ? err.message : "Search failed");
+      } finally {
+        if (requestId === latestRequest.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
-    }
-  }
+    },
+    [pageSize],
+  );
 
-  function runSearch(filters: JobSearchFilters, targetPage = 1) {
-    return run(filters, targetPage, false);
-  }
+  const runSearch = useCallback((filters: JobSearchFilters, targetPage = 1) => run(filters, targetPage, false), [run]);
 
-  function loadMore() {
+  const loadMore = useCallback(() => {
     if (!lastFilters.current) return Promise.resolve();
     return run(lastFilters.current, page + 1, true);
-  }
+  }, [run, page]);
 
   return {
     jobs,
     totalCount,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
     providerConfigured,
     loading,
     loadingMore,

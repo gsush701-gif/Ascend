@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Lock } from "lucide-react";
 import { PublicShell } from "../components/layout/PublicShell";
 import { JobFilters } from "../components/jobs/JobFilters";
 import { JobCard, JobCardSkeleton } from "../components/jobs/JobCard";
@@ -11,28 +12,33 @@ import { useJobSearch } from "../features/jobs/hooks/useJobSearch";
 import { useFeedPreview } from "../features/jobs/hooks/useFeedPreview";
 import { getVisitorId, logEvent } from "../lib/analytics";
 import { buttonPrimary, buttonSecondary } from "../lib/ui";
-import { cn } from "../lib/cn";
 import { EMPTY_JOB_SEARCH_FILTERS, type JobSearchFilters } from "../types/jobs";
 
 const SIGNUP_FOR_MATCHES = "/signup?next=%2Fjobs";
 const DESCRIPTION =
-  "Browse open internships and new-grad roles from companies' own career pages, refreshed daily. Free to browse; sign in to rank them against your resume.";
+  "Browse open internships and new-grad roles from companies' own career pages, refreshed daily. Sign in free to see every role, ranked against your resume.";
+
+/** How many roles a visitor without an account sees before the sign-up card. */
+const PREVIEW_SIZE = 6;
+/** How many a signed-in student gets per page. */
+const MEMBER_PAGE_SIZE = 20;
 
 const fmt = (n: number) => n.toLocaleString();
 
 /**
- * The public front door to the job feed: anyone can browse real internships and
- * new-grad roles, with no account. Signing in unlocks what needs a resume: the
- * match percentage, saving a role and tracking it. Every role links to the
- * company's own posting, where the student applies.
+ * The public front door to the job feed. A visitor sees the newest few roles for
+ * real, then a card inviting them to create a free account to see the rest,
+ * ranked against their resume. Searching and filtering work, but each search
+ * shows only a handful. A signed-in student gets the full list. Every role links
+ * to the company's own posting, where the student applies.
  */
 export function Internships() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const search = useJobSearch();
+  const isMember = Boolean(user);
+  const search = useJobSearch(isMember ? MEMBER_PAGE_SIZE : PREVIEW_SIZE);
   const { preview } = useFeedPreview();
   const [filters, setFilters] = useState<JobSearchFilters>(EMPTY_JOB_SEARCH_FILTERS);
-  const started = useRef(false);
   const { runSearch } = search;
 
   useEffect(() => {
@@ -48,12 +54,12 @@ export function Internships() {
     };
   }, []);
 
-  // Show the newest roles straight away instead of an empty page.
+  // Show the newest roles straight away. Waits until we know whether the visitor is
+  // signed in (it decides how many to ask for), and asks again if that changes.
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    if (authLoading) return;
     Promise.resolve().then(() => runSearch(EMPTY_JOB_SEARCH_FILTERS, 1));
-  }, [runSearch]);
+  }, [authLoading, runSearch]);
 
   function ctaClicked(where: string) {
     logEvent("internships_cta_clicked", { vid: getVisitorId(), where });
@@ -62,9 +68,12 @@ export function Internships() {
   /** Saving needs an account, so a visitor is taken to sign up; a signed-in student goes to their matches. */
   function onSave() {
     ctaClicked("save");
-    navigate(user ? "/jobs" : SIGNUP_FOR_MATCHES);
+    navigate(isMember ? "/jobs" : SIGNUP_FOR_MATCHES);
   }
 
+  const filtersActive = JSON.stringify(filters) !== JSON.stringify(EMPTY_JOB_SEARCH_FILTERS);
+  const remaining = Math.max(0, search.totalCount - search.jobs.length);
+  const showGate = !isMember && search.providerConfigured !== false && remaining > 0;
   const showingResults = search.hasSearched && search.providerConfigured !== false && search.jobs.length > 0;
 
   return (
@@ -80,8 +89,8 @@ export function Internships() {
             Internships and new-grad roles, straight from company career pages
           </h1>
           <p className="max-w-2xl text-sm text-slate-600 sm:text-base">
-            Updated daily from over 100 companies, so the roles come from the source and closed ones drop off. Free to
-            browse, and you apply on the company's own site.
+            Updated daily from over 100 companies, so the roles come from the source and closed ones drop off. You apply
+            on the company's own site.
           </p>
         </header>
 
@@ -91,7 +100,7 @@ export function Internships() {
         >
           <div>
             <div className="font-semibold text-slate-900">
-              {user ? "Which of these fit you best?" : "Want these ranked by how well you fit?"}
+              {isMember ? "Which of these fit you best?" : "Want these ranked by how well you fit?"}
             </div>
             <p className="mt-0.5 text-sm text-slate-600">
               Upload your resume to see a match for every role, the skills you already have and the ones each posting
@@ -99,7 +108,7 @@ export function Internships() {
             </p>
           </div>
           <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-            {user ? (
+            {isMember ? (
               <Link to="/jobs" className={buttonPrimary} onClick={() => ctaClicked("banner")}>
                 Open my matches
               </Link>
@@ -131,9 +140,9 @@ export function Internships() {
           </div>
         )}
 
-        {!search.hasSearched || (search.loading && search.jobs.length === 0) ? (
+        {authLoading || !search.hasSearched || (search.loading && search.jobs.length === 0) ? (
           <div className="space-y-3" aria-busy="true">
-            {[0, 1, 2, 3].map((i) => (
+            {Array.from({ length: isMember ? 4 : 3 }, (_, i) => (
               <JobCardSkeleton key={i} />
             ))}
           </div>
@@ -155,33 +164,50 @@ export function Internships() {
         ) : (
           <>
             <div className="text-xs text-slate-500">
-              {fmt(search.totalCount)} {search.totalCount === 1 ? "role" : "roles"}, newest first
+              {isMember
+                ? `${fmt(search.totalCount)} ${search.totalCount === 1 ? "role" : "roles"}, newest first`
+                : `Showing the newest ${fmt(search.jobs.length)} of ${fmt(search.totalCount)} ${
+                    search.totalCount === 1 ? "role" : "roles"
+                  }${filtersActive ? " that match" : ""}`}
             </div>
             <div className="space-y-3">
-              {search.jobs.map((job, index) => (
-                <div key={job.id} className="space-y-3">
-                  <JobCard job={job} onSave={onSave} />
-                  {index === 4 && !user && (
-                    <div className="flex flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-sm text-slate-700">
-                        Seeing a role you like? Save it and see how well your resume fits it.
-                      </span>
-                      <Link
-                        to={SIGNUP_FOR_MATCHES}
-                        className={cn(buttonPrimary, "h-8 px-3 text-xs")}
-                        onClick={() => ctaClicked("inline")}
-                      >
-                        Sign in free
-                      </Link>
-                    </div>
-                  )}
-                </div>
+              {search.jobs.map((job) => (
+                <JobCard key={job.id} job={job} onSave={onSave} />
               ))}
             </div>
-            {search.hasMore && (
+
+            {showGate && (
+              <section
+                className="rounded-xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/[0.07] to-white p-6 text-center shadow-sm sm:p-8"
+                aria-label="Sign up to see every role"
+              >
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-cyan-500/15 text-cyan-700">
+                  <Lock className="h-5 w-5" aria-hidden />
+                </div>
+                <h2 className="mt-3 font-display text-xl font-semibold tracking-tight text-slate-900">
+                  {fmt(remaining)} more {remaining === 1 ? "role" : "roles"}{" "}
+                  {filtersActive ? "match your search" : "are open right now"}
+                </h2>
+                <p className="mx-auto mt-1.5 max-w-md text-sm text-slate-600">
+                  Create a free account to see every one, ranked by how well your resume fits, with the skills you have
+                  and the ones each posting asks for. It takes about 10 seconds with Google.
+                </p>
+                <div className="mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row">
+                  <Link to={SIGNUP_FOR_MATCHES} className={buttonPrimary} onClick={() => ctaClicked("gate")}>
+                    See all {fmt(search.totalCount)} roles, free
+                  </Link>
+                  <Link to="/try?example=1" className={buttonSecondary} onClick={() => ctaClicked("gate-try")}>
+                    Try a fit score first
+                  </Link>
+                </div>
+                <p className="mt-3 text-xs text-slate-500">No card needed. Free during beta.</p>
+              </section>
+            )}
+
+            {isMember && search.hasMore && (
               <div className="flex justify-center pt-1">
                 <Button variant="secondary" onClick={() => void search.loadMore()} disabled={search.loadingMore}>
-                  {search.loadingMore ? "Loading…" : `Show more (${fmt(search.totalCount - search.jobs.length)} left)`}
+                  {search.loadingMore ? "Loading…" : `Show more (${fmt(remaining)} left)`}
                 </Button>
               </div>
             )}
