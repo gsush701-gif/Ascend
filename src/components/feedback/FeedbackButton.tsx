@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { MessageSquare } from "lucide-react";
 import { API_BASE } from "../../config/api";
 import { useAuth } from "../../context/AuthContext";
 import { getApiErrorMessage } from "../../lib/apiError";
@@ -8,12 +9,21 @@ import { Button } from "../ui/Button";
 const MAX = 2000;
 
 /**
- * A small "Feedback" tab fixed to the bottom-left corner (the AI advisor sits
- * bottom-right) that opens a one-box form. Works signed out too, so testers on
- * the public /try page can use it; a signed-in sender is tied to their account
- * by the token, an anonymous one can leave an email if they want a reply.
+ * A "Feedback" control that opens a one-box form. It is a small tab fixed to the
+ * bottom-left corner by default (the AI advisor sits bottom-right), or, with
+ * `variant="sidebar"`, a row in the left sidebar whose form opens above it.
+ * Works signed out too, so testers on the public /try page can use it; a
+ * signed-in sender is tied to their account by the token, an anonymous one can
+ * leave an email if they want a reply.
  */
-export function FeedbackButton({ className = "" }: { className?: string }) {
+export function FeedbackButton({
+  className = "",
+  variant = "floating",
+}: {
+  className?: string;
+  variant?: "floating" | "sidebar";
+}) {
+  const inSidebar = variant === "sidebar";
   const { session } = useAuth();
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
@@ -69,11 +79,15 @@ export function FeedbackButton({ className = "" }: { className?: string }) {
   }
 
   return (
-    <div className={`fixed bottom-4 left-4 z-30 sm:bottom-6 sm:left-6 lg:left-[16.5rem] ${className}`}>
+    <div className={inSidebar ? `relative ${className}` : `fixed bottom-4 left-4 z-30 sm:bottom-6 sm:left-6 ${className}`}>
       {open && (
         <form
           onSubmit={submit}
-          className="mb-3 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"
+          className={
+            inSidebar
+              ? "absolute bottom-full left-0 z-50 mb-2 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"
+              : "mb-3 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl"
+          }
           aria-label="Send feedback"
         >
           {sent ? (
@@ -129,8 +143,13 @@ export function FeedbackButton({ className = "" }: { className?: string }) {
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
         aria-expanded={open}
-        className="btn-press rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-md transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        className={
+          inSidebar
+            ? "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            : "btn-press rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-md transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        }
       >
+        {inSidebar && <MessageSquare className="h-[18px] w-[18px] shrink-0 text-slate-400" />}
         Feedback
       </button>
     </div>

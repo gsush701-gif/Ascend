@@ -27,7 +27,7 @@ export function AppShell({ children }: AppShellProps) {
         </main>
       </div>
       <AssistantLauncher />
-      <FeedbackButton />
+      <FeedbackButton className="lg:hidden" />
     </div>
   );
 }

@@ -13,9 +13,9 @@ import {
   getResponseRate,
   getRejectionRate,
   getAverageAlignment,
-  getUpcomingDeadlines,
+  getComingUp,
+  getTopSkillGaps,
   getInterviewCount,
-  getFitScoreInsight,
   getPerformanceSentence,
   getApplicationsThisWeek,
   getApplicationsLastWeek,
@@ -25,7 +25,8 @@ import {
   getReadinessScores,
   getRecentActivity,
   formatRelativeDate,
-  type UpcomingDeadline,
+  type ComingUpItem,
+  type SkillGap,
   type FunnelCounts,
   type ActivityItem,
 } from "../lib/dashboardStats";
@@ -33,9 +34,10 @@ import { TRACKER_STATUS_ORDER } from "../types/tracker";
 import { alignmentToPreparedness } from "../lib/preparedness";
 import { useProfile } from "../lib/profile";
 import { KpiCard } from "../components/dashboard/KpiCard";
-import { AlignmentChart } from "../components/ui/AlignmentChart";
+import { ActivityCard } from "../components/dashboard/ActivityCard";
 import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { Sparkline } from "../components/ui/Sparkline";
+import { cn } from "../lib/cn";
 import { EmptyState } from "../components/ui/EmptyState";
 import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklist";
 import { DashboardSkeleton } from "../components/dashboard/DashboardSkeleton";
@@ -247,44 +249,41 @@ export function Dashboard() {
         />
 
         <div className="grid gap-6 lg:grid-cols-12">
-          <div className="min-w-0 space-y-6 lg:col-span-8">
-            <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">Fit score trend</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {getFitScoreInsight(items) ?? "Your average fit score by day, from the roles you analyze."}
-              </p>
-              <AlignmentChart points={getAlignmentHistoryFromTracker(items)} className="mt-4" />
-            </section>
+          <ActivityCard items={items} className="min-w-0 lg:col-span-8" />
 
-            <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">Upcoming deadlines</h2>
-              <UpcomingDeadlinesList
-                deadlines={getUpcomingDeadlines(items)}
-                onRoleClick={(id) => navigate(`/roles/${id}`)}
-              />
-            </section>
-          </div>
+          <section className={cn(card, "min-w-0 lg:col-span-4")}>
+            <h2 className="text-sm font-semibold text-slate-900">Pipeline</h2>
+            <PipelineCard
+              counts={funnel}
+              total={items.length}
+              appliedCount={totalApplications}
+              interviewRate={interviewRate}
+              rejectionRate={getRejectionRate(items)}
+            />
+          </section>
+        </div>
 
-          <div className="min-w-0 space-y-6 lg:col-span-4">
-            <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">Pipeline</h2>
-              <PipelineCard
-                counts={funnel}
-                total={items.length}
-                appliedCount={totalApplications}
-                interviewRate={interviewRate}
-                rejectionRate={getRejectionRate(items)}
-              />
-            </section>
+        <div className="grid gap-6 lg:grid-cols-3">
+          <section className={cn(card, "min-w-0")}>
+            <h2 className="text-sm font-semibold text-slate-900">Coming up</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Deadlines, interviews and follow-ups.</p>
+            <ComingUpList entries={getComingUp(items)} onRoleClick={(id) => navigate(`/roles/${id}`)} />
+          </section>
 
-            <section className={card}>
-              <h2 className="text-sm font-semibold text-slate-900">Recent activity</h2>
-              <RecentActivityList
-                activity={recentActivity}
-                onRoleClick={(id) => navigate(`/roles/${id}`)}
-              />
-            </section>
-          </div>
+          <section className={cn(card, "min-w-0")}>
+            <h2 className="text-sm font-semibold text-slate-900">Skills to work on</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Missing from your resume in roles you are still pursuing.</p>
+            <SkillGapsList gaps={getTopSkillGaps(items)} onOpenLab={() => navigate("/resume-lab")} />
+          </section>
+
+          <section className={cn(card, "min-w-0")}>
+            <h2 className="text-sm font-semibold text-slate-900">Recent activity</h2>
+            <p className="mt-0.5 text-xs text-slate-500">Roles you added or updated.</p>
+            <RecentActivityList
+              activity={recentActivity}
+              onRoleClick={(id) => navigate(`/roles/${id}`)}
+            />
+          </section>
         </div>
 
         </div>
@@ -300,46 +299,108 @@ function fitQualifier(avgAlignment: number | null): string | null {
   return level === "High" ? "Strong" : level === "Medium" ? "On track" : "Needs work";
 }
 
-function UpcomingDeadlinesList({
-  deadlines,
+const KIND_STYLES: Record<ComingUpItem["kind"], string> = {
+  Deadline: "bg-amber-50 text-amber-700",
+  Interview: "bg-violet-50 text-violet-700",
+  "Follow-up": "bg-cyan-50 text-cyan-700",
+};
+
+function whenText(entry: ComingUpItem): string {
+  const d = entry.daysFromNow;
+  if (d === 0) return "Today";
+  if (d === 1) return "Tomorrow";
+  if (d === -1) return "1 day overdue";
+  if (d < 0) return `${-d} days overdue`;
+  return `In ${d} days`;
+}
+
+function ComingUpList({
+  entries,
   onRoleClick,
 }: {
-  deadlines: UpcomingDeadline[];
+  entries: ComingUpItem[];
   onRoleClick: (id: string) => void;
 }) {
-  if (deadlines.length === 0) {
+  if (entries.length === 0) {
     return (
-      <p className="mt-4 text-sm text-slate-500 italic">
-        No upcoming deadlines. Set deadlines on your roles to stay on track.
+      <p className="mt-4 text-sm text-slate-500">
+        Nothing coming up. Set a deadline on a role, or a follow-up date, and it will show here.
       </p>
     );
   }
   return (
-    <div className="-mx-2 mt-3 divide-y divide-slate-100">
-      {deadlines.map((d) => (
-        <button
-          key={d.id}
-          type="button"
-          onClick={() => onRoleClick(d.id)}
-          className="flex w-full items-center justify-between rounded-lg px-2 py-3 text-left text-sm transition hover:bg-slate-50"
-        >
-          <span className="flex items-center gap-2">
-            {d.isOverdue && (
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" />
-            )}
-            <span className="text-slate-900">
-              {d.role} at {d.company}
+    <ul className="-mx-2 mt-3 divide-y divide-slate-100">
+      {entries.map((entry) => (
+        <li key={`${entry.id}-${entry.kind}`}>
+          <button
+            type="button"
+            onClick={() => onRoleClick(entry.id)}
+            className="flex w-full items-start justify-between gap-3 rounded-lg px-2 py-3 text-left transition hover:bg-slate-50"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-slate-900">{entry.role}</span>
+              <span className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${KIND_STYLES[entry.kind]}`}>
+                  {entry.kind}
+                </span>
+                <span className="truncate">{entry.company}</span>
+              </span>
             </span>
-          </span>
-          {d.isOverdue ? (
-            <span className="rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
-              Overdue
+            <span className="shrink-0 text-right">
+              <span className={`block text-xs font-medium ${entry.isOverdue ? "text-rose-600" : "text-slate-700"}`}>
+                {whenText(entry)}
+              </span>
+              <span className="block text-[11px] text-slate-400">
+                {entry.date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </span>
             </span>
-          ) : (
-            <span className="text-slate-500">{d.daysText}</span>
-          )}
-        </button>
+          </button>
+        </li>
       ))}
+    </ul>
+  );
+}
+
+function SkillGapsList({ gaps, onOpenLab }: { gaps: SkillGap[]; onOpenLab: () => void }) {
+  if (gaps.length === 0) {
+    return (
+      <p className="mt-4 text-sm text-slate-500">
+        Analyze a few roles against your resume and the skills that keep coming up will show here.
+      </p>
+    );
+  }
+  const top = Math.max(...gaps.map((g) => g.roles), 1);
+  return (
+    <div className="mt-4">
+      <ul className="space-y-3.5">
+        {gaps.map((gap) => (
+          <li key={gap.name}>
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-medium text-slate-900">{gap.name}</span>
+                {gap.required && (
+                  <span className="shrink-0 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                    Required
+                  </span>
+                )}
+              </span>
+              <span className="shrink-0 text-xs tabular-nums text-slate-500">
+                {gap.roles} role{gap.roles === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="mt-1.5">
+              <AnimatedBar pct={(gap.roles / top) * 100} colorClassName={gap.required ? "bg-amber-400" : "bg-slate-300"} />
+            </div>
+          </li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={onOpenLab}
+        className="mt-4 text-xs font-medium text-cyan-700 transition hover:text-cyan-600"
+      >
+        Write bullets in Resume Lab →
+      </button>
     </div>
   );
 }

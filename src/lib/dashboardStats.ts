@@ -596,3 +596,95 @@ export function getExpectedInterviewsRange(
   const high = Math.ceil(expected * 1.3);
   return { low, high };
 }
+
+/** A skill that analyzed roles keep asking for and the resume does not show. */
+export type SkillGap = { name: string; roles: number; required: boolean };
+
+const CLOSED_STATUSES: TrackerStatus[] = ["Rejected", "Withdrawn", "Accepted"];
+
+/**
+ * The skills missing from the student's resume across their analyzed roles that
+ * are still open, most common first, with how many roles each one affects. A
+ * gap that is required in any of those roles counts as required. This is what
+ * is worth learning first: one skill that blocks four roles beats four that
+ * block one each.
+ */
+export function getTopSkillGaps(items: TrackerItem[], max = 5): SkillGap[] {
+  const byName = new Map<string, SkillGap>();
+  for (const item of items) {
+    if (CLOSED_STATUSES.includes(item.status)) continue;
+    const seen = new Set<string>();
+    for (const skill of item.reportSnapshot?.skills ?? []) {
+      if (skill.status !== "miss") continue;
+      const key = skill.name.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const required = (skill.importance ?? "required") === "required";
+      const gap = byName.get(key) ?? { name: skill.name.trim(), roles: 0, required: false };
+      gap.roles += 1;
+      gap.required = gap.required || required;
+      byName.set(key, gap);
+    }
+  }
+  return [...byName.values()]
+    .sort((a, b) => b.roles - a.roles || Number(b.required) - Number(a.required) || a.name.localeCompare(b.name))
+    .slice(0, max);
+}
+
+export type ComingUpKind = "Deadline" | "Interview" | "Follow-up";
+
+export type ComingUpItem = {
+  id: string;
+  role: string;
+  company: string;
+  kind: ComingUpKind;
+  date: Date;
+  /** Whole days from today: 0 is today, negative is past. */
+  daysFromNow: number;
+  isOverdue: boolean;
+};
+
+const KIND_ORDER: Record<ComingUpKind, number> = { Deadline: 0, Interview: 1, "Follow-up": 2 };
+
+function dayDiff(from: Date, to: Date): number {
+  const a = new Date(from);
+  const b = new Date(to);
+  a.setHours(0, 0, 0, 0);
+  b.setHours(0, 0, 0, 0);
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+function validDate(iso: string | undefined): Date | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * What is coming up across the student's open roles: application deadlines,
+ * interviews and follow-ups, soonest first. A deadline is skipped once the
+ * application has been sent (it was met), a past interview is skipped (it is
+ * done), and anything overdue by more than two weeks is dropped as stale. Looks
+ * 60 days ahead.
+ */
+export function getComingUp(items: TrackerItem[], now = new Date(), max = 6): ComingUpItem[] {
+  const out: ComingUpItem[] = [];
+  for (const item of items) {
+    if (CLOSED_STATUSES.includes(item.status)) continue;
+    const push = (kind: ComingUpKind, date: Date | null) => {
+      if (!date) return;
+      const daysFromNow = dayDiff(now, date);
+      if (daysFromNow > 60 || daysFromNow < -14) return;
+      if (daysFromNow < 0 && kind === "Interview") return;
+      out.push({ id: item.id, role: item.role, company: item.company, kind, date, daysFromNow, isOverdue: daysFromNow < 0 });
+    };
+    if (!APPLIED_PLUS_STATUSES.includes(item.status)) {
+      push("Deadline", parseDeadline(item.deadline) ?? validDate(item.deadlineAt));
+    }
+    push("Interview", validDate(item.interviewAt));
+    push("Follow-up", validDate(item.followUpAt));
+  }
+  return out
+    .sort((a, b) => a.daysFromNow - b.daysFromNow || KIND_ORDER[a.kind] - KIND_ORDER[b.kind])
+    .slice(0, max);
+}

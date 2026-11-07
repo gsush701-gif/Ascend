@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { AscendLogo } from "./AscendLogo";
 import { PRIMARY_LINKS } from "./navLinks";
+import { FeedbackButton } from "../feedback/FeedbackButton";
 
 /**
  * The main navigation on large screens: a fixed column down the left with the
@@ -45,6 +46,10 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <div className="px-3 pb-2">
+        <FeedbackButton variant="sidebar" />
+      </div>
 
       <div className="flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 px-5 py-4 text-xs text-slate-400">
         <NavLink to="/contacts" className="transition hover:text-slate-600">
