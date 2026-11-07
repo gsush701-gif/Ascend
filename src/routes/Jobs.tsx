@@ -4,6 +4,7 @@ import { AppShell } from "../components/layout/AppShell";
 import { JobFilters } from "../components/jobs/JobFilters";
 import { JobsHero } from "../components/jobs/JobsHero";
 import { JobCard, JobCardSkeleton } from "../components/jobs/JobCard";
+import { LoadingNote } from "../components/jobs/LoadingNote";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Button } from "../components/ui/Button";
 import { CareerPreferencesForm } from "../features/preferences/components/CareerPreferencesForm";
@@ -106,10 +107,13 @@ export function Jobs() {
             )}
 
             {recs.loading ? (
-              <div className="space-y-3" aria-busy="true">
-                {[0, 1, 2, 3].map((i) => (
-                  <JobCardSkeleton key={i} />
-                ))}
+              <div className="space-y-4" aria-busy="true">
+                <LoadingNote label="Loading your matches…" />
+                <div className="space-y-3">
+                  {[0, 1, 2, 3].map((i) => (
+                    <JobCardSkeleton key={i} />
+                  ))}
+                </div>
               </div>
             ) : visibleRecs.length === 0 && !recs.error ? (
               <EmptyState
@@ -187,10 +191,13 @@ export function Jobs() {
               </div>
             )}
             {savedLoading ? (
-              <div className="space-y-3" aria-busy="true">
-                {[0, 1].map((i) => (
-                  <JobCardSkeleton key={i} />
-                ))}
+              <div className="space-y-4" aria-busy="true">
+                <LoadingNote label="Loading your saved roles…" />
+                <div className="space-y-3">
+                  {[0, 1].map((i) => (
+                    <JobCardSkeleton key={i} />
+                  ))}
+                </div>
               </div>
             ) : savedJobs.length === 0 ? (
               <EmptyState

@@ -5,6 +5,7 @@ import { PublicShell } from "../components/layout/PublicShell";
 import { JobFilters } from "../components/jobs/JobFilters";
 import { JobsHero } from "../components/jobs/JobsHero";
 import { JobCard, JobCardSkeleton } from "../components/jobs/JobCard";
+import { LoadingNote } from "../components/jobs/LoadingNote";
 import { ProviderNotConfiguredBanner } from "../components/jobs/ProviderNotConfiguredBanner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Button } from "../components/ui/Button";
@@ -133,10 +134,13 @@ export function Internships() {
         )}
 
         {authLoading || !search.hasSearched || (search.loading && search.jobs.length === 0) ? (
-          <div className="space-y-3" aria-busy="true">
-            {Array.from({ length: isMember ? 4 : 3 }, (_, i) => (
-              <JobCardSkeleton key={i} />
-            ))}
+          <div className="space-y-4" aria-busy="true">
+            <LoadingNote label="Finding open roles…" />
+            <div className="space-y-3">
+              {Array.from({ length: isMember ? 4 : 3 }, (_, i) => (
+                <JobCardSkeleton key={i} />
+              ))}
+            </div>
           </div>
         ) : search.providerConfigured === false ? (
           <ProviderNotConfiguredBanner />
