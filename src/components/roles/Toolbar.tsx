@@ -49,15 +49,25 @@ export function Toolbar({
   isEmpty = false,
 }: ToolbarProps) {
   return (
-    <div className={pageHeader}>
-      <div>
-        <h1 className={pageTitle}>Roles</h1>
-        <p className={pageSubtitle}>
-          Capture roles quickly, update status in seconds.
-        </p>
+    <div className="space-y-6">
+      <div className={pageHeader}>
+        <div>
+          <h1 className={pageTitle}>Roles</h1>
+          <p className={pageSubtitle}>Capture roles quickly, update status in seconds.</p>
+        </div>
+        <div className={pageHeaderActions}>
+          <Button variant="secondary" onClick={onAnalyze}>
+            <Zap className="h-4 w-4" />
+            Analyze
+          </Button>
+          <Button variant="primary" onClick={onAddRole}>
+            <Plus className="h-4 w-4" />
+            Add role
+          </Button>
+        </div>
       </div>
-      <div className={pageHeaderActions}>
-        <div className="relative">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:max-w-xs">
           <Search
             className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
             strokeWidth={2}
@@ -68,7 +78,7 @@ export function Toolbar({
             placeholder="Search company, role, notes..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full min-w-[160px] max-w-[200px] pl-9 pr-8 sm:w-48"
+            className="w-full pl-9 pr-8"
             autoFocus={isEmpty}
           />
           {searchQuery && (
@@ -82,32 +92,26 @@ export function Toolbar({
             </button>
           )}
         </div>
-        <Select
-          value={`${sortKey}:${sortDir}`}
-          onChange={(v) => {
-            const raw = v || "updatedAt:desc";
-            const [k, d] = raw.split(":") as [SortKey, "asc" | "desc"];
-            onSortChange(k, d || "desc");
-          }}
-          options={SORT_OPTIONS}
-          buttonClassName="min-w-[130px]"
-        />
-        <Select
-          value={statusFilter}
-          onChange={(v) =>
-            onStatusFilterChange(v === "all" ? "all" : (v as TrackerStatus))
-          }
-          options={STATUS_OPTIONS}
-          buttonClassName="min-w-[120px]"
-        />
-        <Button variant="secondary" onClick={onAnalyze}>
-          <Zap className="h-4 w-4" />
-          Analyze
-        </Button>
-        <Button variant="primary" onClick={onAddRole}>
-          <Plus className="h-4 w-4" />
-          Add role
-        </Button>
+        <div className="flex items-center gap-2">
+          <Select
+            value={`${sortKey}:${sortDir}`}
+            onChange={(v) => {
+              const raw = v || "updatedAt:desc";
+              const [k, d] = raw.split(":") as [SortKey, "asc" | "desc"];
+              onSortChange(k, d || "desc");
+            }}
+            options={SORT_OPTIONS}
+            buttonClassName="min-w-[130px]"
+          />
+          <Select
+            value={statusFilter}
+            onChange={(v) =>
+              onStatusFilterChange(v === "all" ? "all" : (v as TrackerStatus))
+            }
+            options={STATUS_OPTIONS}
+            buttonClassName="min-w-[120px]"
+          />
+        </div>
       </div>
     </div>
   );

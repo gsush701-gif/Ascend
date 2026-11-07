@@ -94,16 +94,16 @@ export const sectionTitle =
  * RolesTable's status dropdown and RoleDetail's application-status field so
  * the same status always reads the same color everywhere in the app. */
 export const STATUS_SELECT_STYLES: Record<string, string> = {
-  Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-700",
-  Analyzed: "border-indigo-500/40 bg-indigo-500/20 text-slate-700",
-  "Ready to Apply": "border-cyan-400/40 bg-cyan-400/20 text-slate-700",
-  Applied: "border-slate-500/40 bg-slate-500/20 text-slate-700",
-  "Recruiter Contact": "border-violet-400/40 bg-violet-400/20 text-slate-700",
-  Interview: "border-slate-400/40 bg-slate-400/20 text-slate-700",
-  "Technical Interview": "border-violet-500/40 bg-violet-500/20 text-slate-700",
-  "Final Interview": "border-purple-500/40 bg-purple-500/20 text-slate-700",
-  Offer: "border-cyan-500/50 bg-cyan-500/20 text-slate-700",
-  Accepted: "border-emerald-500/50 bg-emerald-500/20 text-slate-700",
-  Rejected: "border-slate-600/40 bg-slate-600/20 text-slate-700",
-  Withdrawn: "border-slate-600/30 bg-slate-600/15 text-slate-700",
+  Wishlist: "border-slate-200 bg-slate-50 text-slate-600",
+  Analyzed: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  "Ready to Apply": "border-cyan-200 bg-cyan-50 text-cyan-700",
+  Applied: "border-sky-200 bg-sky-50 text-sky-700",
+  "Recruiter Contact": "border-violet-200 bg-violet-50 text-violet-700",
+  Interview: "border-violet-200 bg-violet-100 text-violet-800",
+  "Technical Interview": "border-violet-300 bg-violet-100 text-violet-800",
+  "Final Interview": "border-purple-300 bg-purple-100 text-purple-800",
+  Offer: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  Accepted: "border-emerald-300 bg-emerald-100 text-emerald-800",
+  Rejected: "border-rose-200 bg-rose-50 text-rose-700",
+  Withdrawn: "border-slate-200 bg-slate-100 text-slate-500",
 };

@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { DarkSelect } from "../ui/DarkSelect";
 import { ProgressCell } from "./ProgressCell";
 import { cn } from "../../lib/cn";
+import { parseDeadline } from "../../lib/dates";
 import { STATUS_SELECT_STYLES } from "../../lib/ui";
 import type { TrackerItem, TrackerStatus } from "../../types/tracker";
 import { TRACKER_STATUS_ORDER } from "../../types/tracker";
@@ -49,10 +50,10 @@ export function RolesTable({
   updateCompany,
 }: RolesTableProps) {
   return (
-    <div className="animate-fade-in overflow-hidden rounded-xl border border-slate-200 bg-dash-card shadow-sm">
+    <div className="animate-fade-in overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px] text-left text-sm">
-          <thead className="sticky top-0 z-10 border-b border-slate-200 bg-[#F4F5FA]/95 backdrop-blur-sm">
+          <thead className="border-b border-slate-100 bg-slate-50/70">
             <tr>
               <SortableTh
                 label="Role"
@@ -60,7 +61,7 @@ export function RolesTable({
                 currentSort={sortKey}
                 sortDir={sortDir}
                 onSort={() => onSort("role")}
-                className="min-w-[140px] py-3 pl-4 pr-3"
+                className="min-w-[140px] py-3 pl-5 pr-3"
               />
               <SortableTh
                 label="Company"
@@ -86,10 +87,10 @@ export function RolesTable({
                 onSort={() => onSort("status")}
                 className="min-w-[100px] py-3 px-3"
               />
-              <th className="min-w-[124px] py-3 px-3 font-medium text-slate-500">
+              <th className="min-w-[90px] py-3 px-3 text-xs font-medium uppercase tracking-wide text-slate-500">
                 Actions
               </th>
-              <th className="hidden min-w-[110px] py-3 px-3 font-medium text-slate-500 lg:table-cell">
+              <th className="hidden min-w-[110px] py-3 px-3 text-xs font-medium uppercase tracking-wide text-slate-500 lg:table-cell">
                 Deadline
               </th>
             </tr>
@@ -107,13 +108,11 @@ export function RolesTable({
                 </td>
               </tr>
             ) : (
-              filteredAndSorted.map((item, index) => (
+              filteredAndSorted.map((item) => (
                 <tr
                   key={item.id}
                   onClick={(e) => onRowClick(item.id, e)}
-                  className={`group cursor-pointer border-b border-slate-200 transition-colors duration-150 hover:bg-slate-900/[0.04] ${
-                    index % 2 === 1 ? "bg-white/[0.02]" : ""
-                  }`}
+                  className="group cursor-pointer border-b border-slate-100 transition-colors duration-150 last:border-0 hover:bg-slate-50"
                 >
                   <RoleCell
                     item={item}
@@ -129,16 +128,18 @@ export function RolesTable({
                     updateCompany={updateCompany}
                     onClick={(e) => e.stopPropagation()}
                   />
-                  <td className="hidden py-2.5 px-3 align-middle md:table-cell">
-                    <ProgressCell
-                      value={
-                        item.reportSnapshot?.alignment ?? item.alignment ?? 0
-                      }
-                      variant="alignment"
-                    />
+                  <td className="hidden py-3.5 px-3 align-middle md:table-cell">
+                    {(item.reportSnapshot?.alignment ?? item.alignment ?? 0) > 0 ? (
+                      <ProgressCell
+                        value={item.reportSnapshot?.alignment ?? item.alignment ?? 0}
+                        variant="alignment"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-400">Not analyzed</span>
+                    )}
                   </td>
                   <td
-                    className="py-2.5 px-3 align-middle"
+                    className="py-3.5 px-3 align-middle"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex">
@@ -155,17 +156,17 @@ export function RolesTable({
                       />
                     </div>
                   </td>
-                  <td className="py-2.5 px-3 align-middle">
+                  <td className="py-3.5 px-3 align-middle">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenRole(item.id);
                       }}
-                      className="btn-press inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-900/[0.04] hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-1"
+                      className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1 text-xs font-medium text-slate-500 transition hover:text-cyan-700 focus:outline-none focus:ring-2 focus:ring-cyan-500"
                       aria-label={`View actions for ${item.role} at ${item.company}`}
                     >
-                      View Actions
+                      Open
                       <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </td>
@@ -201,7 +202,7 @@ function SortableTh({
       <button
         type="button"
         onClick={onSort}
-        className="flex items-center gap-1.5 font-medium text-slate-500 transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-[#F4F5FA]"
+        className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-500 transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-white"
       >
         {label}
         {isActive && (
@@ -231,7 +232,7 @@ function RoleCell({
   const editing = editingCell?.id === item.id && editingCell?.field === "role";
   return (
     <td
-      className="py-2.5 pl-4 pr-3 align-middle"
+      className="py-3.5 pl-5 pr-3 align-middle"
       onDoubleClick={() => onEditingChange({ id: item.id, field: "role" })}
     >
       {editing ? (
@@ -248,7 +249,7 @@ function RoleCell({
         />
       ) : (
         <span
-          className="block max-w-[160px] truncate font-medium text-slate-800"
+          className="block max-w-[260px] truncate font-medium text-slate-900"
           title={item.role}
         >
           {item.role}
@@ -275,7 +276,7 @@ function CompanyCell({
     editingCell?.id === item.id && editingCell?.field === "company";
   return (
     <td
-      className="py-2.5 px-3 align-middle"
+      className="py-3.5 px-3 align-middle"
       onDoubleClick={() => onEditingChange({ id: item.id, field: "company" })}
     >
       {editing ? (
@@ -292,7 +293,7 @@ function CompanyCell({
         />
       ) : (
         <span
-          className="block max-w-[120px] truncate text-slate-700"
+          className="block max-w-[180px] truncate text-slate-600"
           title={item.company}
         >
           {item.company}
@@ -310,15 +311,14 @@ function CompanyCell({
  * read (src/lib/dashboardStats.ts's getUpcomingDeadlines), so a deadline
  * set there shows up here too. */
 function DeadlineCell({ item }: { item: TrackerItem }) {
-  const raw = item.deadline?.trim() ?? "";
-  const parsed = raw ? new Date(raw) : null;
-  const isValidDate = parsed != null && !Number.isNaN(parsed.getTime());
+  const parsed = parseDeadline(item.deadline);
+  const isValidDate = parsed != null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const isOverdue = isValidDate && parsed.getTime() < today.getTime();
 
   return (
-    <td className="hidden py-2.5 px-3 align-middle lg:table-cell">
+    <td className="hidden py-3.5 px-3 align-middle lg:table-cell">
       {isValidDate ? (
         <span
           className={cn(
@@ -330,9 +330,10 @@ function DeadlineCell({ item }: { item: TrackerItem }) {
           {isOverdue ? " · Overdue" : ""}
         </span>
       ) : (
-        <span className="text-xs italic text-slate-400 transition-colors duration-150 group-hover:text-slate-500">
-          Add deadline
-        </span>
+        <>
+          <span className="text-xs text-slate-300 group-hover:hidden">—</span>
+          <span className="hidden text-xs text-slate-500 group-hover:inline">Add deadline</span>
+        </>
       )}
     </td>
   );

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { deadlineInputValue, parseDeadline } from "../../lib/dates";
 import { useNavigate } from "react-router-dom";
 import { X, FileText, MessageSquare, BarChart3, ChevronRight, Mic, Lock } from "lucide-react";
 import { useFeatureAccess } from "../../features/featureAccess/useFeatureAccess";
@@ -58,13 +59,12 @@ export function RoleDetailDrawer({ item, onClose, updateDeadline, removeItem }: 
   // "Upcoming deadlines" / "Overdue" pill already read (src/lib/
   // dashboardStats.ts) — this is the one place it's actually edited, via a
   // native date picker, one click to open + pick.
-  const rawDeadline = item.deadline?.trim() ?? "";
-  const parsedDeadline = rawDeadline ? new Date(rawDeadline) : null;
-  const isValidDeadline = parsedDeadline != null && !Number.isNaN(parsedDeadline.getTime());
+  const parsedDeadline = parseDeadline(item.deadline);
+  const isValidDeadline = parsedDeadline != null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const isOverdue = isValidDeadline && parsedDeadline.getTime() < today.getTime();
-  const deadlineInputValue = isValidDeadline ? parsedDeadline.toISOString().slice(0, 10) : "";
+  const deadlineValue = deadlineInputValue(item.deadline);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -128,7 +128,7 @@ export function RoleDetailDrawer({ item, onClose, updateDeadline, removeItem }: 
             <input
               id="drawer-deadline"
               type="date"
-              value={deadlineInputValue}
+              value={deadlineValue}
               onChange={(e) => updateDeadline(item.id, e.target.value)}
               className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-cyan-400"
             />

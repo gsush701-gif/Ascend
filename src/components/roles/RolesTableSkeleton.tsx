@@ -18,10 +18,10 @@ export function RolesTableSkeleton() {
       </div>
 
       {/* Table skeleton */}
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-dash-card shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[600px] text-left text-sm">
-            <thead className="border-b border-slate-200 bg-[#F4F5FA]/95">
+            <thead className="border-b border-slate-100 bg-slate-50/70">
               <tr>
                 <th className="py-3 pl-4 pr-3">
                   <Skeleton className="h-4 w-12" />

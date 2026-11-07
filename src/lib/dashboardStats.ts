@@ -1,4 +1,5 @@
 import type { TrackerItem, TrackerStatus } from "../types/tracker";
+import { parseDeadline } from "./dates";
 
 export type FunnelCounts = Record<TrackerStatus, number>;
 
@@ -294,18 +295,12 @@ export function getUpcomingDeadlines(
   now.setHours(0, 0, 0, 0);
   const withDays: { item: TrackerItem; diffDays: number }[] = [];
   for (const item of items) {
-    const d = item.deadline?.trim();
-    if (!d) continue;
-    try {
-      const date = new Date(d);
-      if (Number.isNaN(date.getTime())) continue;
-      date.setHours(0, 0, 0, 0);
-      const diffMs = date.getTime() - now.getTime();
-      const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
-      withDays.push({ item, diffDays });
-    } catch {
-      /* skip */
-    }
+    const date = parseDeadline(item.deadline);
+    if (!date) continue;
+    date.setHours(0, 0, 0, 0);
+    const diffMs = date.getTime() - now.getTime();
+    const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+    withDays.push({ item, diffDays });
   }
   withDays.sort((a, b) => a.diffDays - b.diffDays);
   return withDays.slice(0, max).map(({ item, diffDays }) => {
@@ -342,16 +337,10 @@ export function getOverdueCount(items: TrackerItem[]): number {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return items.filter((item) => {
-    const d = item.deadline?.trim();
-    if (!d) return false;
-    try {
-      const date = new Date(d);
-      if (Number.isNaN(date.getTime())) return false;
-      date.setHours(0, 0, 0, 0);
-      return date.getTime() < now.getTime();
-    } catch {
-      return false;
-    }
+    const date = parseDeadline(item.deadline);
+    if (!date) return false;
+    date.setHours(0, 0, 0, 0);
+    return date.getTime() < now.getTime();
   }).length;
 }
 

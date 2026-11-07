@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { deadlineInputValue } from "../lib/dates";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -556,12 +557,7 @@ export function RoleDetail() {
                 <label className="block text-xs text-slate-500">Deadline</label>
                 <input
                   type="date"
-                  value={(() => {
-                    const raw = item.deadline?.trim();
-                    if (!raw) return "";
-                    const d = new Date(raw);
-                    return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-                  })()}
+                  value={deadlineInputValue(item.deadline)}
                   onChange={(e) => updateDeadline(item.id, e.target.value)}
                   className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
                 />
