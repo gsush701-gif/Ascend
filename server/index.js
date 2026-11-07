@@ -64,6 +64,7 @@ const { recordUsageEvent } = require("./lib/usageEvents");
 const { checkQuota, enforceUsageQuota } = require("./lib/usage");
 const { PLANS, DEFAULT_PLAN, USAGE_LABELS, getProPriceId } = require("./lib/plans");
 const groq = require("./lib/groq");
+const { sanitizeAdviceHistory } = require("./lib/adviceHistory");
 const elevenlabs = require("./lib/elevenlabs");
 const { stripe, isStripeConfigured, stripeMode } = require("./lib/stripe");
 const billing = require("./lib/billing");
@@ -1704,6 +1705,9 @@ app.post("/api/career-advice", aiLimiter, optionalAuth, aiIdentityLimiter, async
     if (req.body?.roleId !== undefined && typeof req.body.roleId !== "string") {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'roleId' must be a string");
     }
+    if (req.body?.history !== undefined && !Array.isArray(req.body.history)) {
+      return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'history' must be a list");
+    }
 
     const question = (req.body?.question || "").trim();
     if (!question) {
@@ -1770,7 +1774,7 @@ app.post("/api/career-advice", aiLimiter, optionalAuth, aiIdentityLimiter, async
 
     const userContext = contextLines.length > 0 ? contextLines.join("\n") : "(No specific role or profile data available for this question.)";
 
-    const result = await callGroq(req, "ai.career_advice", () => groq.careerAdvice(question, userContext));
+    const result = await callGroq(req, "ai.career_advice", () => groq.careerAdvice(question, userContext, sanitizeAdviceHistory(req.body?.history)));
     return res.json(result);
   } catch (err) {
     console.error("career-advice failed:", err);

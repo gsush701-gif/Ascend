@@ -1,6 +1,7 @@
 const Groq = require("groq-sdk");
 const { AsyncLocalStorage } = require("node:async_hooks");
 const { addUsage } = require("./llmCost");
+const { formatAdviceHistory } = require("./adviceHistory");
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
@@ -607,18 +608,19 @@ Respond with ONLY a JSON object of this exact shape:
  * from that context and say so plainly when it's insufficient, rather than
  * inventing statistics about the user.
  */
-async function careerAdvice(question, userContext) {
-  const system = `You are a direct, honest career advisor answering ONE question from a software engineering internship/new-grad candidate about their own job search.
+async function careerAdvice(question, userContext, history = []) {
+  const system = `You are a direct, honest career advisor answering the latest question from a software engineering internship/new-grad candidate about their own job search. It may be one message in a short conversation.
 You are given real, already-computed data about this candidate (a specific role's fit score and matched/missing skills, if applicable, and/or their profile's target role) — this is the ONLY information you have about them.
 Rules:
 - Answer using ONLY the real context provided below. Do not invent a fit score, skill, statistic, or fact about this candidate that isn't explicitly given.
 - If the provided context is insufficient to actually answer the question (e.g. they ask about a specific role but no role context was given), say so plainly and explain what's missing, rather than guessing or answering generically as if it applied to them.
 - Be direct and specific, citing the actual numbers/skills given where relevant (e.g. "Your fit score for this role is 62%, and you're missing X and Y" rather than vague encouragement).
+- Earlier messages in the conversation are only for continuity (for example, what "it" or "the second one" refers to). Never treat them as facts about the candidate, and do not repeat an earlier answer.
 - Keep the answer to 2-5 sentences.
 Respond with ONLY a JSON object of this exact shape:
 {"answer": string}`;
 
-  const user = `Candidate's question: "${question}"\n\nReal context available about this candidate:\n${userContext}`;
+  const user = `${formatAdviceHistory(history)}Candidate's question: "${question}"\n\nReal context available about this candidate:\n${userContext}`;
 
   return chatJson(system, user, 700);
 }
