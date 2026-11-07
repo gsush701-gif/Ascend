@@ -107,6 +107,8 @@ export function useAdvisorPlan() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(getApiErrorMessage(data, "Couldn't load your plan"));
+        // A reply without a list of items is not a plan; treat it like a failed request.
+        if (!Array.isArray((data as { items?: unknown }).items)) throw new Error("Couldn't load your plan");
         if (!cancelled) {
           setPlan(data as AdvisorPlan);
           writeCachedPlan(userId, data as AdvisorPlan);

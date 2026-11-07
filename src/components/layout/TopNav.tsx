@@ -26,31 +26,10 @@ import {
 } from "../../features/profile/components/ProfileSharedForms";
 import { usePlanUsage } from "../../features/profile/hooks/usePlanUsage";
 import { useBillingActions } from "../../features/profile/hooks/useBillingActions";
-import { AI_NAME, AI_PATH } from "../../config/brand";
+import { PRIMARY_LINKS, type NavItem } from "./navLinks";
 import { EXTENSION_STORE_URL } from "../../config/extension";
 import { DeleteAccountPanel } from "../../features/profile/components/DeleteAccountPanel";
 import { MfaSettingsPanel } from "../../features/mfa/components/MfaSettingsPanel";
-
-type NavItem = { to: string; label: string };
-
-/**
- * Shown as pills in the bar on md+ screens. Also listed inside the profile
- * menu on smaller screens (where the pill row is hidden) so every primary
- * destination stays reachable. Routes are unchanged.
- */
-const PRIMARY_LINKS: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/roles", label: "Roles" },
-  { to: "/jobs", label: "Jobs" },
-  { to: "/analyzer", label: "Analyze" },
-  { to: AI_PATH, label: AI_NAME },
-  { to: "/resume-lab", label: "Resume Lab" },
-  // TEMPORARILY DISABLED — the Profile page itself is turned off for now
-  // (see the /profile route in src/App.tsx); restore by uncommenting this
-  // entry. The independent account menu below (Edit profile, Change
-  // password, etc.) is unaffected and does not use this list.
-  // { to: "/profile", label: "Profile" },
-];
 
 /**
  * Which account modal is open, if any. Every one of these renders existing
@@ -69,7 +48,7 @@ const MODAL_TITLES: Record<Exclude<AccountModal, null>, string> = {
   delete: "Delete account",
 };
 
-function BarLink({ item }: { item: NavItem }) {
+function BarLink({ item }: { item: Pick<NavItem, "to" | "label"> }) {
   return (
     <NavLink
       to={item.to}
@@ -92,7 +71,7 @@ function MenuLink({
   onSelect,
   className = "",
 }: {
-  item: NavItem;
+  item: Pick<NavItem, "to" | "label">;
   onSelect: () => void;
   className?: string;
 }) {
@@ -227,11 +206,11 @@ export function TopNav() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur-md lg:left-60">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:max-w-none lg:justify-end">
           <NavLink
             to="/dashboard"
-            className="flex shrink-0 items-center gap-2.5"
+            className="flex shrink-0 items-center gap-2.5 lg:hidden"
             onClick={closeMenu}
           >
             <AscendLogo className="h-7 w-auto" />
@@ -240,7 +219,7 @@ export function TopNav() {
             </span>
           </NavLink>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-1 md:flex lg:hidden">
             {PRIMARY_LINKS.map((item) => (
               <BarLink key={item.to} item={item} />
             ))}

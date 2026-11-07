@@ -69,7 +69,7 @@ export function FeedbackButton({ className = "" }: { className?: string }) {
   }
 
   return (
-    <div className={`fixed bottom-4 left-4 z-30 sm:bottom-6 sm:left-6 ${className}`}>
+    <div className={`fixed bottom-4 left-4 z-30 sm:bottom-6 sm:left-6 lg:left-[16.5rem] ${className}`}>
       {open && (
         <form
           onSubmit={submit}
