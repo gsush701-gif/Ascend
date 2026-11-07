@@ -15,7 +15,18 @@ import { AppShell } from "../components/layout/AppShell";
 import { Input } from "../components/ui/Input";
 import { Textarea } from "../components/ui/Textarea";
 import { Button } from "../components/ui/Button";
-import { pageHeader, pageTitle, pageSubtitle, card, cardAlt } from "../lib/ui";
+import {
+  pageHeader,
+  pageTitle,
+  pageSubtitle,
+  card,
+  cardAlt,
+  buttonPrimary,
+  buttonSecondary,
+  buttonGhost,
+  input,
+} from "../lib/ui";
+import { AnimatedBar } from "../components/ui/AnimatedBar";
 import { useAnalyzer } from "../features/analyzer/hooks/useAnalyzer";
 import { SkillGapHelper } from "../features/analyzer/components/SkillGapHelper";
 import { AtsChecker } from "../features/analyzer/components/AtsChecker";
@@ -435,7 +446,7 @@ export function Analyzer() {
 
   return (
     <AppShell>
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Hero */}
         <div className={pageHeader}>
           <div>
@@ -460,7 +471,7 @@ export function Analyzer() {
           <section
             className={cn(
               card,
-              "focus-within:border-slate-300 transition-colors"
+              "transition-colors focus-within:border-slate-300 lg:sticky lg:top-24 lg:self-start"
             )}
           >
             <div className="space-y-5">
@@ -499,7 +510,7 @@ export function Analyzer() {
                       onChange={(e) => {
                         if (e.target.value) handleSelectSavedResume(e.target.value);
                       }}
-                      className="h-8 w-full rounded-md border border-slate-200 bg-slate-900/[0.04] px-2 text-xs text-slate-700 focus:border-slate-300 focus:outline-none"
+                      className="h-8 w-full rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:border-cyan-400 focus:outline-none"
                     >
                       <option value="">Select a saved resume…</option>
                       {savedResumes.map((r) => (
@@ -571,13 +582,13 @@ export function Analyzer() {
               {loading && slowRequest && <WakingNotice />}
 
               {analyzeError && (
-                <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-sm text-red-700">
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
                   {analyzeError}
                   <button
                     type="button"
                     onClick={() => onAnalyze(reanalyzeRoleId ? { roleId: reanalyzeRoleId } : undefined)}
                     disabled={!canAnalyze || loading}
-                    className="mt-2 block text-red-700 hover:text-red-100 underline"
+                    className="mt-2 block text-rose-700 underline hover:text-rose-900"
                   >
                     Try again
                   </button>
@@ -589,11 +600,46 @@ export function Analyzer() {
           {/* Right: Results panel */}
           <section ref={resultsRef} className={cn(card, "flex min-h-[280px] flex-col justify-center scroll-mt-20")}>
             {!hasResults ? (
-              <p className="text-sm text-slate-500 text-center">
-                Paste a job description above and click Analyze to see role requirements.
-              </p>
+              <div className="mx-auto max-w-sm text-center">
+                <p className="text-sm font-medium text-slate-800">Your results show up here</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Add a job description and your resume, then analyze to get:
+                </p>
+                <ul className="mt-4 space-y-1.5 text-left text-sm text-slate-600">
+                  <li>• Your fit score for the role</li>
+                  <li>• The skills it asks for that your resume is missing</li>
+                  <li>• An ATS compatibility check</li>
+                  <li>• A one-click path to tailor your resume bullets</li>
+                </ul>
+              </div>
             ) : (
               <div className="space-y-6 animate-fade-in">
+                {report && (
+                  <div>
+                    <div className="text-sm text-slate-500">Fit score</div>
+                    <div className="mt-1 flex flex-wrap items-baseline gap-3">
+                      <span className="font-display text-5xl font-semibold tracking-tight text-slate-900">
+                        {report.alignment}%
+                      </span>
+                      {preparedness && (
+                        <span className="text-sm font-medium text-slate-500">
+                          {preparedness === "High"
+                            ? "Strong"
+                            : preparedness === "Medium"
+                              ? "On track"
+                              : "Needs improvement"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-4">
+                      <AnimatedBar
+                        pct={report.alignment}
+                        gradient="linear-gradient(90deg, #22d3ee, #a78bfa)"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {report?.meta?.projected && (
                   <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     <strong>Projected score.</strong>{" "}
@@ -658,20 +704,20 @@ export function Analyzer() {
 
                 {/* Score breakdown */}
                 {report?.breakdown && (
-                  <div className={cn(cardAlt, "p-4")}>
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">
+                  <div>
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
                       Score breakdown
                     </h3>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="grid grid-cols-2 divide-slate-100 overflow-hidden rounded-xl border border-slate-200/70 sm:grid-cols-4 sm:divide-x">
                       {[
                         { label: "Required skills", value: report.breakdown.requiredSkills },
                         { label: "Technical stack", value: report.breakdown.technicalStack },
                         { label: "Resume evidence", value: report.breakdown.resumeEvidence },
                         { label: "ATS friendliness", value: report.breakdown.ats },
                       ].map((c) => (
-                        <div key={c.label} className="text-center">
-                          <div className="text-lg font-semibold text-slate-900">{c.value}%</div>
-                          <div className="text-[10px] uppercase tracking-wide text-slate-500">{c.label}</div>
+                        <div key={c.label} className="px-3 py-3 text-center">
+                          <div className="font-display text-xl font-semibold text-slate-900">{c.value}%</div>
+                          <div className="mt-0.5 text-[10px] uppercase tracking-wide text-slate-500">{c.label}</div>
                         </div>
                       ))}
                     </div>
@@ -882,7 +928,7 @@ export function Analyzer() {
                     <button
                       type="button"
                       onClick={() => navigate("/resume-lab", { state: { jobDescription: jd.trim() } })}
-                      className="btn-press inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-cyan-400"
+                      className={buttonPrimary}
                     >
                       <FileEdit className="h-4 w-4" />
                       Tailor resume bullets
@@ -891,7 +937,7 @@ export function Analyzer() {
                       <button
                         type="button"
                         onClick={() => handleAddMissingSkillNote(preferredSkills[0])}
-                        className="btn-press inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-900/[0.04] px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                        className={buttonSecondary}
                       >
                         <Sparkles className="h-4 w-4" />
                         Add missing skill note
@@ -901,14 +947,14 @@ export function Analyzer() {
                       <button
                         type="button"
                         onClick={() => setShowMarkNextStep((p) => !p)}
-                        className="btn-press inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-900/[0.04] px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                        className={buttonSecondary}
                       >
                         <ListChecks className="h-4 w-4" />
                         Mark next step
                         <ChevronDown className={cn("h-4 w-4 transition", showMarkNextStep && "rotate-180")} />
                       </button>
                       {showMarkNextStep && (
-                        <div className="absolute left-0 top-full mt-1 z-10 rounded-xl border border-slate-200 bg-[#FFFFFF] py-2 shadow-xl min-w-[180px] animate-fade-in">
+                        <div className="absolute left-0 top-full z-10 mt-1 min-w-[180px] animate-fade-in rounded-xl border border-slate-200 bg-white py-2 shadow-lg">
                           {QUICK_NEXT_STEPS.map((step) => (
                             <button
                               key={step}
@@ -942,7 +988,7 @@ export function Analyzer() {
                               navigate("/roles");
                             }
                           }}
-                          className="btn-press flex-1 rounded-xl border border-slate-300 bg-slate-900/[0.04] px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.06]"
+                          className={cn(buttonSecondary, "flex-1")}
                         >
                           Keep A (Previous)
                         </button>
@@ -980,7 +1026,7 @@ export function Analyzer() {
                               navigate("/roles");
                             }
                           }}
-                          className="btn-press flex-1 rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-black transition hover:bg-cyan-400"
+                          className={cn(buttonPrimary, "flex-1")}
                         >
                           Use B (New)
                         </button>
@@ -989,13 +1035,13 @@ export function Analyzer() {
                         <button
                           type="button"
                           onClick={() => navigate("/roles")}
-                          className="btn-press flex-1 rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-900/[0.04]"
+                          className={cn(buttonGhost, "flex-1")}
                         >
                           Back to Roles
                         </button>
                         <Link
                           to="/dashboard"
-                          className="btn-press flex-1 rounded-xl border border-slate-200 px-4 py-2 text-center text-sm text-slate-500 transition hover:bg-slate-900/[0.04]"
+                          className={cn(buttonGhost, "flex-1")}
                         >
                           Dashboard
                         </Link>
@@ -1054,7 +1100,7 @@ export function Analyzer() {
                             id="analyzer-add-status"
                             value={addStatus}
                             onChange={(e) => setAddStatus(e.target.value as TrackerStatus)}
-                            className="h-10 w-full rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 text-sm text-slate-800 focus:border-slate-300 focus:outline-none"
+                            className={input}
                           >
                             <option value="Wishlist">Wishlist (just interested)</option>
                             <option value="Analyzed">Analyzed (checked my fit)</option>
