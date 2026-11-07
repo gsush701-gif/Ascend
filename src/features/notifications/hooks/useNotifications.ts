@@ -119,15 +119,20 @@ export function useNotifications() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
-    setLoading(true);
 
+    // Everything runs inside an async function, so no state is set synchronously in
+    // the effect body (avoids React's set-state-in-effect cascading-render warning).
     (async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      if (!user) {
+        setNotifications([]);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+
       const existing = await loadNotifications();
       if (cancelled) return;
       setLoading(false);

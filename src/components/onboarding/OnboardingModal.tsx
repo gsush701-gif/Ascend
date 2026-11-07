@@ -27,7 +27,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onComplete]);
+  }, [onComplete, updateProfile]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

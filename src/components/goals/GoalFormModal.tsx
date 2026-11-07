@@ -39,19 +39,27 @@ export function GoalFormModal({ isOpen, onClose, onSubmit, initial }: GoalFormMo
 
   useEffect(() => {
     if (!isOpen) return;
-    setError(null);
-    setForm(
-      initial
-        ? {
-            title: initial.title,
-            targetDate: toDateInputValue(initial.targetDate),
-            applicationsTarget: initial.applicationsTarget?.toString() ?? "",
-            interviewsTarget: initial.interviewsTarget?.toString() ?? "",
-            offersTarget: initial.offersTarget?.toString() ?? "",
-          }
-        : EMPTY_FORM
-    );
+    let cancelled = false;
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setError(null);
+      setForm(
+        initial
+          ? {
+              title: initial.title,
+              targetDate: toDateInputValue(initial.targetDate),
+              applicationsTarget: initial.applicationsTarget?.toString() ?? "",
+              interviewsTarget: initial.interviewsTarget?.toString() ?? "",
+              offersTarget: initial.offersTarget?.toString() ?? "",
+            }
+          : EMPTY_FORM
+      );
+    });
     setTimeout(() => titleRef.current?.focus(), 50);
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, initial]);
 
   const handleSubmit = () => {

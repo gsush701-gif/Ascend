@@ -122,7 +122,8 @@ describe("isValidVoiceResponse", () => {
   });
 
   it("rejects a missing required field", () => {
-    const { answeredAt: _answeredAt, ...missingAnsweredAt } = makeResponse();
+    const missingAnsweredAt: Record<string, unknown> = { ...makeResponse() };
+    delete missingAnsweredAt.answeredAt;
     expect(isValidVoiceResponse(missingAnsweredAt)).toBe(false);
   });
 });

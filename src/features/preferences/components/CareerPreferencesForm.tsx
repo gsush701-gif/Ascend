@@ -28,13 +28,16 @@ export function CareerPreferencesForm() {
 
   useEffect(() => {
     if (!loading && profile && !initialized) {
-      setWorkAuthorization(profile.workAuthorization);
-      setRequiresSponsorship(
-        profile.requiresSponsorship === true ? "yes" : profile.requiresSponsorship === false ? "no" : ""
-      );
-      setPreferredLocations(profile.preferredLocations);
-      setRemotePreference(profile.remotePreference);
-      setInitialized(true);
+      // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+      Promise.resolve().then(() => {
+        setWorkAuthorization(profile.workAuthorization);
+        setRequiresSponsorship(
+          profile.requiresSponsorship === true ? "yes" : profile.requiresSponsorship === false ? "no" : ""
+        );
+        setPreferredLocations(profile.preferredLocations);
+        setRemotePreference(profile.remotePreference);
+        setInitialized(true);
+      });
     }
   }, [loading, profile, initialized]);
 

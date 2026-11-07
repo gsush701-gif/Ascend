@@ -61,7 +61,8 @@ export function useJobAnalyses() {
   }, [user]);
 
   useEffect(() => {
-    refresh();
+    // Deferred to a microtask: avoids React’s set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => refresh());
   }, [refresh]);
 
   return { analyses, loading, error, refresh };

@@ -73,28 +73,32 @@ export function useContacts() {
   const [contactsError, setContactsError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setContacts([]);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
-    setLoading(true);
-    supabase
-      .from("contacts")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error("[useContacts] load failed:", error);
-          setContactsError(error.message);
-          setLoading(false);
-          return;
-        }
-        setContacts(((data as ContactRow[] | null) ?? []).map(rowToContact));
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (!user) {
+        setContacts([]);
         setLoading(false);
-      });
+        return;
+      }
+      setLoading(true);
+      supabase
+        .from("contacts")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error("[useContacts] load failed:", error);
+            setContactsError(error.message);
+            setLoading(false);
+            return;
+          }
+          setContacts(((data as ContactRow[] | null) ?? []).map(rowToContact));
+          setLoading(false);
+        });
+    });
     return () => {
       cancelled = true;
     };

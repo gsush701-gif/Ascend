@@ -32,12 +32,22 @@ export function OnboardingChecklist({
   const [showCompleteBanner, setShowCompleteBanner] = useState(false);
 
   useEffect(() => {
-    if (allDone && !isChecklistCompleteShown()) {
+    if (!allDone || isChecklistCompleteShown()) return;
+    let cancelled = false;
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    // The "shown" flag is set here, after the cancel check, so a re-run of the effect
+    // (React's dev double-run) cannot mark it shown without the banner ever appearing.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
       setChecklistCompleteShown();
       setShowCompleteBanner(true);
-      const t = setTimeout(() => setShowCompleteBanner(false), 5000);
-      return () => clearTimeout(t);
-    }
+      hideTimer = setTimeout(() => setShowCompleteBanner(false), 5000);
+    });
+    return () => {
+      cancelled = true;
+      if (hideTimer) clearTimeout(hideTimer);
+    };
   }, [allDone]);
 
   if (dismissed) return null;

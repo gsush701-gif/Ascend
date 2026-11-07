@@ -54,88 +54,95 @@ export function useProfile() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-      setProfile(null);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
-    setLoading(true);
-    const userId = user.id;
 
-    // Try the widest column set first (including the Phase 5 "career
-    // preferences" columns from migration 014 and the Phase 7
-    // weekly_reports_enabled column from migration 019). If a migration
-    // hasn't been applied to this environment yet, Postgres returns a plain
-    // "column does not exist" error (42703) for the WHOLE select — without a
-    // fallback, that would break the pre-existing major/targetRole/
-    // graduationYear fields too, not just the new ones. So on exactly that
-    // error, retry with progressively narrower column sets rather than
-    // surfacing a broken Identity panel until every migration is run.
-    // (Each `.select(...)` call below takes its own string literal directly
-    // — not a shared `string`-typed variable/parameter — so supabase-js's
-    // column-name type inference still applies to each one.)
-
-    function finish(data: ProfileRow | null) {
+    const load = () => {
       if (cancelled) return;
-      setProfile(data ? rowToProfile(data) : rowToProfile({} as ProfileRow));
-      setLoading(false);
-    }
+      if (!user) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const userId = user.id;
 
-    function loadBase() {
-      supabase
-        .from("profiles")
-        .select("full_name, major, target_role, graduation_year")
-        .eq("id", userId)
-        .maybeSingle()
-        .then(({ data, error }) => {
-          if (cancelled) return;
-          if (error) {
-            console.error("[useProfile] load failed:", error);
-            setLoading(false);
-            return;
-          }
-          finish(data as ProfileRow | null);
-        });
-    }
+      // Try the widest column set first (including the Phase 5 "career
+      // preferences" columns from migration 014 and the Phase 7
+      // weekly_reports_enabled column from migration 019). If a migration
+      // hasn't been applied to this environment yet, Postgres returns a plain
+      // "column does not exist" error (42703) for the WHOLE select — without a
+      // fallback, that would break the pre-existing major/targetRole/
+      // graduationYear fields too, not just the new ones. So on exactly that
+      // error, retry with progressively narrower column sets rather than
+      // surfacing a broken Identity panel until every migration is run.
+      // (Each `.select(...)` call below takes its own string literal directly
+      // — not a shared `string`-typed variable/parameter — so supabase-js's
+      // column-name type inference still applies to each one.)
 
-    function loadPhase5() {
+      function finish(data: ProfileRow | null) {
+        if (cancelled) return;
+        setProfile(data ? rowToProfile(data) : rowToProfile({} as ProfileRow));
+        setLoading(false);
+      }
+
+      function loadBase() {
+        supabase
+          .from("profiles")
+          .select("full_name, major, target_role, graduation_year")
+          .eq("id", userId)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (cancelled) return;
+            if (error) {
+              console.error("[useProfile] load failed:", error);
+              setLoading(false);
+              return;
+            }
+            finish(data as ProfileRow | null);
+          });
+      }
+
+      function loadPhase5() {
+        supabase
+          .from("profiles")
+          .select(
+            "full_name, major, target_role, graduation_year, work_authorization, requires_sponsorship, preferred_locations, remote_preference",
+          )
+          .eq("id", userId)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (cancelled) return;
+            if (error) {
+              if (error.code === "42703") return loadBase();
+              console.error("[useProfile] load failed:", error);
+              setLoading(false);
+              return;
+            }
+            finish(data as ProfileRow | null);
+          });
+      }
+
       supabase
         .from("profiles")
         .select(
-          "full_name, major, target_role, graduation_year, work_authorization, requires_sponsorship, preferred_locations, remote_preference",
+          "full_name, major, target_role, graduation_year, work_authorization, requires_sponsorship, preferred_locations, remote_preference, weekly_reports_enabled",
         )
         .eq("id", userId)
         .maybeSingle()
         .then(({ data, error }) => {
           if (cancelled) return;
           if (error) {
-            if (error.code === "42703") return loadBase();
+            if (error.code === "42703") return loadPhase5();
             console.error("[useProfile] load failed:", error);
             setLoading(false);
             return;
           }
           finish(data as ProfileRow | null);
         });
-    }
+    };
 
-    supabase
-      .from("profiles")
-      .select(
-        "full_name, major, target_role, graduation_year, work_authorization, requires_sponsorship, preferred_locations, remote_preference, weekly_reports_enabled",
-      )
-      .eq("id", userId)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          if (error.code === "42703") return loadPhase5();
-          console.error("[useProfile] load failed:", error);
-          setLoading(false);
-          return;
-        }
-        finish(data as ProfileRow | null);
-      });
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(load);
 
     return () => {
       cancelled = true;

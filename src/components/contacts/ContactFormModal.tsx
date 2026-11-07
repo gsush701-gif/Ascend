@@ -53,25 +53,33 @@ export function ContactFormModal({ isOpen, onClose, onSubmit, initial }: Contact
 
   useEffect(() => {
     if (!isOpen) return;
-    setError(null);
-    setForm(
-      initial
-        ? {
-            name: initial.name,
-            company: initial.company ?? "",
-            title: initial.title ?? "",
-            email: initial.email ?? "",
-            linkedinUrl: initial.linkedinUrl ?? "",
-            relationship: initial.relationship ?? "",
-            source: initial.source ?? "",
-            notes: initial.notes ?? "",
-            lastContactAt: toDateInputValue(initial.lastContactAt),
-            nextFollowUpAt: toDateInputValue(initial.nextFollowUpAt),
-          }
-        : EMPTY_FORM
-    );
+    let cancelled = false;
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setError(null);
+      setForm(
+        initial
+          ? {
+              name: initial.name,
+              company: initial.company ?? "",
+              title: initial.title ?? "",
+              email: initial.email ?? "",
+              linkedinUrl: initial.linkedinUrl ?? "",
+              relationship: initial.relationship ?? "",
+              source: initial.source ?? "",
+              notes: initial.notes ?? "",
+              lastContactAt: toDateInputValue(initial.lastContactAt),
+              nextFollowUpAt: toDateInputValue(initial.nextFollowUpAt),
+            }
+          : EMPTY_FORM
+      );
+    });
     const t = setTimeout(() => nameRef.current?.focus(), 0);
-    return () => clearTimeout(t);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
   }, [isOpen, initial]);
 
   useEffect(() => {

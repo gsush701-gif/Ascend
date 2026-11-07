@@ -5,7 +5,9 @@ const CHECKLIST_COMPLETE_SHOWN_KEY = "internos_checklist_complete_shown_v1";
 export function setResumeLabUsed(): void {
   try {
     localStorage.setItem(RESUME_LAB_USED_KEY, "true");
-  } catch {}
+  } catch {
+    // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+  }
 }
 
 export function isResumeLabUsed(): boolean {
@@ -27,7 +29,9 @@ export function isChecklistDismissed(): boolean {
 export function setChecklistDismissed(): void {
   try {
     localStorage.setItem(CHECKLIST_DISMISSED_KEY, "true");
-  } catch {}
+  } catch {
+    // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+  }
 }
 
 export function isChecklistCompleteShown(): boolean {
@@ -41,5 +45,7 @@ export function isChecklistCompleteShown(): boolean {
 export function setChecklistCompleteShown(): void {
   try {
     localStorage.setItem(CHECKLIST_COMPLETE_SHOWN_KEY, "true");
-  } catch {}
+  } catch {
+    // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+  }
 }

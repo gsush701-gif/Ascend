@@ -43,6 +43,9 @@ import {
 
 const QUICK_NEXT_STEPS = ["Tailor resume", "Apply", "Follow up", "Prepare for interview"];
 
+// A role title the backend sometimes returns is really a metric label; never auto-fill it.
+const BAD_ROLE_TITLES = /^(job\s+)?(alignment|fit\s+score|coverage)$/i;
+
 export function Analyzer() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -140,15 +143,20 @@ export function Analyzer() {
       }
       navigate(location.pathname, { replace: true, state: {} });
     }
+    // Runs once, on arrival: it consumes the one-time navigation state and then
+    // clears it. Re-running it when `location` changes would loop on the cleared state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Don't auto-fill role when backend returns metric labels
-  const BAD_ROLE_TITLES = /^(job\s+)?(alignment|fit\s+score|coverage)$/i;
   useEffect(() => {
     const title = report?.roleTitle?.trim();
     if (title && !tracker.role.trim() && !BAD_ROLE_TITLES.test(title)) {
       tracker.setRole(title);
     }
+    // Only when a new analysis brings a role title. `tracker` is read at that moment;
+    // re-running on every tracker change would refill a role the user just cleared.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [report?.roleTitle]);
 
   const PROJECTED_SAVE_MESSAGE =

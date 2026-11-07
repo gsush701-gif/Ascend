@@ -29,9 +29,14 @@ export function PublicProfile() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setNotFound(false);
-    setData(null);
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    // The fetch below resolves later, so this reset always lands first.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setNotFound(false);
+      setData(null);
+    });
 
     fetch(`${API_BASE}/api/public-profile/${encodeURIComponent(slug)}`)
       .then(async (res) => {

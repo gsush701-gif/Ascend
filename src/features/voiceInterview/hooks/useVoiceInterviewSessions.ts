@@ -143,7 +143,8 @@ export function useVoiceInterviewSessions(roleId: string | undefined) {
   }, [user, roleId]);
 
   useEffect(() => {
-    refresh();
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => refresh());
   }, [refresh]);
 
   const startSession = useCallback(

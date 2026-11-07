@@ -52,20 +52,26 @@ export function useAnalyzer() {
     try {
       const raw = localStorage.getItem(HISTORY_KEY);
       if (raw) setAlignmentHistory(JSON.parse(raw));
-    } catch {}
+    } catch {
+      // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+    }
   }, []);
 
   useEffect(() => {
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(alignmentHistory));
-    } catch {}
+    } catch {
+      // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+    }
   }, [alignmentHistory]);
 
   useEffect(() => {
     if (resume?.name) {
       try {
         localStorage.setItem(LAST_RESUME_KEY, resume.name);
-      } catch {}
+      } catch {
+        // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+      }
     }
   }, [resume?.name]);
 
@@ -119,7 +125,7 @@ export function useAnalyzer() {
   const canAnalyzeJdOnly = hasValidJd && !loading;
   const canAnalyze = useMemo(
     () => !!resume && hasValidJd && !loading,
-    [resume, jd, loading],
+    [resume, hasValidJd, loading],
   );
 
   /** JD-only: parse locally, no backend. */

@@ -148,24 +148,28 @@ export function useTracker(reportAlignment: number | undefined) {
   >("All");
 
   useEffect(() => {
-    if (!user) {
-      setTracker([]);
-      return;
-    }
     let cancelled = false;
-    supabase
-      .from("roles")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error("[useTracker] load failed:", error);
-          setTrackerError(error.message);
-          return;
-        }
-        setTracker(((data as RoleRow[] | null) ?? []).map(rowToItem));
-      });
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (!user) {
+        setTracker([]);
+        return;
+      }
+      supabase
+        .from("roles")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error("[useTracker] load failed:", error);
+            setTrackerError(error.message);
+            return;
+          }
+          setTracker(((data as RoleRow[] | null) ?? []).map(rowToItem));
+        });
+    });
     return () => {
       cancelled = true;
     };

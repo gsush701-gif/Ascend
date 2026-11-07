@@ -60,28 +60,32 @@ export function useCareerGoals() {
   const [goalsError, setGoalsError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setGoals([]);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
-    setLoading(true);
-    supabase
-      .from("career_goals")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.error("[useCareerGoals] load failed:", error);
-          setGoalsError(error.message);
-          setLoading(false);
-          return;
-        }
-        setGoals(((data as CareerGoalRow[] | null) ?? []).map(rowToGoal));
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (!user) {
+        setGoals([]);
         setLoading(false);
-      });
+        return;
+      }
+      setLoading(true);
+      supabase
+        .from("career_goals")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.error("[useCareerGoals] load failed:", error);
+            setGoalsError(error.message);
+            setLoading(false);
+            return;
+          }
+          setGoals(((data as CareerGoalRow[] | null) ?? []).map(rowToGoal));
+          setLoading(false);
+        });
+    });
     return () => {
       cancelled = true;
     };

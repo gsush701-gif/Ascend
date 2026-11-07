@@ -57,7 +57,7 @@ export function parseJdRequirements(jd: string): ParsedJdRequirements {
       break;
     }
   }
-  const yearsMatch = jd.match(/(\d+)[\+–-]?\s*(?:to|-)?\s*(\d+)?\s*years?/i);
+  const yearsMatch = jd.match(/(\d+)[+–-]?\s*(?:to|-)?\s*(\d+)?\s*years?/i);
   if (yearsMatch && experienceLevel === "Not specified") {
     const y1 = parseInt(yearsMatch[1], 10);
     const y2 = yearsMatch[2] ? parseInt(yearsMatch[2], 10) : y1;

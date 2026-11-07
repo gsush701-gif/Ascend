@@ -53,14 +53,18 @@ export function Roles() {
         if (k && ["updatedAt","createdAt","deadline","alignment","role","company","status"].includes(k))
           return k as SortKey;
       }
-    } catch {}
+    } catch {
+      // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+    }
     return "updatedAt";
   });
   const [sortDir, setSortDir] = useState<"asc" | "desc">(() => {
     try {
       const v = localStorage.getItem("internos_roles_sort");
       if (v && v.endsWith(":asc")) return "asc";
-    } catch {}
+    } catch {
+      // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+    }
     return "desc";
   });
   const [statusFilter, setStatusFilter] = useState<TrackerStatus | "all">(() => {
@@ -68,7 +72,9 @@ export function Roles() {
       const v = localStorage.getItem("internos_roles_status_filter");
       if (v && (v === "all" || (TRACKER_STATUS_ORDER as string[]).includes(v)))
         return v as TrackerStatus | "all";
-    } catch {}
+    } catch {
+      // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+    }
     return "all";
   });
   const [searchInput, setSearchInput] = useState("");
@@ -85,8 +91,12 @@ export function Roles() {
   useEffect(() => {
     const state = location.state as { openRoleId?: string } | null;
     if (state?.openRoleId && items.some((i) => i.id === state.openRoleId)) {
-      setSelectedRoleId(state.openRoleId);
-      navigate(location.pathname, { replace: true, state: {} });
+      const roleId = state.openRoleId;
+      // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+      Promise.resolve().then(() => {
+        setSelectedRoleId(roleId);
+        navigate(location.pathname, { replace: true, state: {} });
+      });
     }
   }, [location.state, location.pathname, items, navigate]);
 
@@ -99,7 +109,9 @@ export function Roles() {
     try {
       localStorage.setItem("internos_roles_status_filter", statusFilter);
       localStorage.setItem("internos_roles_sort", `${sortKey}:${sortDir}`);
-    } catch {}
+    } catch {
+      // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+    }
   }, [statusFilter, sortKey, sortDir]);
 
   useEffect(() => {

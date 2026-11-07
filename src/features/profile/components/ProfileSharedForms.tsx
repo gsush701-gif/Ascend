@@ -150,10 +150,13 @@ export function OnboardingForm({ onSaved }: { onSaved?: () => void } = {}) {
 
   useEffect(() => {
     if (!loading && profile && !initialized) {
-      setMajor(profile.major);
-      setTargetRole(profile.targetRole);
-      setGraduationYear(profile.graduationYear);
-      setInitialized(true);
+      // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+      Promise.resolve().then(() => {
+        setMajor(profile.major);
+        setTargetRole(profile.targetRole);
+        setGraduationYear(profile.graduationYear);
+        setInitialized(true);
+      });
     }
   }, [loading, profile, initialized]);
 

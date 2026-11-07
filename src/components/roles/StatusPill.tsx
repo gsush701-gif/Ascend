@@ -1,7 +1,7 @@
 import type { TrackerStatus } from "../../types/tracker";
 
 /** Pipeline-stage colors — shared with the dashboard's status bars (STATUS_COLORS). */
-export const PILL_STYLES: Record<TrackerStatus, string> = {
+const PILL_STYLES: Record<TrackerStatus, string> = {
   Wishlist: "border-slate-300 bg-slate-900/[0.04] text-slate-600",
   Analyzed: "border-indigo-400/40 bg-indigo-500/10 text-indigo-600",
   "Ready to Apply": "border-cyan-400/30 bg-cyan-500/10 text-cyan-600",

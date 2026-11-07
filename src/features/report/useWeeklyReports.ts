@@ -65,29 +65,33 @@ export function useWeeklyReports() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
-      setReports([]);
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
-    setLoading(true);
-    supabase
-      .from("weekly_reports")
-      .select("id, week_start, week_end, content, email_sent_at, created_at")
-      .order("week_start", { ascending: false })
-      .limit(20)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) {
-          console.warn("[useWeeklyReports] load failed (table may not exist yet):", error.message);
-          setReports([]);
-          setLoading(false);
-          return;
-        }
-        setReports(((data as WeeklyReportRow[] | null) ?? []).map(rowToReport));
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (!user) {
+        setReports([]);
         setLoading(false);
-      });
+        return;
+      }
+      setLoading(true);
+      supabase
+        .from("weekly_reports")
+        .select("id, week_start, week_end, content, email_sent_at, created_at")
+        .order("week_start", { ascending: false })
+        .limit(20)
+        .then(({ data, error }) => {
+          if (cancelled) return;
+          if (error) {
+            console.warn("[useWeeklyReports] load failed (table may not exist yet):", error.message);
+            setReports([]);
+            setLoading(false);
+            return;
+          }
+          setReports(((data as WeeklyReportRow[] | null) ?? []).map(rowToReport));
+          setLoading(false);
+        });
+    });
     return () => {
       cancelled = true;
     };

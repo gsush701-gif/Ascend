@@ -35,20 +35,26 @@ function loadHistory(): HistoryEntry[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY);
     if (raw) return JSON.parse(raw);
-  } catch {}
+  } catch {
+    // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+  }
   return [];
 }
 
 function saveHistory(entries: HistoryEntry[]) {
   try {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(entries.slice(0, HISTORY_MAX)));
-  } catch {}
+  } catch {
+    // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+  }
 }
 
 function clearHistory() {
   try {
     localStorage.removeItem(HISTORY_KEY);
-  } catch {}
+  } catch {
+    // Browser storage can be unavailable (private mode, blocked site data); losing this is harmless.
+  }
 }
 
 type ResumeImprovementRow = {

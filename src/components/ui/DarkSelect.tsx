@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 
@@ -51,11 +51,11 @@ export function DarkSelect({
 
   const [dropdownStyle, setDropdownStyle] = useState({ top: 0, left: 0 });
 
-  const updatePosition = useRef(() => {
+  const updatePosition = useCallback(() => {
     if (!ref.current) return;
     const rect = ref.current.getBoundingClientRect();
     setDropdownStyle({ top: rect.bottom + 4, left: rect.left });
-  }).current;
+  }, []);
 
   useEffect(() => {
     if (!open) return;

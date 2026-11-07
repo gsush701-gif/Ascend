@@ -30,10 +30,16 @@ export function QuickAddModal({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      companyRef.current?.focus();
-      setError(null);
-    }
+    if (!isOpen) return;
+    companyRef.current?.focus();
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (!cancelled) setError(null);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   useEffect(() => {

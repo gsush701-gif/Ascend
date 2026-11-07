@@ -44,7 +44,11 @@ export function useAutoStopOnSilence(
   const silenceMs = options?.silenceMs ?? AUTO_STOP_SILENCE_MS;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopRef = useRef(recognition.stop);
-  stopRef.current = recognition.stop;
+  // Keep the latest stop() for the timer to call. Done in an effect, declared
+  // before the timer effect, rather than during render.
+  useEffect(() => {
+    stopRef.current = recognition.stop;
+  });
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);

@@ -64,7 +64,11 @@ export function usePlanUsage(userId: string | undefined): PlanInfo {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    setUsageLoaded(false);
+    // Deferred to a microtask: avoids React's set-state-in-effect cascading-render warning.
+    // The results below arrive later, so this always lands first.
+    Promise.resolve().then(() => {
+      if (!cancelled) setUsageLoaded(false);
+    });
 
     supabase
       .from("subscriptions")

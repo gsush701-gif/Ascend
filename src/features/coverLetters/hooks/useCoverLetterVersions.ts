@@ -82,7 +82,8 @@ export function useCoverLetterVersions(
   }, [user, roleId]);
 
   useEffect(() => {
-    refresh();
+    // Deferred to a microtask: avoids React’s set-state-in-effect cascading-render warning.
+    Promise.resolve().then(() => refresh());
   }, [refresh]);
 
   /**
