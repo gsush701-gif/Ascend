@@ -9,6 +9,9 @@ import {
   ClipboardList,
   LineChart,
   Share2,
+  Compass,
+  MessagesSquare,
+  FileText,
   // AlertCircle, Clock3, RefreshCw were only used by the disabled
   // product-preview code below.
 } from "lucide-react";
@@ -50,7 +53,7 @@ export function Landing() {
 
           <Reveal delay={0.18}>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:mt-10 sm:flex-row">
-              <Link to="/signup" className="w-full sm:w-auto">
+              <Link to="/try" className="w-full sm:w-auto">
                 <Button variant="primary" className="w-full">
                   Check my resume, free
                 </Button>
@@ -70,7 +73,7 @@ export function Landing() {
               */}
             </div>
             <p className="mt-3 text-xs text-slate-500">
-              Free during beta. No card, sign in with Google in 10 seconds.
+              Free during beta. No card, and no account needed to try it.
             </p>
             <p className="mt-2 text-sm">
               <Link to="/internships" className="font-medium text-cyan-700 hover:underline">
@@ -285,6 +288,27 @@ export function Landing() {
                 icon={Share2}
                 title="Shareable profile"
                 desc="Generate a link to share your top skills and resume strength with a mentor or peer."
+              />
+            </Reveal>
+            <Reveal delay={0.3}>
+              <FeatureCard
+                icon={Compass}
+                title="Live internship feed"
+                desc="Internships and new-grad roles from company career pages, updated daily and ranked by how well each one fits your resume."
+              />
+            </Reveal>
+            <Reveal delay={0.35}>
+              <FeatureCard
+                icon={MessagesSquare}
+                title="Kairos, your advisor"
+                desc="Ask about your search and get a weekly plan built from your own roles, deadlines and resume."
+              />
+            </Reveal>
+            <Reveal delay={0.4}>
+              <FeatureCard
+                icon={FileText}
+                title="Cover letters and interview prep"
+                desc="Draft a cover letter from the job description and practice interview questions for each role."
               />
             </Reveal>
           </div>

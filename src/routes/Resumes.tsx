@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FileText, Star, Pencil, SquarePen, Trash2, Check, X } from "lucide-react";
+import { FileText, Star, Pencil, SquarePen, Trash2, Check, X, Upload } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { Input } from "../components/ui/Input";
 import { Modal } from "../components/ui/Modal";
 import { EmptyState } from "../components/ui/EmptyState";
-import { pageHeader, pageTitle, pageSubtitle, card, cardAlt, sectionTitle } from "../lib/ui";
+import { toast } from "../components/ui/toast";
+import { extractResumeText, isDocxFile } from "../lib/docx";
+import { pageHeader, pageTitle, pageSubtitle, card, cardAlt, sectionTitle, buttonSecondary } from "../lib/ui";
 import { cn } from "../lib/cn";
 import { useResumes } from "../features/resumes/hooks/useResumes";
 import { useJobAnalyses } from "../features/resumes/hooks/useJobAnalyses";
@@ -176,7 +178,45 @@ function AnalysisRow({ analysis, onOpen }: { analysis: JobAnalysisRecord; onOpen
 
 export function ResumesBody({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate();
-  const { resumes, loading: resumesLoading, setDefaultResume, renameResume, deleteResume } = useResumes();
+  const { resumes, loading: resumesLoading, saveResume, setDefaultResume, renameResume, deleteResume } = useResumes();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  /** Saves a PDF straight from this page: the text is read in the browser, then the file and text are stored. */
+  async function handleUpload(file: File | undefined) {
+    if (!file || uploading) return;
+    if (isDocxFile(file)) {
+      toast.error({
+        title: "Saved resumes need a PDF",
+        description: "A Word file works in the Analyzer, but save a PDF here so it can be reused.",
+      });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error({ title: "That file is too big", description: "Resumes can be up to 5MB." });
+      return;
+    }
+    setUploading(true);
+    try {
+      const text = await extractResumeText(file);
+      if (!text.trim()) {
+        toast.error({
+          title: "Couldn't read that PDF",
+          description: "It may be a scan or image. Export a text PDF from Word or Google Docs and try again.",
+        });
+        return;
+      }
+      const { error } = await saveResume(file, text, file.name);
+      if (error) toast.error({ title: "Couldn't save resume", description: error });
+      else toast.success({ title: "Resume saved", description: "Jobs, the Analyzer and Kairos can use it now." });
+    } catch {
+      toast.error({ title: "Couldn't read that PDF", description: "Try exporting it again and uploading it once more." });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const openPicker = () => fileInputRef.current?.click();
   const { analyses, loading: analysesLoading } = useJobAnalyses();
   const [openAnalysis, setOpenAnalysis] = useState<JobAnalysisRecord | null>(null);
 
@@ -195,7 +235,7 @@ export function ResumesBody({ embedded = false }: { embedded?: boolean }) {
             <div>
               <h1 className={pageTitle}>My Resumes</h1>
               <p className={pageSubtitle}>
-                Resumes you&apos;ve saved from the Analyzer, and your past job-fit analyses.
+                Your saved resumes, and your past job-fit analyses.
               </p>
             </div>
             <Link to="/analyzer" className="text-sm font-medium text-slate-700 hover:text-slate-900 transition-colors shrink-0">
@@ -205,14 +245,33 @@ export function ResumesBody({ embedded = false }: { embedded?: boolean }) {
         )}
 
         <section>
-          <h2 className={cn(sectionTitle, "mb-3")}>Saved resumes</h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className={sectionTitle}>Saved resumes</h2>
+            {resumes.length > 0 && (
+              <button type="button" onClick={openPicker} disabled={uploading} className={buttonSecondary}>
+                <Upload className="h-4 w-4" />
+                {uploading ? "Saving…" : "Upload a PDF"}
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(e) => {
+              void handleUpload(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
           {resumesLoading && resumes.length === 0 ? (
             <p className="text-sm text-slate-400">Loading…</p>
           ) : resumes.length === 0 ? (
             <EmptyState
               title="No saved resumes yet"
-              subtitle="Upload a resume in the Analyzer and click “Save this resume” to keep it here for next time."
-              primaryAction={{ label: "Go to Analyzer", onClick: () => navigate("/analyzer") }}
+              subtitle="Upload a PDF once. Jobs uses it to rank roles by fit, and the Analyzer and Kairos use it too."
+              primaryAction={{ label: uploading ? "Saving…" : "Upload your resume (PDF)", onClick: openPicker }}
+              secondaryAction={{ label: "Or analyze a job first", onClick: () => navigate("/analyzer") }}
               compact
             />
           ) : (
