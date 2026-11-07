@@ -18,9 +18,16 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: Install dependencies
         run: npm install
+
+      # The server tests import groq-sdk and stripe, which live in server/package.json.
+      - name: Install server dependencies
+        run: npm install --prefix server
 
       - name: Lint
         run: npm run lint
