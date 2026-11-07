@@ -2,7 +2,7 @@ import { Bookmark, BookmarkCheck, Check, Clock, ExternalLink, MapPin, Plus, Undo
 import { buttonPrimary, buttonGhost } from "../../lib/ui";
 import { cn } from "../../lib/cn";
 import { Button } from "../ui/Button";
-import { postedAgo } from "../../features/jobs/format";
+import { avatarTone, postedAgo } from "../../features/jobs/format";
 import type { Job, JobMatch } from "../../types/jobs";
 
 function formatSalary(job: Job): string | null {
@@ -11,21 +11,6 @@ function formatSalary(job: Job): string | null {
   const fmt = (n: number) => `${currency === "USD" ? "$" : currency + " "}${n.toLocaleString()}`;
   if (job.salaryMin != null && job.salaryMax != null) return `${fmt(job.salaryMin)} – ${fmt(job.salaryMax)}`;
   return fmt((job.salaryMin ?? job.salaryMax) as number);
-}
-
-const AVATAR_TONES = [
-  "bg-cyan-500/15 text-cyan-700",
-  "bg-violet-500/15 text-violet-700",
-  "bg-emerald-500/15 text-emerald-700",
-  "bg-amber-500/15 text-amber-700",
-  "bg-rose-500/15 text-rose-700",
-  "bg-sky-500/15 text-sky-700",
-];
-
-function avatarTone(name: string): string {
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return AVATAR_TONES[hash % AVATAR_TONES.length];
 }
 
 function matchTone(score: number): string {

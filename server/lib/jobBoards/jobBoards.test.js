@@ -5,7 +5,7 @@ import { htmlToText, plainText, decodeEntities } from "./text.js";
 import { ADAPTERS, inferRemoteType, fetchJson } from "./feeds.js";
 import { syncBoards } from "./sync.js";
 import { toRow } from "./store.js";
-import { cleanTerm, splitTerms, rowToJob } from "../jobProviders/boardsProvider.js";
+import { cleanTerm, splitTerms, rowToJob, cacheKey } from "../jobProviders/boardsProvider.js";
 
 const require = createRequire(import.meta.url);
 const boards = require("../../data/jobBoards.json");
@@ -415,6 +415,15 @@ describe("job search helpers", () => {
     expect(cleanTerm(undefined)).toBe("");
   });
 
+  it("gives the same cache key to the same search and different keys to different ones", () => {
+    const a = { keywords: "python", page: 1, pageSize: 20 };
+    expect(cacheKey(a)).toBe(cacheKey({ page: 1, pageSize: 20, keywords: "python" }));
+    expect(cacheKey(a)).not.toBe(cacheKey({ ...a, page: 2 }));
+    expect(cacheKey(a)).not.toBe(cacheKey({ ...a, location: "Austin" }));
+    expect(cacheKey({})).toBe(cacheKey(undefined));
+    expect(cacheKey({ skills: ["a", "b"] })).not.toBe(cacheKey({ skills: ["a"] }));
+  });
+
   it("maps a row to the camelCase job shape and trims long descriptions", () => {
     const job = rowToJob({
       id: "1",
@@ -430,7 +439,7 @@ describe("job search helpers", () => {
       posted_at: "2026-11-01T00:00:00Z",
       deadline: null,
     });
-    expect(job.description.length).toBe(1500);
+    expect(job.description.length).toBe(600);
     expect(job).toMatchObject({ remoteType: "Remote", employmentType: "Internship", location: undefined });
   });
 });

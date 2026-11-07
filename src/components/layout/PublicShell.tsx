@@ -31,6 +31,9 @@ export function PublicShell({ children }: PublicShellProps) {
             Chrome extension
           </Link>
         )}
+        <Link to="/internships" className="underline hover:text-slate-600">
+          Open internships
+        </Link>
         <Link to="/privacy" className="underline hover:text-slate-600">
           Privacy Policy
         </Link>

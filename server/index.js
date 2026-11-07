@@ -91,6 +91,7 @@ const { parseFeedback } = require("./lib/feedback");
 const { computePlan } = require("./lib/advisorPlan");
 const { pickNewMatch } = require("./lib/newMatch");
 const { createJobFeedCache } = require("./lib/jobFeedCache");
+const { clearSearchCache } = require("./lib/jobProviders/boardsProvider");
 const { createJobSyncRunner } = require("./lib/jobBoards/sync");
 const { createJobsStore } = require("./lib/jobBoards/store");
 const jobBoardList = require("./data/jobBoards.json");
@@ -3454,7 +3455,11 @@ app.post("/api/cron/send-weekly-reports", cronLimiter, async (req, res) => {
 // The job feed syncs from companies' public boards (server/lib/jobBoards). One
 // runner per server process holds the "already running" flag and the last result.
 const jobSyncRunner = supabaseAdmin
-  ? createJobSyncRunner({ store: createJobsStore(supabaseAdmin), onFinish: () => jobFeedCache.clear() })
+  ? createJobSyncRunner({ store: createJobsStore(supabaseAdmin), onFinish: () => {
+        jobFeedCache.clear();
+        clearSearchCache();
+      },
+    })
   : null;
 
 // POST /api/cron/sync-jobs: triggered daily by .github/workflows/sync-jobs.yml.

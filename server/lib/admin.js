@@ -216,10 +216,16 @@ function computeFunnel(cohortUserIds, eventRows, steps = FUNNEL_STEPS) {
 }
 
 /** Events the public /try page reports (anonymous visitors, no account). */
-const TRY_EVENTS = ["try_viewed", "try_analysis_completed", "try_signup_clicked"];
+const TRY_EVENTS = [
+  "try_viewed",
+  "try_analysis_completed",
+  "try_signup_clicked",
+  "internships_viewed",
+  "internships_cta_clicked",
+];
 
 /**
- * Funnel for the logged-out /try page from its anonymous events. Visitors are
+ * Funnel for the logged-out /try and /internships pages from their anonymous events. Visitors are
  * counted by the random per-browser id the page sends in `metadata.vid` (no
  * account, no resume or posting content); a row without one still counts as a
  * raw event but not as a distinct visitor.
@@ -227,8 +233,12 @@ const TRY_EVENTS = ["try_viewed", "try_analysis_completed", "try_signup_clicked"
  * @param {Array<{ event_type?: string, metadata?: { vid?: unknown, example?: unknown } | null }>} rows
  */
 function computeTryStats(rows) {
-  const seen = { try_viewed: new Set(), try_analysis_completed: new Set(), try_signup_clicked: new Set() };
-  const events = { try_viewed: 0, try_analysis_completed: 0, try_signup_clicked: 0 };
+  const seen = {};
+  const events = {};
+  for (const type of TRY_EVENTS) {
+    seen[type] = new Set();
+    events[type] = 0;
+  }
   let analysesOnExample = 0;
   let analysesOnOwn = 0;
   for (const r of rows || []) {
@@ -250,6 +260,10 @@ function computeTryStats(rows) {
     analysesOnOwn,
     signupClicks: events.try_signup_clicked,
     signupClickVisitors: seen.try_signup_clicked.size,
+    internshipsVisitors: seen.internships_viewed.size,
+    internshipsViews: events.internships_viewed,
+    internshipsCtaVisitors: seen.internships_cta_clicked.size,
+    internshipsCtaClicks: events.internships_cta_clicked,
   };
 }
 

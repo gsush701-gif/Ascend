@@ -150,6 +150,10 @@ export type AdminTryFunnel = {
   analysesOnOwn: number;
   signupClicks: number;
   signupClickVisitors: number;
+  internshipsVisitors: number;
+  internshipsViews: number;
+  internshipsCtaVisitors: number;
+  internshipsCtaClicks: number;
 };
 
 export function fetchAdminTryFunnel(accessToken: string | undefined, days = 30) {

@@ -24,6 +24,12 @@ export function PublicNav() {
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
+            <Link
+              to="/internships"
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-900/[0.04] hover:text-slate-900"
+            >
+              Internships
+            </Link>
             <a
               href="#how"
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-900/[0.04] hover:text-slate-900"

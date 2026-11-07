@@ -15,6 +15,7 @@ import {
 import { PublicShell } from "../components/layout/PublicShell";
 import { Reveal } from "../components/ui/Reveal";
 import { Button } from "../components/ui/Button";
+import { LiveRolesSection } from "../components/jobs/LiveRolesSection";
 // AlignmentChart/AnimatedBar were only used by the disabled product-preview code below.
 // import { AlignmentChart } from "../components/ui/AlignmentChart";
 // import { AnimatedBar } from "../components/ui/AnimatedBar";
@@ -70,6 +71,11 @@ export function Landing() {
             </div>
             <p className="mt-3 text-xs text-slate-500">
               Free during beta. No card, sign in with Google in 10 seconds.
+            </p>
+            <p className="mt-2 text-sm">
+              <Link to="/internships" className="font-medium text-cyan-700 hover:underline">
+                Or browse open internships, no account needed →
+              </Link>
             </p>
             <p className="mx-auto mt-1 max-w-md text-xs text-slate-400">
               We never sell your data. Your resume text goes to an AI provider only to
@@ -159,6 +165,9 @@ export function Landing() {
             </div>
           </Reveal>
         </section>
+
+        {/* LIVE JOB FEED — real, current roles as proof the product is live */}
+        <LiveRolesSection />
 
         {/* PROBLEM → SOLUTION */}
         <section className="grid gap-6 md:grid-cols-2 md:gap-10">

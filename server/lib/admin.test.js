@@ -29,6 +29,28 @@ describe("computeTryStats — the logged-out /try page", () => {
       analysesOnOwn: 1,
       signupClicks: 1,
       signupClickVisitors: 1,
+      internshipsVisitors: 0,
+      internshipsViews: 0,
+      internshipsCtaVisitors: 0,
+      internshipsCtaClicks: 0,
+    });
+  });
+
+  it("counts the public internships page separately", () => {
+    const stats = computeTryStats([
+      { event_type: "internships_viewed", metadata: { vid: "a" } },
+      { event_type: "internships_viewed", metadata: { vid: "a" } },
+      { event_type: "internships_viewed", metadata: { vid: "b" } },
+      { event_type: "internships_cta_clicked", metadata: { vid: "b" } },
+      { event_type: "try_viewed", metadata: { vid: "c" } },
+    ]);
+    expect(stats).toMatchObject({
+      internshipsVisitors: 2,
+      internshipsViews: 3,
+      internshipsCtaVisitors: 1,
+      internshipsCtaClicks: 1,
+      visitors: 1,
+      pageViews: 1,
     });
   });
 

@@ -25,6 +25,10 @@ Safety rules in the sync: a board that fails to load is skipped and nothing is
 closed for it; postings are only closed when the board returned a non-empty
 listing; a Greenhouse posting is only downloaded in full when it is new or edited.
 
+## Public page
+
+`/internships` shows the same feed with no account, so a stranger can see real roles before signing up. Visitors are asked to sign in only to rank roles against a resume, save one or track it. It reads `GET /api/jobs/search`, which is public; answers are kept for a minute (`server/lib/ttlCache.js`) so anonymous traffic does not hit the database for every visit, and the cache is cleared when a sync finishes. The landing page shows the three newest roles and the live count from the same endpoint. Views and sign-up clicks are counted on the Admin page.
+
 ## First run
 
 1. Run `supabase/migrations/028_job_boards.sql` in the Supabase SQL editor (before

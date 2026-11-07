@@ -5,6 +5,7 @@ import { PublicProfile } from "./routes/PublicProfile";
 import { Dashboard } from "./routes/Dashboard";
 import { Analyzer } from "./routes/Analyzer";
 import { Try } from "./routes/Try";
+import { Internships } from "./routes/Internships";
 import { Assistant } from "./routes/Assistant";
 import { AI_PATH } from "./config/brand";
 import { Roles } from "./routes/Roles";
@@ -53,6 +54,7 @@ export default function App() {
       <Route path="/refunds" element={<Refunds />} />
       <Route path="/extension" element={<Extension />} />
       <Route path="/try" element={<Try />} />
+      <Route path="/internships" element={<Internships />} />
       {/* Public shareable profile — see src/routes/PublicProfile.tsx and
           supabase/migrations/017_public_profiles.sql. Replaces the old
           /{slug}?d=<base64> mechanism entirely (no more reserved-segment
