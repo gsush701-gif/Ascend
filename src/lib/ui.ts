@@ -13,11 +13,11 @@ export const pageHeader =
 
 /** Page title (H1) */
 export const pageTitle =
-  "font-display text-xl font-semibold tracking-tight text-slate-900";
+  "font-display text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl";
 
 /** Page subtitle (one-line muted) */
 export const pageSubtitle =
-  "mt-0.5 text-sm text-slate-500";
+  "mt-1.5 text-sm text-slate-500 sm:text-base";
 
 /** Header actions container (right side of page header) */
 export const pageHeaderActions =
@@ -29,7 +29,7 @@ export const pageContentGap =
 
 /** Card: Dashboard-style panel */
 export const card =
-  "rounded-xl border border-slate-200 bg-dash-card p-6 shadow-sm";
+  "rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]";
 
 /** Card with translucent bg (alternative) */
 export const cardAlt =
@@ -44,23 +44,23 @@ export const cardCompact = "p-4";
 
 /** Primary button (cyan, Add role style) */
 export const buttonPrimary =
-  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 text-sm font-medium text-black transition hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.35)] focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none";
+  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-cyan-500 px-4 text-sm font-medium text-black transition hover:bg-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.35)] focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-[#F7F8FB] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none";
 
 /** Secondary button (border, transparent bg) */
 export const buttonSecondary =
-  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-transparent px-4 text-sm font-medium text-slate-800 transition hover:bg-slate-900/[0.04] focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] disabled:opacity-50 disabled:cursor-not-allowed";
+  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-transparent px-4 text-sm font-medium text-slate-800 transition hover:bg-slate-900/[0.04] focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 focus:ring-offset-[#F7F8FB] disabled:opacity-50 disabled:cursor-not-allowed";
 
 /** Ghost / tertiary button */
 export const buttonGhost =
-  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-transparent px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-900/[0.04] focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] disabled:opacity-50 disabled:cursor-not-allowed";
+  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-transparent px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-900/[0.04] focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2 focus:ring-offset-[#F7F8FB] disabled:opacity-50 disabled:cursor-not-allowed";
 
 /** Danger button */
 export const buttonDanger =
-  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-slate-900 transition hover:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] disabled:opacity-50 disabled:cursor-not-allowed";
+  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 text-sm font-semibold text-slate-900 transition hover:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-[#F7F8FB] disabled:opacity-50 disabled:cursor-not-allowed";
 
 /** Danger outline button */
 export const buttonDangerOutline =
-  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-500/20 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-[#F4F5FA] disabled:opacity-50 disabled:cursor-not-allowed";
+  "btn-press inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-500/20 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-[#F7F8FB] disabled:opacity-50 disabled:cursor-not-allowed";
 
 /** Input (text, single line) */
 export const input =

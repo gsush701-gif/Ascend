@@ -54,7 +54,7 @@ export function OnboardingChecklist({
   if (allDone) {
     if (showCompleteBanner) {
       return (
-        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3">
+        <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-5 py-4">
           <p className="text-sm font-medium text-cyan-700">
             Onboarding complete.
           </p>
@@ -65,7 +65,7 @@ export function OnboardingChecklist({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-900/[0.04] p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
       <button
         type="button"
         onClick={() => setCollapsed((c) => !c)}

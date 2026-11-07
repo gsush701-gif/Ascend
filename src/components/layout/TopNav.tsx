@@ -227,12 +227,7 @@ export function TopNav() {
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-[#F4F5FA]/95 backdrop-blur-md">
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-px opacity-60"
-          style={{ background: "linear-gradient(90deg, transparent, #22d3ee, #a78bfa, transparent)" }}
-          aria-hidden
-        />
+      <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <NavLink
             to="/dashboard"

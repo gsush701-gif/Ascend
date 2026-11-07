@@ -4,12 +4,7 @@ import { pageContainer } from "../../lib/ui";
 
 export function PublicNav() {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200 bg-[#F4F5FA]/95 backdrop-blur-md">
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-px opacity-60"
-        style={{ background: "linear-gradient(90deg, transparent, #22d3ee, #a78bfa, transparent)" }}
-        aria-hidden
-      />
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/70 bg-white/80 backdrop-blur-md">
       <div className={`mx-auto flex h-14 items-center justify-between ${pageContainer}`}>
           <Link to="/" className="flex items-center gap-3">
             <div className="flex h-9 shrink-0 items-center">

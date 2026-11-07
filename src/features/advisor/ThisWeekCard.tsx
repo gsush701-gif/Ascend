@@ -111,7 +111,7 @@ export function ThisWeekView({
   }
 
   return (
-    <section className={cn(card, "space-y-4", className)} aria-label="This week">
+    <section className={cn(card, "space-y-2", className)} aria-label="This week">
       <header className="flex items-center gap-3">
         <KairosAvatar size={30} />
         <div>
@@ -127,17 +127,17 @@ export function ThisWeekView({
             : "You have set everything aside for this week. It comes back on Monday."}
         </p>
       ) : (
-        <ol className="space-y-3">
+        <ol className="divide-y divide-slate-100">
           {items.map((item, index) => {
             const isMatch = Boolean(item.trackJob);
             const busy = trackingId === item.id;
             return (
               <li
                 key={item.id}
-                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 py-4 first:pt-3 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-xs font-semibold text-cyan-700">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
                     {index + 1}
                   </span>
                   <div>
@@ -153,7 +153,7 @@ export function ThisWeekView({
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-3 pl-9 sm:pl-0">
-                  <Button size="sm" variant="primary" onClick={() => onAct(item)} disabled={busy}>
+                  <Button size="sm" variant={index === 0 ? "primary" : "secondary"} onClick={() => onAct(item)} disabled={busy}>
                     {busy ? "Adding…" : isMatch && !canTrack ? "See it in Jobs" : item.action.label}
                   </Button>
                   {item.trackJob?.url && (
@@ -170,7 +170,7 @@ export function ThisWeekView({
                   <button
                     type="button"
                     onClick={() => onDismiss(item)}
-                    className="text-xs text-slate-400 hover:text-slate-600"
+                    className="text-xs text-slate-400 transition hover:text-slate-600"
                   >
                     Not now
                   </button>

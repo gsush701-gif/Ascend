@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Plus,
-  ArrowRight,
-  Send,
-  TrendingUp,
-  CalendarCheck,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { QuickAddModal } from "../components/QuickAddModal";
 import { OnboardingModal } from "../components/onboarding/OnboardingModal";
@@ -46,8 +40,15 @@ import { OnboardingChecklist } from "../components/onboarding/OnboardingChecklis
 import { DashboardSkeleton } from "../components/dashboard/DashboardSkeleton";
 import { toast } from "../components/ui/toast";
 import { isResumeLabUsed } from "../lib/onboarding";
-import { AI_NAME, AI_PATH } from "../config/brand";
-import { KairosAvatar } from "../components/ui/KairosAvatar";
+import {
+  card,
+  buttonPrimary,
+  buttonGhost,
+  pageHeader,
+  pageHeaderActions,
+  pageTitle,
+  pageSubtitle,
+} from "../lib/ui";
 import { ThisWeekCard } from "../features/advisor/ThisWeekCard";
 import { trackAdvisorJob } from "../features/advisor/trackJob";
 
@@ -113,31 +114,21 @@ export function Dashboard() {
         <OnboardingModal onComplete={() => setOnboardingDismissed(true)} />
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-8">
         {loading ? (
           <DashboardSkeleton />
         ) : totalApplications === 0 ? (
-          <div className="animate-fade-in space-y-6">
-            <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="animate-fade-in space-y-8">
+            <header className={pageHeader}>
               <div>
-                <h1 className="font-display text-xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
-                <p className="mt-0.5 text-sm text-slate-500">
-                  Performance, actions, and outlook in one place.
-                </p>
+                <h1 className={pageTitle}>Dashboard</h1>
+                <p className={pageSubtitle}>Performance, actions, and outlook in one place.</p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setQuickAddOpen(true)}
-                  className="btn-press rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-900/[0.04]"
-                >
+              <div className={pageHeaderActions}>
+                <button type="button" onClick={() => setQuickAddOpen(true)} className={buttonGhost}>
                   Quick add
                 </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/analyzer")}
-                  className="btn-press inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-black transition hover:bg-cyan-400"
-                >
+                <button type="button" onClick={() => navigate("/analyzer")} className={buttonPrimary}>
                   <Plus className="h-4 w-4" />
                   Add role
                 </button>
@@ -168,16 +159,13 @@ export function Dashboard() {
                 onClick: () => setQuickAddOpen(true),
               }}
             />
-
-            <AdvisorEntryCard onOpen={() => navigate(AI_PATH)} />
           </div>
         ) : (
-          <div className="animate-fade-in space-y-6">
-        {/* SaaS header */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="animate-fade-in space-y-8">
+        <header className={pageHeader}>
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
-            <p className="mt-0.5 text-sm text-slate-500">
+            <h1 className={pageTitle}>Dashboard</h1>
+            <p className={pageSubtitle}>
               {getPerformanceSentence(
                 items,
                 interviewRate,
@@ -186,19 +174,11 @@ export function Dashboard() {
               ) ?? "Performance, actions, and outlook in one place."}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setQuickAddOpen(true)}
-              className="btn-press rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-900/[0.04]"
-            >
+          <div className={pageHeaderActions}>
+            <button type="button" onClick={() => setQuickAddOpen(true)} className={buttonGhost}>
               Quick add
             </button>
-            <button
-              type="button"
-              onClick={() => navigate("/analyzer")}
-              className="btn-press inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-black transition hover:bg-cyan-400"
-            >
+            <button type="button" onClick={() => navigate("/analyzer")} className={buttonPrimary}>
               <Plus className="h-4 w-4" />
               Add role
             </button>
@@ -207,63 +187,43 @@ export function Dashboard() {
 
         <ThisWeekCard onTrackJob={(job) => trackAdvisorJob({ addManualTrackerItem, updateRoleFields }, job)} />
 
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="space-y-6 lg:col-span-7">
-            <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-dash-card p-6">
-              <div
-                className="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-cyan-500/10 blur-[70px]"
-                aria-hidden
-              />
-              <div
-                className="pointer-events-none absolute -bottom-20 -left-10 h-48 w-48 rounded-full bg-violet-500/10 blur-[70px]"
-                aria-hidden
-              />
-              <div className="relative text-xs uppercase tracking-wide text-slate-500">
-                Fit score
-              </div>
-              <FitScoreHero
-                avgAlignment={avgAlignment}
-                insight={getFitScoreInsight(items)}
-                trend={getAlignmentTrend(items)}
-              />
-            </section>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <KpiCard
-                label="Apps sent"
-                value={totalApplications}
-                icon={Send}
-                accent="cyan"
-                badge={
-                  getApplicationsThisWeek(items) > 0
-                    ? `+${getApplicationsThisWeek(items)} this wk`
-                    : undefined
-                }
-              />
-              <KpiCard
-                label="Interview rate"
-                value={
-                  interviewRate != null ? `${interviewRate}%` : "—"
-                }
-                icon={TrendingUp}
-                accent="violet"
-                badge={
-                  interviewRate != null && interviewRate >= 30
-                    ? "Above avg"
-                    : interviewRate != null
-                      ? "Below 30%"
+        <div className="grid gap-8 lg:grid-cols-12">
+          <div className="space-y-8 lg:col-span-7">
+            <section className={`${card} overflow-hidden !p-0`} aria-label="Summary">
+              <div className="grid divide-y divide-slate-100 md:grid-cols-4 md:divide-x md:divide-y-0">
+                <FitScoreHero
+                  avgAlignment={avgAlignment}
+                  insight={getFitScoreInsight(items)}
+                  trend={getAlignmentTrend(items)}
+                />
+                <KpiCard
+                  label="Apps sent"
+                  value={totalApplications}
+                  badge={
+                    getApplicationsThisWeek(items) > 0
+                      ? `+${getApplicationsThisWeek(items)} this wk`
                       : undefined
-                }
-                hint={
-                  interviewRate != null && interviewRate < 30
-                    ? "Improve fit score to increase interview probability."
-                    : undefined
-                }
-              />
-              <KpiCard label="Interviews" value={getInterviewCount(items)} icon={CalendarCheck} accent="emerald" />
-            </div>
-
-            <AdvisorEntryCard onOpen={() => navigate(AI_PATH)} />
+                  }
+                />
+                <KpiCard
+                  label="Interview rate"
+                  value={interviewRate != null ? `${interviewRate}%` : "—"}
+                  badge={
+                    interviewRate != null && interviewRate >= 30
+                      ? "Above avg"
+                      : interviewRate != null
+                        ? "Below 30%"
+                        : undefined
+                  }
+                  hint={
+                    interviewRate != null && interviewRate < 30
+                      ? "Improve fit score to increase interview probability."
+                      : undefined
+                  }
+                />
+                <KpiCard label="Interviews" value={getInterviewCount(items)} />
+              </div>
+            </section>
 
             <OnboardingChecklist
               rolesCount={items.length}
@@ -271,7 +231,7 @@ export function Dashboard() {
               resumeLabUsed={isResumeLabUsed()}
             />
 
-            <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
+            <section className={card}>
               <h2 className="text-sm font-semibold text-slate-900">
                 Fit score trend
               </h2>
@@ -281,7 +241,7 @@ export function Dashboard() {
               />
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
+            <section className={card}>
               <h2 className="text-sm font-semibold text-slate-900">
                 Upcoming deadlines
               </h2>
@@ -292,8 +252,8 @@ export function Dashboard() {
             </section>
           </div>
 
-          <div className="space-y-6 lg:col-span-5">
-            <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
+          <div className="space-y-8 lg:col-span-5">
+            <section className={card}>
               <h2 className="text-sm font-semibold text-slate-900">By status</h2>
               <ByStatusBars
                 counts={funnel}
@@ -306,14 +266,14 @@ export function Dashboard() {
               />
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
+            <section className={card}>
               <h2 className="text-sm font-semibold text-slate-900">
                 Resume readiness
               </h2>
               <ReadinessBars scores={getReadinessScores(items)} />
             </section>
 
-            <section className="rounded-xl border border-slate-200 bg-dash-card p-6">
+            <section className={card}>
               <h2 className="text-sm font-semibold text-slate-900">Recent activity</h2>
               <RecentActivityList
                 activity={recentActivity}
@@ -352,36 +312,27 @@ function FitScoreHero({
           : null;
 
   return (
-    <div className="relative">
-      <div className="mt-3 flex flex-wrap items-end gap-4">
-        <span className="font-display gradient-text text-5xl font-semibold tracking-tight">
+    <div className="px-5 py-4 sm:px-6 sm:py-5">
+      <div className="text-sm text-slate-500">Fit score</div>
+      <div className="mt-1 flex flex-wrap items-baseline gap-2">
+        <span className="font-display text-3xl font-semibold tracking-tight text-slate-900">
           {avgAlignment != null ? `${avgAlignment}%` : "—"}
         </span>
-        {qualifier != null && (
-          <span className="pb-2 text-sm text-slate-500">{qualifier}</span>
-        )}
+        {qualifier != null && <span className="text-xs font-medium text-slate-500">{qualifier}</span>}
         {trend != null && trend !== "stable" && (
           <span
-            className={`mb-2 rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
-              trend === "up"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                : "border-rose-200 bg-rose-50 text-rose-700"
-            }`}
+            className={`text-xs font-medium ${trend === "up" ? "text-emerald-600" : "text-rose-600"}`}
           >
             {trend === "up" ? "↑ Trending up" : "↓ Trending down"}
           </span>
         )}
       </div>
-      {insight ? (
-        <p className="mt-1 text-sm text-slate-500">{insight}</p>
-      ) : (
-        <p className="mt-1 text-xs text-slate-500">
-          Based on resume vs job requirements
-        </p>
-      )}
-      <div className="mt-4">
+      <div className="mt-3">
         <AnimatedBar pct={pct} gradient="linear-gradient(90deg, #22d3ee, #a78bfa)" />
       </div>
+      <p className="mt-2 text-xs leading-relaxed text-slate-500">
+        {insight ?? "Based on resume vs job requirements"}
+      </p>
     </div>
   );
 }
@@ -401,13 +352,13 @@ function UpcomingDeadlinesList({
     );
   }
   return (
-    <div className="mt-4 space-y-3">
+    <div className="-mx-2 mt-3 divide-y divide-slate-100">
       {deadlines.map((d) => (
         <button
           key={d.id}
           type="button"
           onClick={() => onRoleClick(d.id)}
-          className="btn-press flex w-full items-center justify-between rounded-xl border border-slate-200 bg-dash-surface p-4 text-left text-sm transition hover:bg-dash-surface/90"
+          className="flex w-full items-center justify-between rounded-lg px-2 py-3 text-left text-sm transition hover:bg-slate-50"
         >
           <span className="flex items-center gap-2">
             {d.isOverdue && (
@@ -562,13 +513,13 @@ function RecentActivityList({
     );
   }
   return (
-    <div className="mt-4 space-y-2.5">
+    <div className="-mx-2 mt-3 divide-y divide-slate-100">
       {activity.map((a) => (
         <button
           key={a.id}
           type="button"
           onClick={() => onRoleClick(a.id)}
-          className="btn-press flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-dash-surface p-3.5 text-left text-sm transition hover:bg-dash-surface/90"
+          className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-3 text-left text-sm transition hover:bg-slate-50"
         >
           <span className="flex min-w-0 items-center gap-2.5">
             <span
@@ -591,31 +542,3 @@ function RecentActivityList({
     </div>
   );
 }
-
-/** Dashboard entry point for the AI career advisor . Navigates to
- * the standalone advisor page — the same feature also lives on every tracked
- * role. Presentation only; no data or request logic here. */
-function AdvisorEntryCard({ onOpen }: { onOpen: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group flex w-full items-center gap-4 rounded-xl border border-slate-200 bg-dash-card p-6 text-left transition hover:border-cyan-500/40 hover:shadow-md"
-    >
-      <KairosAvatar size={44} className="shrink-0" />
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-slate-900">Ask {AI_NAME}</span>
-          <span className="rounded-md border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-cyan-700">
-            AI advisor
-          </span>
-        </span>
-        <span className="mt-0.5 block text-xs text-slate-500">
-          Direct, honest answers about your fit, applications, and what to do next — grounded in your real data.
-        </span>
-      </span>
-      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-cyan-600" />
-    </button>
-  );
-}
-

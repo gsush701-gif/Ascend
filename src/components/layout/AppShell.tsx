@@ -16,10 +16,10 @@ export function AppShell({ children }: AppShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-[#F4F5FA] text-slate-900">
+    <div className="min-h-screen overflow-x-clip bg-[#F7F8FB] text-slate-900">
       <BackgroundFX />
       <TopNav />
-      <main className={`relative pb-16 pt-16 ${pageContainer}`}>
+      <main className={`relative pb-32 pt-24 ${pageContainer}`}>
         {children}
       </main>
       <AssistantLauncher />
