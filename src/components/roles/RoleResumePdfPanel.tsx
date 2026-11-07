@@ -43,7 +43,13 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
   const hasResume = Boolean(item.resumeStoragePath);
 
   return (
-    <div className="sticky top-16 flex h-[calc(100vh-4.5rem)] flex-col overflow-hidden rounded-lg border border-slate-300">
+    <div
+      className={
+        hasResume
+          ? "flex h-[560px] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+          : ""
+      }
+    >
       <input
         ref={fileInputRef}
         type="file"
@@ -56,7 +62,7 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
       />
       {hasResume ? (
         <>
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-300 bg-slate-100 px-3 py-2">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-slate-50 px-3 py-2">
             <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-600">
               <FileText size={14} className="shrink-0 text-slate-400" />
               <span className="truncate">{kind === "docx" ? "Resume.docx" : "Resume.pdf"}</span>
@@ -93,7 +99,7 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
               </button>
             </div>
           </div>
-          <div className="min-h-0 flex-1 bg-slate-100">
+          <div className="min-h-0 flex-1 bg-slate-50">
             {kind === "docx" ? (
               // Browsers can't render a Word file inline the way they do a PDF, so
               // show what's attached and let them download it; analysis still uses it.
@@ -150,7 +156,7 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
             if (e.key === "Enter" || e.key === " ") fileInputRef.current?.click();
           }}
           className={cn(
-            "flex h-full cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed p-6 text-center transition",
+            "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed bg-white p-8 text-center transition",
             dragActive
               ? "border-cyan-400 bg-cyan-500/5"
               : "border-slate-300 hover:border-slate-400 hover:bg-slate-900/[0.02]",
@@ -161,11 +167,11 @@ export function RoleResumePdfPanel({ item, updateRoleFields }: RoleResumePdfPane
           </span>
           <div>
             <p className="text-sm font-medium text-slate-700">
-              {uploading ? "Uploading…" : "Drag and drop a PDF or Word resume for this role"}
+              {uploading ? "Uploading…" : "Attach a resume for this role"}
             </p>
-            <p className="mt-1 text-xs text-slate-500">or click to browse</p>
+            <p className="mt-1 text-xs text-slate-500">Drag a PDF or Word file here, or click to browse</p>
           </div>
-          <p className="max-w-[220px] text-xs text-slate-400">
+          <p className="max-w-[260px] text-xs text-slate-400">
             Without one, analysis uses your default saved resume.
           </p>
           {error && <p className="text-xs text-red-600">{error}</p>}

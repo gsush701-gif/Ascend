@@ -31,9 +31,9 @@ export const pageContentGap =
 export const card =
   "rounded-2xl border border-slate-200/80 bg-white p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)]";
 
-/** Card with translucent bg (alternative) */
+/** Soft inset box: for a group of content inside a card, or a quiet standalone block */
 export const cardAlt =
-  "rounded-xl border border-slate-200 bg-slate-900/[0.04] p-6 shadow-sm backdrop-blur-sm";
+  "rounded-xl border border-slate-200/70 bg-slate-50 p-6";
 
 /** Card header (inside card) */
 export const cardHeader =
@@ -64,15 +64,15 @@ export const buttonDangerOutline =
 
 /** Input (text, single line) */
 export const input =
-  "h-10 w-full rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300 transition";
+  "h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-300 transition";
 
 /** Select trigger (for custom Select component) */
 export const select =
-  "h-10 min-w-[120px] rounded-lg border border-slate-200 bg-slate-900/[0.04] px-3 text-sm text-slate-900 focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300 transition inline-flex items-center justify-between gap-2";
+  "h-10 min-w-[120px] rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-300 transition inline-flex items-center justify-between gap-2";
 
 /** Textarea base */
 export const textarea =
-  "w-full min-h-[100px] rounded-lg border border-slate-200 bg-slate-900/[0.04] p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-1 focus:ring-slate-300 transition resize-y";
+  "w-full min-h-[100px] rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-300 transition resize-y";
 
 /** Badge / pill (muted status) */
 export const badge =

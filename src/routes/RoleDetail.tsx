@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { deadlineInputValue } from "../lib/dates";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Sparkles,
-  Wand2,
-  ClipboardList,
-  StickyNote,
-  Target,
-  Users,
-  FileEdit,
-} from "lucide-react";
+import { ArrowLeft, Sparkles, Wand2, FileEdit } from "lucide-react";
 import { alignmentToPreparedness } from "../lib/preparedness";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
@@ -31,36 +22,21 @@ import { useAuth } from "../context/AuthContext";
 import { getApiErrorMessage } from "../lib/apiError";
 import { useProfile } from "../lib/profile";
 import { getCompatibilityNotes } from "../features/preferences/compatibility";
-import { STATUS_SELECT_STYLES, buttonPrimary, buttonSecondary } from "../lib/ui";
+import {
+  STATUS_SELECT_STYLES,
+  buttonPrimary,
+  buttonSecondary,
+  buttonGhost,
+  input,
+  textarea,
+  pageTitle,
+} from "../lib/ui";
 import { useAnalyzer } from "../features/analyzer/hooks/useAnalyzer";
 import { useResumes } from "../features/resumes/hooks/useResumes";
 import { toast } from "../components/ui/toast";
 import { supabase } from "../lib/supabaseClient";
 
 const JD_MIN_LENGTH = 20;
-
-/** Icon-in-circle section label, matching AskAboutRolePanel's existing
- * Sparkles-in-circle title treatment — used across this page's panels for a
- * consistent, scannable visual rhythm. */
-function SectionIcon({
-  icon: Icon,
-  accent,
-}: {
-  icon: React.ComponentType<{ size?: number }>;
-  accent: "cyan" | "amber" | "violet" | "emerald";
-}) {
-  const accentClass = {
-    cyan: "bg-cyan-500/15 text-cyan-700",
-    amber: "bg-amber-500/15 text-amber-700",
-    violet: "bg-violet-500/15 text-violet-700",
-    emerald: "bg-emerald-500/15 text-emerald-700",
-  }[accent];
-  return (
-    <span className={`flex h-6 w-6 items-center justify-center rounded-md ${accentClass}`}>
-      <Icon size={14} />
-    </span>
-  );
-}
 
 const STATUS_OPTIONS: TrackerStatus[] = TRACKER_STATUS_ORDER;
 
@@ -379,26 +355,26 @@ export function RoleDetail() {
   return (
     <AppShell>
       <div className="animate-fade-in space-y-8">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-3">
             <button
               type="button"
               onClick={() => navigate("/roles", { state: { openRoleId: item.id } })}
-              className="btn-press mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-900/[0.04] text-slate-600 transition hover:bg-slate-900/[0.06] hover:text-slate-900"
+              className="btn-press mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
               aria-label="Back to role"
             >
               <ArrowLeft size={16} />
             </button>
             <div>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl font-semibold text-slate-900">{item.role}</h1>
+                <h1 className={pageTitle}>{item.role}</h1>
                 <span
                   className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${STATUS_SELECT_STYLES[item.status]}`}
                 >
                   {item.status}
                 </span>
               </div>
-              <p className="mt-0.5 text-sm text-slate-500">{item.company}</p>
+              <p className="mt-1 text-sm text-slate-500 sm:text-base">{item.company}</p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -443,40 +419,49 @@ export function RoleDetail() {
         </header>
 
         <div className="grid gap-8 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <RoleResumePdfPanel item={item} updateRoleFields={updateRoleFields} />
-          </div>
-
-          <div className="lg:col-span-5 space-y-6">
+          <div className="space-y-6 lg:col-span-7">
             <Panel>
-              <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Fit score
-              </div>
-              <div className="mt-2 flex flex-wrap items-end gap-3">
-                <span className="font-display gradient-text text-5xl font-semibold tracking-tight">
+              <div className="text-sm text-slate-500">Fit score</div>
+              <div className="mt-1 flex flex-wrap items-baseline gap-3">
+                <span className="font-display text-5xl font-semibold tracking-tight text-slate-900">
                   {hasAnalysis ? `${alignment}%` : "—"}
                 </span>
                 {preparednessQualifier && (
-                  <span className="pb-2 text-sm text-slate-500">{preparednessQualifier}</span>
+                  <span className="text-sm font-medium text-slate-500">{preparednessQualifier}</span>
                 )}
               </div>
-              <p className="mt-1 text-xs text-slate-500">
-                {hasAnalysis
-                  ? `Preparedness: ${preparednessLevel}`
-                  : "Analyze this role to see your fit score"}
-              </p>
               <div className="mt-4">
                 <AnimatedBar
                   pct={hasAnalysis ? alignment : 0}
                   gradient="linear-gradient(90deg, #22d3ee, #a78bfa)"
                 />
               </div>
+              <p className="mt-3 text-sm text-slate-500">
+                {hasAnalysis
+                  ? `Preparedness: ${preparednessLevel}`
+                  : "Run Analyze this role above to see how your resume matches this posting."}
+              </p>
               {snap && <FitInsights snap={snap} />}
             </Panel>
 
             <ReadinessPanel item={item} />
 
-            <AskAboutRolePanel roleId={item.id} />
+            {snap && (
+              <div id="role-gaps" className="scroll-mt-20">
+                <Panel
+                  title="Skill gaps"
+                  subtitle="What this job asks for that your resume doesn't show yet."
+                >
+                  <RoleGapsPanel item={item} />
+                </Panel>
+              </div>
+            )}
+
+            {hasAnalysis && (
+              <RoleTailorPanel item={item} getResumeFile={async () => (await resolveResume())?.file ?? null} />
+            )}
+
+            <SkillGapHelper missingRequiredSkills={missingRequiredSkills} />
 
             {snap?.salary && (
               <Panel title="Salary" subtitle="Extracted from this role's job description text.">
@@ -496,90 +481,49 @@ export function RoleDetail() {
               </Panel>
             )}
 
-            {snap && (
-              <div id="role-gaps" className="scroll-mt-20">
-                <Panel
-                  title={
-                    <span className="flex items-center gap-2">
-                      <SectionIcon icon={Target} accent="amber" />
-                      Skill gaps
-                    </span>
-                  }
-                  subtitle="What this job asks for that your resume doesn't show yet."
-                >
-                  <RoleGapsPanel item={item} />
-                </Panel>
-              </div>
-            )}
+            <AskAboutRolePanel roleId={item.id} />
+          </div>
 
-            {hasAnalysis && (
-              <RoleTailorPanel item={item} getResumeFile={async () => (await resolveResume())?.file ?? null} />
-            )}
-
-            <SkillGapHelper missingRequiredSkills={missingRequiredSkills} />
-
-            {!snap && (
-              <Panel>
-                <p className="text-sm text-slate-500">
-                  No analysis yet. Use <strong>Analyze this role</strong> above to see skill
-                  gaps and improvements.
-                </p>
-              </Panel>
-            )}
-
+          <div className="space-y-6 lg:col-span-5">
             <div id="role-status" className="scroll-mt-20">
-            <Panel
-              title={
-                <span className="flex items-center gap-2">
-                  <SectionIcon icon={ClipboardList} accent="cyan" />
-                  Application status
-                </span>
-              }
-              subtitle="Track your progress."
-            >
-              <DarkSelect
-                value={item.status}
-                onChange={(v) => updateStatus(item.id, v as TrackerStatus)}
-                options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
-                buttonClassName={`h-10 w-full rounded-xl border px-4 text-sm font-medium ${STATUS_SELECT_STYLES[item.status]}`}
-              />
-              <div className="mt-4">
-                <label className="block text-xs text-slate-500">Next step</label>
-                <input
-                  type="text"
-                  value={item.nextStep}
-                  onChange={(e) => updateNextStep(item.id, e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
-                  placeholder="e.g. Apply by Friday"
+              <Panel title="Application" subtitle="Track your progress.">
+                <DarkSelect
+                  value={item.status}
+                  onChange={(v) => updateStatus(item.id, v as TrackerStatus)}
+                  options={STATUS_OPTIONS.map((s) => ({ value: s, label: s }))}
+                  buttonClassName={`h-10 w-full rounded-lg border px-3 text-sm font-medium ${STATUS_SELECT_STYLES[item.status]}`}
                 />
-              </div>
-              <div className="mt-4">
-                <label className="block text-xs text-slate-500">Deadline</label>
-                <input
-                  type="date"
-                  value={deadlineInputValue(item.deadline)}
-                  onChange={(e) => updateDeadline(item.id, e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
-                />
-              </div>
-            </Panel>
+                <div className="mt-4">
+                  <label className="block text-xs font-medium text-slate-500">Next step</label>
+                  <input
+                    type="text"
+                    value={item.nextStep}
+                    onChange={(e) => updateNextStep(item.id, e.target.value)}
+                    className={`mt-1.5 ${input}`}
+                    placeholder="e.g. Apply by Friday"
+                  />
+                </div>
+                <div className="mt-4">
+                  <label className="block text-xs font-medium text-slate-500">Deadline</label>
+                  <input
+                    type="date"
+                    value={deadlineInputValue(item.deadline)}
+                    onChange={(e) => updateDeadline(item.id, e.target.value)}
+                    className={`mt-1.5 ${input}`}
+                  />
+                </div>
+              </Panel>
             </div>
 
-            <Panel
-              title={
-                <span className="flex items-center gap-2">
-                  <SectionIcon icon={StickyNote} accent="violet" />
-                  Notes
-                </span>
-              }
-              subtitle="Free-form notes for this role."
-            >
+            <RoleResumePdfPanel item={item} updateRoleFields={updateRoleFields} />
+
+            <Panel title="Notes" subtitle="Free-form notes for this role.">
               <textarea
                 value={notesDraft}
                 onChange={(e) => setNotesDraft(e.target.value)}
                 placeholder="Deadlines, contact, follow-ups..."
                 rows={4}
-                className="w-full rounded-xl border border-slate-200 bg-slate-900/[0.04] px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none resize-none"
+                className={textarea}
               />
               <button
                 type="button"
@@ -588,7 +532,7 @@ export function RoleDetail() {
                   toast.success({ title: "Notes saved" });
                 }}
                 disabled={notesDraft === (item.notes ?? "")}
-                className="btn-press mt-3 rounded-xl border border-cyan-300 bg-white px-4 py-2 text-sm font-semibold text-cyan-700 transition hover:border-cyan-500 hover:bg-cyan-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-cyan-300 disabled:hover:bg-white disabled:hover:text-cyan-700"
+                className={`mt-3 ${buttonSecondary}`}
               >
                 Save
               </button>
@@ -596,12 +540,7 @@ export function RoleDetail() {
 
             {compatibilityNotes.length > 0 && (
               <Panel
-                title={
-                  <span className="flex items-center gap-2">
-                    <SectionIcon icon={Users} accent="emerald" />
-                    Compatibility with your preferences
-                  </span>
-                }
+                title="Compatibility with your preferences"
                 subtitle="A plain comparison of this role's stated info against your profile — not a score, and not legal advice."
               >
                 <ul className="space-y-2">
@@ -643,13 +582,13 @@ export function RoleDetail() {
             onChange={(e) => setJdDraft(e.target.value)}
             placeholder="Paste the job description here…"
             rows={12}
-            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-900/[0.04] p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-300 focus:outline-none"
+            className={textarea}
           />
           <div className="flex justify-end gap-2">
             <button
               type="button"
               onClick={() => setJdModalOpen(false)}
-              className="btn-press rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-900/[0.04]"
+              className={buttonGhost}
             >
               Cancel
             </button>
@@ -668,7 +607,7 @@ export function RoleDetail() {
                 setJdModalOpen(false);
                 toast.success({ title: "Job description saved" });
               }}
-              className="btn-press rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-cyan-400"
+              className={buttonPrimary}
             >
               Save
             </button>
