@@ -1,21 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { JobFilters } from "../components/jobs/JobFilters";
 import { JobsHero } from "../components/jobs/JobsHero";
 import { JobCard, JobCardSkeleton } from "../components/jobs/JobCard";
-import { ProviderNotConfiguredBanner } from "../components/jobs/ProviderNotConfiguredBanner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Button } from "../components/ui/Button";
 import { CareerPreferencesForm } from "../features/preferences/components/CareerPreferencesForm";
-import { useJobSearch } from "../features/jobs/hooks/useJobSearch";
 import { useJobRecommendations } from "../features/jobs/hooks/useJobRecommendations";
 import { useSavedJobs } from "../features/jobs/hooks/useSavedJobs";
 import { useDismissedJobs } from "../features/jobs/hooks/useDismissedJobs";
 import { EMPTY_JOB_SEARCH_FILTERS, type JobSearchFilters } from "../types/jobs";
 import { cn } from "../lib/cn";
 
-type JobsTab = "recommended" | "search" | "saved";
+type JobsTab = "recommended" | "saved";
 
 const fmt = (n: number) => n.toLocaleString();
 
@@ -26,27 +24,15 @@ function FilterCard({ children }: { children: React.ReactNode }) {
 
 export function Jobs() {
   const [tab, setTab] = useState<JobsTab>("recommended");
-  // What the student has typed so far in each tab's filter card; it is applied when they search.
-  const [searchDraft, setSearchDraft] = useState<JobSearchFilters>(EMPTY_JOB_SEARCH_FILTERS);
+  // What the student has typed so far in the filter card; it is applied when they search.
   const [recsDraft, setRecsDraft] = useState<JobSearchFilters>(EMPTY_JOB_SEARCH_FILTERS);
 
-  const search = useJobSearch();
   const recs = useJobRecommendations();
   const { savedJobIds, saveJob, unsaveJob, savedJobs, loading: savedLoading, error: savedError } = useSavedJobs();
   const { dismissedIds, dismissJob, undoDismiss } = useDismissedJobs();
 
-  // Opening Search shows the newest postings straight away, instead of an empty page.
-  const autoSearched = useRef(false);
-  const { runSearch } = search;
-  useEffect(() => {
-    if (tab !== "search" || autoSearched.current) return;
-    autoSearched.current = true;
-    Promise.resolve().then(() => runSearch(EMPTY_JOB_SEARCH_FILTERS, 1));
-  }, [tab, runSearch]);
-
   const tabs: { value: JobsTab; label: string; count?: number }[] = [
     { value: "recommended", label: "Recommended" },
-    { value: "search", label: "Search" },
     { value: "saved", label: "Saved", count: savedJobs.length || undefined },
   ];
 
@@ -142,7 +128,7 @@ export function Jobs() {
                           recs.applyFilters(EMPTY_JOB_SEARCH_FILTERS);
                         },
                       }
-                    : { label: "Search all roles", onClick: () => setTab("search") }
+                    : { label: "Check again", onClick: recs.reload }
                 }
                 compact
               />
@@ -190,74 +176,6 @@ export function Jobs() {
                 <CareerPreferencesForm />
               </div>
             </details>
-          </div>
-        )}
-
-        {tab === "search" && (
-          <div className="space-y-4">
-            <FilterCard>
-              <JobFilters
-                filters={searchDraft}
-                onChange={setSearchDraft}
-                onSearch={(next) => search.runSearch(next ?? searchDraft, 1)}
-                loading={search.loading}
-              />
-            </FilterCard>
-
-            {search.error && (
-              <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                {search.error}
-              </div>
-            )}
-
-            {!search.hasSearched || (search.loading && search.jobs.length === 0) ? (
-              <div className="space-y-3" aria-busy="true">
-                {[0, 1, 2].map((i) => (
-                  <JobCardSkeleton key={i} />
-                ))}
-              </div>
-            ) : search.providerConfigured === false ? (
-              <ProviderNotConfiguredBanner />
-            ) : search.jobs.length === 0 ? (
-              <EmptyState
-                title="No roles match that search"
-                subtitle="Try fewer filters, or a broader word like “engineer” or “data”."
-                primaryAction={{
-                  label: "Clear filters",
-                  onClick: () => {
-                    setSearchDraft(EMPTY_JOB_SEARCH_FILTERS);
-                    void search.runSearch(EMPTY_JOB_SEARCH_FILTERS, 1);
-                  },
-                }}
-                compact
-              />
-            ) : (
-              <>
-                <div className="text-xs text-slate-500">
-                  {fmt(search.totalCount)} {search.totalCount === 1 ? "role" : "roles"}, newest first
-                </div>
-                <div className="space-y-3">
-                  {search.jobs.map((job) => (
-                    <JobCard
-                      key={job.id}
-                      job={job}
-                      saved={savedJobIds.has(job.id)}
-                      onSave={() => saveJob(job.id)}
-                      onUnsave={() => unsaveJob(job.id)}
-                    />
-                  ))}
-                </div>
-                {search.hasMore && (
-                  <div className="flex justify-center pt-1">
-                    <Button variant="secondary" onClick={() => void search.loadMore()} disabled={search.loadingMore}>
-                      {search.loadingMore
-                        ? "Loading…"
-                        : `Show more (${fmt(search.totalCount - search.jobs.length)} left)`}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
           </div>
         )}
 

@@ -6,7 +6,8 @@ import { cn } from "../../lib/cn";
 import { EMPTY_JOB_SEARCH_FILTERS, REMOTE_TYPE_OPTIONS, type JobSearchFilters } from "../../types/jobs";
 
 /**
- * Filter bar for the /jobs Search tab. It offers only what the job feed can
+ * Filter card for the job pages (the public internships page and the signed-in
+ * Jobs page). It offers only what the job feed can
  * filter on: words, place, level, work style, company and skills. (The feed's
  * postings carry no salary or visa-sponsorship data, so those filters are not
  * offered.) Picking a level or work style searches straight away; the text
