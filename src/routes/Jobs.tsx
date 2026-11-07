@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { JobFilters } from "../components/jobs/JobFilters";
+import { JobsHero } from "../components/jobs/JobsHero";
 import { JobCard, JobCardSkeleton } from "../components/jobs/JobCard";
-import { FilterChip } from "../components/jobs/FilterChip";
 import { ProviderNotConfiguredBanner } from "../components/jobs/ProviderNotConfiguredBanner";
 import { EmptyState } from "../components/ui/EmptyState";
 import { Button } from "../components/ui/Button";
@@ -13,16 +13,22 @@ import { useJobRecommendations } from "../features/jobs/hooks/useJobRecommendati
 import { useSavedJobs } from "../features/jobs/hooks/useSavedJobs";
 import { useDismissedJobs } from "../features/jobs/hooks/useDismissedJobs";
 import { EMPTY_JOB_SEARCH_FILTERS, type JobSearchFilters } from "../types/jobs";
-import { pageTitle, pageSubtitle } from "../lib/ui";
 import { cn } from "../lib/cn";
 
 type JobsTab = "recommended" | "search" | "saved";
 
 const fmt = (n: number) => n.toLocaleString();
 
+/** The same filter card as the public internships page, in a white panel above the list. */
+function FilterCard({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-xl border border-slate-200 bg-dash-card p-4 shadow-sm">{children}</div>;
+}
+
 export function Jobs() {
   const [tab, setTab] = useState<JobsTab>("recommended");
-  const [filters, setFilters] = useState<JobSearchFilters>(EMPTY_JOB_SEARCH_FILTERS);
+  // What the student has typed so far in each tab's filter card; it is applied when they search.
+  const [searchDraft, setSearchDraft] = useState<JobSearchFilters>(EMPTY_JOB_SEARCH_FILTERS);
+  const [recsDraft, setRecsDraft] = useState<JobSearchFilters>(EMPTY_JOB_SEARCH_FILTERS);
 
   const search = useJobSearch();
   const recs = useJobRecommendations();
@@ -46,25 +52,16 @@ export function Jobs() {
 
   const visibleRecs = recs.items.filter((item) => !dismissedIds.has(item.id));
   const dismissedRecs = recs.items.filter((item) => dismissedIds.has(item.id));
-  const filtersOn = recs.level !== "all" || recs.remoteOnly;
+  const recsFiltered = JSON.stringify(recs.filters) !== JSON.stringify(EMPTY_JOB_SEARCH_FILTERS);
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-4xl space-y-5 pb-12">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div className="max-w-xl">
-            <h1 className={pageTitle}>Jobs</h1>
-            <p className={pageSubtitle}>
-              Internships and new-grad roles from companies' own career pages, refreshed daily. You apply on the
-              company's site.
-            </p>
-          </div>
-          {recs.counts.all > 0 && (
-            <div className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-              {fmt(recs.counts.all)} open roles
-            </div>
-          )}
-        </header>
+      <div className="mx-auto max-w-4xl space-y-6 pb-12">
+        <JobsHero
+          count={recs.counts.all}
+          title="Internships and new-grad roles, ranked for you"
+          subtitle="Straight from company career pages, updated daily. Each role is scored against your resume, and you apply on the company's own site."
+        />
 
         <nav className="flex gap-1 border-b border-slate-200" aria-label="Jobs sections">
           {tabs.map((t) => (
@@ -97,30 +94,21 @@ export function Jobs() {
               </div>
             )}
 
-            <div className="flex flex-wrap items-center gap-2">
-              <FilterChip active={recs.level === "all"} onClick={() => recs.setLevel("all")} count={recs.counts.all}>
-                All
-              </FilterChip>
-              <FilterChip
-                active={recs.level === "Internship"}
-                onClick={() => recs.setLevel("Internship")}
-                count={recs.counts.internship}
-              >
-                Internships
-              </FilterChip>
-              <FilterChip active={recs.level === "Entry"} onClick={() => recs.setLevel("Entry")} count={recs.counts.entry}>
-                New grad
-              </FilterChip>
-              <span className="mx-1 hidden h-5 w-px bg-slate-200 sm:block" aria-hidden />
-              <FilterChip active={recs.remoteOnly} onClick={() => recs.setRemoteOnly(!recs.remoteOnly)} count={recs.counts.remote}>
-                Remote
-              </FilterChip>
-              {!recs.loading && recs.total > 0 && (
-                <span className="ml-auto text-xs text-slate-500">
-                  Showing {fmt(recs.items.length)} of {fmt(recs.total)}, best match first
-                </span>
-              )}
-            </div>
+            <FilterCard>
+              <JobFilters
+                filters={recsDraft}
+                onChange={setRecsDraft}
+                onSearch={(next) => recs.applyFilters(next ?? recsDraft)}
+                loading={recs.loading}
+              />
+            </FilterCard>
+
+            {!recs.loading && recs.total > 0 && (
+              <div className="text-xs text-slate-500">
+                Showing {fmt(recs.items.length)} of {fmt(recs.total)}
+                {recsFiltered ? " that match" : ""}, best match first
+              </div>
+            )}
 
             {recs.error && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -143,15 +131,15 @@ export function Jobs() {
                 subtitle={
                   recs.counts.all === 0
                     ? "Listings come from companies' own career pages and refresh once a day, so check back soon."
-                    : "Try a different level, or turn off the Remote filter."
+                    : "Try fewer filters, or a broader word like “engineer” or “data”."
                 }
                 primaryAction={
-                  filtersOn
+                  recsFiltered
                     ? {
                         label: "Clear filters",
                         onClick: () => {
-                          recs.setLevel("all");
-                          recs.setRemoteOnly(false);
+                          setRecsDraft(EMPTY_JOB_SEARCH_FILTERS);
+                          recs.applyFilters(EMPTY_JOB_SEARCH_FILTERS);
                         },
                       }
                     : { label: "Search all roles", onClick: () => setTab("search") }
@@ -207,14 +195,14 @@ export function Jobs() {
 
         {tab === "search" && (
           <div className="space-y-4">
-            <div className="rounded-xl border border-slate-200 bg-dash-card p-4 shadow-sm">
+            <FilterCard>
               <JobFilters
-                filters={filters}
-                onChange={setFilters}
-                onSearch={(next) => search.runSearch(next ?? filters, 1)}
+                filters={searchDraft}
+                onChange={setSearchDraft}
+                onSearch={(next) => search.runSearch(next ?? searchDraft, 1)}
                 loading={search.loading}
               />
-            </div>
+            </FilterCard>
 
             {search.error && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -237,7 +225,7 @@ export function Jobs() {
                 primaryAction={{
                   label: "Clear filters",
                   onClick: () => {
-                    setFilters(EMPTY_JOB_SEARCH_FILTERS);
+                    setSearchDraft(EMPTY_JOB_SEARCH_FILTERS);
                     void search.runSearch(EMPTY_JOB_SEARCH_FILTERS, 1);
                   },
                 }}

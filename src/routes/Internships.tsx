@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { PublicShell } from "../components/layout/PublicShell";
 import { JobFilters } from "../components/jobs/JobFilters";
+import { JobsHero } from "../components/jobs/JobsHero";
 import { JobCard, JobCardSkeleton } from "../components/jobs/JobCard";
 import { ProviderNotConfiguredBanner } from "../components/jobs/ProviderNotConfiguredBanner";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -79,20 +80,11 @@ export function Internships() {
   return (
     <PublicShell>
       <div className="mx-auto max-w-4xl space-y-6 pt-4">
-        <header className="space-y-3 text-center sm:text-left">
-          {preview && (
-            <div className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-              {fmt(preview.count)} open roles right now
-            </div>
-          )}
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
-            Internships and new-grad roles, straight from company career pages
-          </h1>
-          <p className="max-w-2xl text-sm text-slate-600 sm:text-base">
-            Updated daily from over 100 companies, so the roles come from the source and closed ones drop off. You apply
-            on the company's own site.
-          </p>
-        </header>
+        <JobsHero
+          count={preview?.count}
+          title="Internships and new-grad roles, straight from company career pages"
+          subtitle="Updated daily from over 100 companies, so the roles come from the source and closed ones drop off. You apply on the company's own site."
+        />
 
         <section
           className="flex flex-col gap-3 rounded-xl border border-cyan-500/25 bg-cyan-500/[0.05] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"

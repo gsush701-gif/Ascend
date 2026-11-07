@@ -92,6 +92,7 @@ const { computePlan } = require("./lib/advisorPlan");
 const { pickNewMatch } = require("./lib/newMatch");
 const { createJobFeedCache } = require("./lib/jobFeedCache");
 const { clearSearchCache } = require("./lib/jobProviders/boardsProvider");
+const { filterJobRows, parseJobFilters } = require("./lib/jobFilter");
 const { createJobSyncRunner } = require("./lib/jobBoards/sync");
 const { createJobsStore } = require("./lib/jobBoards/store");
 const jobBoardList = require("./data/jobBoards.json");
@@ -2502,19 +2503,21 @@ app.get("/api/jobs/recommendations", jobsLimiter, optionalAuth, async (req, res)
 
     const candidates = jobRows.filter((row) => !dismissedJobIds.has(row.id));
 
-    // Optional filters from the page: ?level=Internship|Entry and ?remote=1.
-    // The counts are taken before filtering so the filter chips can show them.
+    // The counts are taken before filtering, for the badge at the top of the page.
     const counts = {
       all: candidates.length,
       internship: candidates.filter((r) => r.experience_level === "Internship").length,
       entry: candidates.filter((r) => r.experience_level === "Entry").length,
       remote: candidates.filter((r) => r.remote_type === "Remote").length,
     };
-    const level = ["Internship", "Entry"].includes(req.query.level) ? req.query.level : null;
-    const remoteOnly = req.query.remote === "1";
-    const wanted = candidates.filter(
-      (r) => (!level || r.experience_level === level) && (!remoteOnly || r.remote_type === "Remote"),
-    );
+    // The page's filter card: keywords, location, company, work style, level, skills
+    // (server/lib/jobFilter.js). The older ?level= and ?remote=1 still work.
+    const filters = parseJobFilters(req.query);
+    if (!filters.experienceLevel && ["Internship", "Entry"].includes(req.query.level)) {
+      filters.experienceLevel = req.query.level;
+    }
+    if (!filters.remoteType && req.query.remote === "1") filters.remoteType = "Remote";
+    const wanted = filterJobRows(candidates, filters);
 
     const scored = wanted.map((row) => ({ ...row, match: computeJobMatch(profile, jobRowToMatchJob(row)) }));
 

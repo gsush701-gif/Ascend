@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { fetchJobRecommendations, type JobCounts } from "../api";
-import type { RecommendedJob } from "../../../types/jobs";
+import { EMPTY_JOB_SEARCH_FILTERS, type JobSearchFilters, type RecommendedJob } from "../../../types/jobs";
 
 const PAGE_SIZE = 20;
-
-export type RecommendationLevel = "all" | "Internship" | "Entry";
 
 const NO_COUNTS: JobCounts = { all: 0, internship: 0, entry: 0, remote: 0 };
 
@@ -14,9 +12,10 @@ const NO_COUNTS: JobCounts = { all: 0, internship: 0, entry: 0, remote: 0 };
  * feed, scored against the student's resume and preferences by
  * GET /api/jobs/recommendations, best match first.
  *
- * `level` and `remoteOnly` narrow the list on the server; changing either
- * starts again from the first page. "Show more" appends the next page. A reply
- * that arrives after the filters have changed again is ignored.
+ * `filters` are the ones last applied (the page's filter card keeps its own
+ * draft while the student types, and calls `applyFilters` on search); changing
+ * them starts again from the first page. "Show more" appends the next page. A
+ * reply that arrives after the filters have changed again is ignored.
  */
 export function useJobRecommendations() {
   const { user, session, loading: authLoading } = useAuth();
@@ -29,8 +28,7 @@ export function useJobRecommendations() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [level, setLevel] = useState<RecommendationLevel>("all");
-  const [remoteOnly, setRemoteOnly] = useState(false);
+  const [filters, setFilters] = useState<JobSearchFilters>(EMPTY_JOB_SEARCH_FILTERS);
   const [page, setPage] = useState(1);
   const latestRequest = useRef(0);
 
@@ -46,10 +44,7 @@ export function useJobRecommendations() {
       const requestId = ++latestRequest.current;
       if (append) setLoadingMore(true);
       else setLoading(true);
-      fetchJobRecommendations(token, targetPage, PAGE_SIZE, {
-        level: level === "all" ? null : level,
-        remoteOnly,
-      })
+      fetchJobRecommendations(token, targetPage, PAGE_SIZE, filters)
         .then((result) => {
           if (requestId !== latestRequest.current) return;
           setItems((prev) => (append ? [...prev, ...result.items] : result.items));
@@ -70,7 +65,7 @@ export function useJobRecommendations() {
           setLoadingMore(false);
         });
     },
-    [authLoading, user, token, level, remoteOnly],
+    [authLoading, user, token, filters],
   );
 
   useEffect(() => {
@@ -90,10 +85,8 @@ export function useJobRecommendations() {
     loadingMore,
     hasMore: items.length < total,
     error,
-    level,
-    setLevel,
-    remoteOnly,
-    setRemoteOnly,
+    filters,
+    applyFilters: setFilters,
     loadMore,
     reload,
   };

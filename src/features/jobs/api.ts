@@ -124,19 +124,14 @@ type JobRecommendationsResponse = {
   counts?: JobCounts;
 };
 
-export type JobRecommendationFilters = { level?: "Internship" | "Entry" | null; remoteOnly?: boolean };
-
 export async function fetchJobRecommendations(
   accessToken: string,
   page = 1,
   pageSize = 20,
-  filters: JobRecommendationFilters = {},
+  filters: Partial<JobSearchFilters> = {},
 ): Promise<JobRecommendationsResult> {
-  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
-  if (filters.level) params.set("level", filters.level);
-  if (filters.remoteOnly) params.set("remote", "1");
   const data = await jobsFetch<JobRecommendationsResponse>(
-    `/api/jobs/recommendations?${params.toString()}`,
+    `/api/jobs/recommendations?${buildSearchQuery(filters, page, pageSize)}`,
     accessToken,
   );
   return {
