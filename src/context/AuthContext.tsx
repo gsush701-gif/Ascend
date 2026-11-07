@@ -103,6 +103,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    try {
+      // The saved "This week" plan names the student's roles, so it should not outlive their session.
+      localStorage.removeItem("ascend.advisor.plan");
+    } catch {
+      // Storage unavailable: nothing was saved there.
+    }
   }
 
   const mfaStatusPending = session !== null && aal === null;
