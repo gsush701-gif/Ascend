@@ -31,7 +31,7 @@ const PROCESSORS: { name: string; role: string; data: string }[] = [
   {
     name: "Groq",
     role: "AI text generation",
-    data: "The text of your resume, job descriptions, and your interview answers, sent when you use an AI feature",
+    data: "The text of your resume, job descriptions, and your interview answers, sent when you use an AI feature. Where a feature does not need them (scoring a resume, rewriting bullets), your email address and phone number are removed from the resume text first",
   },
   {
     name: "ElevenLabs",
@@ -46,7 +46,7 @@ const PROCESSORS: { name: string; role: string; data: string }[] = [
   {
     name: "Render",
     role: "Hosting",
-    data: "Our servers run on Render, so requests pass through it",
+    data: "Our servers run on Render, which delivers traffic through Cloudflare, so requests (including your IP address) pass through both",
   },
   {
     name: "Resend",
@@ -61,7 +61,17 @@ const PROCESSORS: { name: string; role: string; data: string }[] = [
   {
     name: "Sentry",
     role: "Error monitoring (if enabled)",
-    data: "Technical details about errors, such as the request and error message, not your documents",
+    data: "Technical details about errors: the page or route, the error message, and an account ID. Never what you uploaded or typed, and never your sign-in details",
+  },
+  {
+    name: "Upstash",
+    role: "Rate limiting (if enabled)",
+    data: "Your IP address or account ID, to count requests and stop abuse",
+  },
+  {
+    name: "Google Fonts",
+    role: "Fonts",
+    data: "Your browser loads our fonts from Google, which sees your IP address as it would for any web request",
   },
 ];
 
@@ -117,7 +127,18 @@ export function Privacy() {
           <p>
             <strong className="text-slate-800">Usage and technical data.</strong> Which features you use and when,
             AI request details (the type of request, model, response time, token counts and estimated cost, never the
-            content), error logs, and your IP address for security and rate limiting.
+            content), error logs, and your IP address for security and rate limiting. On our public pages a random ID
+            is kept in your browser so we can count visitors. It is not linked to your account.
+          </p>
+          <p>
+            <strong className="text-slate-800">Feedback.</strong> Messages you send through the feedback box, with
+            your email address if you choose to add it.
+          </p>
+          <p>
+            <strong className="text-slate-800">Kept in your browser.</strong> To load quickly, Ascend keeps some of
+            your recent work on your own device: your Kairos conversation, this week&apos;s plan, your Resume Lab
+            history and your recent fit scores. It is removed when you sign out, and if someone else signs in on the
+            same browser. On a shared computer, always sign out when you finish.
           </p>
         </Section>
 
@@ -177,11 +198,12 @@ export function Privacy() {
 
         <Section title="5. How long we keep it, and deleting it">
           <p>
-            We keep your information while your account is open. Deleting a resume inside Ascend removes it from your
-            lists, but the underlying file stays until you delete your account or ask us to remove it sooner.
+            We keep your information while your account is open. Deleting a resume inside Ascend deletes the file
+            and its text. Deleting a role deletes the files attached to it.
           </p>
           <p>
-            When your account is deleted, we delete your account, your saved content, and your uploaded files.
+            When your account is deleted, we delete your account, your saved content, your uploaded files, and the
+            feedback you sent while signed in.
             Technical records such as usage and error logs are detached from you. Copies held in provider backups or
             logs are removed on those providers' normal schedules.
           </p>

@@ -8,6 +8,7 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import { logEvent } from "../lib/analytics";
+import { claimPersonalData, clearPersonalData } from "../lib/localData";
 
 type AalState = { current: string | null; next: string | null } | null;
 
@@ -60,6 +61,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      // Before any page can read it: drop whatever a previous person left in
+      // this browser (src/lib/localData.ts).
+      if (data.session) claimPersonalData(data.session.user.id);
       setSession(data.session);
       setSessionLoading(false);
       if (data.session) refreshMfaStatus();
@@ -67,6 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, s) => {
+      // A session that ended for any reason (sign-out here or in another tab,
+      // an expired or revoked session) takes the saved personal data with it.
+      // A session that starts takes over this browser's saved data only if it
+      // belongs to the same account.
+      if (event === "SIGNED_OUT") clearPersonalData();
+      else if (s && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) claimPersonalData(s.user.id);
       setSession(s);
       setSessionLoading(false);
 
@@ -103,16 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
-    try {
-      // The saved "This week" plan and Kairos conversation name the student's roles and
-      // search, so neither should outlive their session.
-      localStorage.removeItem("ascend.advisor.plan");
-      for (const key of Object.keys(localStorage)) {
-        if (key.startsWith("ascend.kairos.thread.")) localStorage.removeItem(key);
-      }
-    } catch {
-      // Storage unavailable: nothing was saved there.
-    }
+    // The saved plan, Kairos conversation, Resume Lab history and analyzer
+    // history describe the student's search, so none of it outlives the
+    // session. Done here as well as on the SIGNED_OUT event, so it still
+    // happens if the sign-out request itself failed.
+    clearPersonalData();
   }
 
   const mfaStatusPending = session !== null && aal === null;

@@ -285,8 +285,18 @@ export function useTracker(reportAlignment: number | undefined) {
   }
 
   function removeItem(id: string) {
+    const removed = tracker.find((x) => x.id === id);
     setTracker((prev) => prev.filter((x) => x.id !== id));
     if (!user) return;
+    // The resume and job-posting PDFs attached to a role live in file storage,
+    // which the database does not clean up, so they are removed here. Without
+    // this a deleted role would leave the student's resume behind.
+    if (removed?.resumeStoragePath) {
+      void supabase.storage.from("role-resumes").remove([removed.resumeStoragePath]);
+    }
+    if (removed?.jobPostingStoragePath) {
+      void supabase.storage.from("job-postings").remove([removed.jobPostingStoragePath]);
+    }
     supabase
       .from("roles")
       .delete()

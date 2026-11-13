@@ -268,6 +268,19 @@ describe("buildWeeklyReportEmail", () => {
     expect(html).toContain("Docker");
   });
 
+  it("says how to turn the emails off, in both versions", () => {
+    const content = {
+      stats: { applications: 0, interviews: 0, offers: 0, responseRatePercent: null, sampleTooSmall: true },
+      recommendations: ["Keep going."],
+      topMissingSkill: null,
+    };
+    const { html, text } = buildWeeklyReportEmail(content, "https://ascend.app/");
+    expect(text).toMatch(/turn them off/i);
+    expect(text).toContain("Notifications");
+    expect(html).toMatch(/turn them off/i);
+    expect(html).toContain("https://ascend.app/dashboard");
+  });
+
   it("escapes user-influenced text in the HTML body", () => {
     const content = {
       stats: { applications: 1, interviews: 0, offers: 0, responseRatePercent: null, sampleTooSmall: true },

@@ -6,7 +6,6 @@ import {
   generateDefaultSlug,
   generateRandomSlug,
   normalizeAndValidateSlug,
-  extractEmailLocalPart,
 } from "../../../lib/publicProfileSlug";
 
 const UNIQUE_VIOLATION = "23505";
@@ -44,7 +43,7 @@ function rowToSettings(row: Row): PublicProfileSettings {
  * than a separate empty state.
  *
  * @param seedName optional display name (e.g. the user's profile full name)
- * used to derive a more personal default slug than the email local part.
+ * used to derive a more personal default link. Without one the link is random.
  */
 export function usePublicProfile(seedName?: string) {
   const { user } = useAuth();
@@ -53,17 +52,15 @@ export function usePublicProfile(seedName?: string) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const seed = (seedName && seedName.trim() && seedName !== "Not specified"
-    ? seedName
-    : user?.email
-      ? extractEmailLocalPart(user.email)
-      : "user"
-  ).trim();
+  // A name the student typed themselves is fine in a link they choose to share.
+  // Their email address is not: without a name the link is random, so a shared
+  // profile never gives away how to reach its owner.
+  const seed = seedName && seedName.trim() && seedName !== "Not specified" ? seedName.trim() : null;
 
   const createDefaultRow = useCallback(async (): Promise<Row | null> => {
     if (!user) return null;
     for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
-      const slug = generateDefaultSlug(attempt === 0 ? seed : `${seed}-${attempt}`);
+      const slug = seed ? generateDefaultSlug(attempt === 0 ? seed : `${seed}-${attempt}`) : generateRandomSlug();
       const { data, error: insertError } = await supabase
         .from("public_profiles")
         .insert({ user_id: user.id, slug, is_public: false })

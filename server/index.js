@@ -65,6 +65,7 @@ const { checkQuota, enforceUsageQuota } = require("./lib/usage");
 const { PLANS, DEFAULT_PLAN, USAGE_LABELS, getProPriceId } = require("./lib/plans");
 const groq = require("./lib/groq");
 const { sanitizeAdviceHistory } = require("./lib/adviceHistory");
+const { sanitizeTrackMetadata } = require("./lib/redact");
 const elevenlabs = require("./lib/elevenlabs");
 const { stripe, isStripeConfigured, stripeMode } = require("./lib/stripe");
 const billing = require("./lib/billing");
@@ -143,6 +144,14 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // previous morgan("tiny") line with something that can actually answer
 // "what happened on this specific user's specific request".
 app.use(requestLogger);
+
+// Almost every response here is one student's own data (roles, resume text,
+// advice). Tell browsers and any proxy in between never to keep a copy, so
+// nothing is left in the cache of a shared computer after sign-out.
+app.use((req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 
 const corsOrigin = process.env.CORS_ORIGIN || "*";
 if (corsOrigin === "*" && (process.env.RENDER || process.env.NODE_ENV === "production")) {
@@ -2099,6 +2108,18 @@ app.post("/api/account/delete", accountLimiter, optionalAuth, async (req, res) =
     );
   }
 
+  // Feedback is kept when its sender's account goes (that column is set to
+  // null, not cascaded), but a message can name the student and carry the
+  // email they typed, so their messages are removed here. Not fatal: a failure
+  // is logged and the account is still deleted.
+  try {
+    const { error: feedbackError } = await supabaseAdmin.from("feedback").delete().eq("user_id", req.user.id);
+    if (feedbackError) throw feedbackError;
+  } catch (err) {
+    console.error(`[account-delete] could not remove feedback for user ${req.user.id}:`, err && err.message);
+    captureException(err, { requestId: req.requestId, route: req.path, stage: "delete-feedback" });
+  }
+
   try {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(req.user.id);
     if (error) throw error;
@@ -2234,8 +2255,8 @@ app.post("/api/mfa/verify-recovery-code", mfaLimiter, optionalAuth, async (req, 
 // (src/lib/analytics.ts). No auth — anonymous events (e.g. a pre-signup
 // resume upload) are valid and expected. event_type is checked against a
 // fixed allowlist so this can't be used to write arbitrary event types or
-// otherwise-shaped rows; metadata is stored as-is but the frontend helper is
-// written to only ever send small, non-sensitive shape info.
+// otherwise-shaped rows; metadata is cut down to a few short flat values by
+// sanitizeTrackMetadata before it is stored.
 app.post("/api/track", trackLimiter, optionalAuth, async (req, res) => {
   const eventType = req.body?.event_type;
   if (typeof eventType !== "string" || !TRACKABLE_EVENT_TYPES.has(eventType)) {
@@ -2262,7 +2283,9 @@ app.post("/api/track", trackLimiter, optionalAuth, async (req, res) => {
     if (serialized.length > 2000) {
       return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'metadata' is too large");
     }
-    metadata = req.body.metadata;
+    // Keep only short flat values, and never tie the anonymous per-browser
+    // visitor id to an account (server/lib/redact.js).
+    metadata = sanitizeTrackMetadata(req.body.metadata, { signedIn: Boolean(req.user) });
   }
 
   recordUsageEvent({
@@ -3451,7 +3474,19 @@ app.post("/api/cron/send-weekly-reports", cronLimiter, async (req, res) => {
       `[cron] Weekly reports run: processed=${summary.processed} created=${summary.created} ` +
         `skipped=${summary.skipped} emailed=${summary.emailed} errors=${summary.errors.length}`,
     );
-    return res.json({ ok: true, summary });
+    // Counts only. The caller is a GitHub Actions run in a public repository,
+    // so the per-user error list (user ids and database messages) stays in the
+    // server log and is never sent back.
+    return res.json({
+      ok: true,
+      summary: {
+        processed: summary.processed,
+        created: summary.created,
+        skipped: summary.skipped,
+        emailed: summary.emailed,
+        errors: summary.errors.length,
+      },
+    });
   } catch (err) {
     console.error("[cron] send-weekly-reports failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });

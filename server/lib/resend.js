@@ -13,6 +13,8 @@
 // Uses a plain `fetch` call to Resend's HTTP API rather than adding the
 // `resend` npm package, since this is the one call site that needs it.
 
+const { redactContactDetails } = require("./redact");
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const configured = Boolean(RESEND_API_KEY);
 
@@ -40,11 +42,12 @@ if (!configured) {
  * @param {string} opts.text plain-text fallback
  * @returns {Promise<{ sent: boolean, skipped?: boolean, reason?: string, error?: string }>}
  *   Never throws — a send failure is reported in the return value so one
- *   user's email problem can't abort a batch job.
+ *   user's email problem can't abort a batch job. The recipient's address is
+ *   never written to the log.
  */
 async function sendWeeklyReportEmail({ to, subject, html, text }) {
   if (!configured) {
-    console.log(`[resend] Skipping weekly report email to ${to}: RESEND_API_KEY is not configured.`);
+    console.log("[resend] Skipping a weekly report email: RESEND_API_KEY is not configured.");
     return { sent: false, skipped: true, reason: "RESEND_API_KEY not configured" };
   }
   if (!to || typeof to !== "string") {
@@ -67,13 +70,15 @@ async function sendWeeklyReportEmail({ to, subject, html, text }) {
       }),
     });
     if (!res.ok) {
+      // The reply says why the send failed, but it can quote the recipient's
+      // address, so addresses are blanked before it goes into the log.
       const body = await res.text().catch(() => "");
-      console.error(`[resend] Send failed (${res.status}) to ${to}: ${body.slice(0, 500)}`);
+      console.error(`[resend] Send failed (${res.status}): ${redactContactDetails(body).slice(0, 500)}`);
       return { sent: false, error: `Resend API returned ${res.status}` };
     }
     return { sent: true };
   } catch (err) {
-    console.error(`[resend] Send threw for ${to}:`, err.message);
+    console.error("[resend] Send threw:", err.message);
     return { sent: false, error: err.message };
   }
 }

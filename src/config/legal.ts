@@ -1,5 +1,5 @@
 /** Shown at the top of the privacy policy; bump it whenever the policy text changes. */
-export const PRIVACY_POLICY_UPDATED = "1 November 2026";
+export const PRIVACY_POLICY_UPDATED = "13 November 2026";
 
 /** Same, for the terms of service and the refund policy. */
 export const TERMS_UPDATED = "1 November 2026";

@@ -2,6 +2,7 @@ const Groq = require("groq-sdk");
 const { AsyncLocalStorage } = require("node:async_hooks");
 const { addUsage } = require("./llmCost");
 const { formatAdviceHistory } = require("./adviceHistory");
+const { redactContactDetails } = require("./redact");
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
@@ -181,9 +182,12 @@ Respond with ONLY a JSON object of this exact shape:
 }
 Only use content that appears in the resume text; do not invent employers or dates. Quantified metrics you add should read as natural resume phrasing, not as claims of verified fact.`;
 
+  // A critique never needs the student's email or phone number, so they are
+  // swapped for placeholders before the text leaves our server.
+  const resume = redactContactDetails(resumeText).slice(0, 12000);
   const user = jobDescription
-    ? `Resume text:\n"""${resumeText.slice(0, 12000)}"""\n\nTarget job description:\n"""${jobDescription.slice(0, 4000)}"""`
-    : `Resume text:\n"""${resumeText.slice(0, 12000)}"""`;
+    ? `Resume text:\n"""${resume}"""\n\nTarget job description:\n"""${jobDescription.slice(0, 4000)}"""`
+    : `Resume text:\n"""${resume}"""`;
 
   return chatJson(system, user);
 }
@@ -217,7 +221,7 @@ Respond with ONLY a JSON object of this exact shape:
     matched.length ? `\n\nSkills from the posting the resume already shows: ${matched.join(", ")}` : ""
   }${missing.length ? `\n\nSkills from the posting the resume does NOT show (do not claim these): ${missing.join(", ")}` : ""}
 
-Resume text:\n"""${resumeText.slice(0, 12000)}"""`;
+Resume text:\n"""${redactContactDetails(resumeText).slice(0, 12000)}"""`;
 
   return chatJson(system, user, 1500);
 }
@@ -482,7 +486,7 @@ Respond with ONLY a JSON object of this exact shape:
 async function summarizeAlignment(resumeText, jobDescription, report) {
   const system = `You are a technical recruiter giving a candidate a 2-3 sentence, direct, encouraging-but-honest read on how well their resume matches a job description, given a keyword coverage score that's already been computed. Do not repeat the raw score back verbatim; add color a keyword match can't: whether the *experience* looks aligned, and the single highest-leverage thing to fix. Respond with ONLY a JSON object: {"aiSummary": string}`;
 
-  const user = `Coverage score: ${report.coverage}%. Alignment score: ${report.alignment}%. Missing signals: ${report.missingSignals.join("; ") || "none"}.\n\nResume text:\n"""${resumeText.slice(0, 8000)}"""\n\nJob description:\n"""${jobDescription.slice(0, 3000)}"""`;
+  const user = `Coverage score: ${report.coverage}%. Alignment score: ${report.alignment}%. Missing signals: ${report.missingSignals.join("; ") || "none"}.\n\nResume text:\n"""${redactContactDetails(resumeText).slice(0, 8000)}"""\n\nJob description:\n"""${jobDescription.slice(0, 3000)}"""`;
 
   const result = await chatJson(system, user);
   return typeof result.aiSummary === "string" ? result.aiSummary : null;
@@ -534,7 +538,7 @@ Respond with ONLY a JSON object of this exact shape:
 
   const skillsList = missingSkills.slice(0, 20).join(", ");
   const user = existingResumeText
-    ? `Missing skills: ${skillsList}\n\nCandidate's existing resume text:\n"""${existingResumeText.slice(0, 8000)}"""`
+    ? `Missing skills: ${skillsList}\n\nCandidate's existing resume text:\n"""${redactContactDetails(existingResumeText).slice(0, 8000)}"""`
     : `Missing skills: ${skillsList}`;
 
   return chatJson(system, user, 1000);

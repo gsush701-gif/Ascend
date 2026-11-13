@@ -23,5 +23,6 @@ jobs:
     steps:
       - name: Trigger the job feed sync
         run: |
-          curl -sf --max-time 120 -X POST "${{ secrets.ASCEND_API_URL }}/api/cron/sync-jobs" \
+          # The reply is thrown away: this log is public, and only the status matters.
+          curl -sf -o /dev/null --max-time 120 -X POST "${{ secrets.ASCEND_API_URL }}/api/cron/sync-jobs" \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"

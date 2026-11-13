@@ -221,9 +221,12 @@ export function ResumesBody({ embedded = false }: { embedded?: boolean }) {
   const [openAnalysis, setOpenAnalysis] = useState<JobAnalysisRecord | null>(null);
 
   const handleDelete = (id: string) => {
-    if (!window.confirm("Remove this resume from your list? You can always upload it again.")) return;
+    if (!window.confirm("Delete this resume? The file and its text are removed for good. You can upload it again any time.")) return;
     deleteResume(id).then(({ error }) => {
-      if (error) console.error("[Resumes] delete failed:", error);
+      if (error) {
+        console.error("[Resumes] delete failed:", error);
+        toast.error({ title: "Couldn't delete that resume", description: "Nothing was removed. Please try again." });
+      }
     });
   };
 

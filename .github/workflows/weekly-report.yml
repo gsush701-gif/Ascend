@@ -30,5 +30,6 @@ jobs:
     steps:
       - name: Trigger weekly report generation
         run: |
-          curl -sf -X POST "${{ secrets.ASCEND_API_URL }}/api/cron/send-weekly-reports" \
+          # The reply is thrown away: this log is public, and only the status matters.
+          curl -sf -o /dev/null -X POST "${{ secrets.ASCEND_API_URL }}/api/cron/send-weekly-reports" \
             -H "X-Cron-Secret: ${{ secrets.CRON_SECRET }}"

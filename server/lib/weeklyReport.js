@@ -343,7 +343,9 @@ async function mapWithConcurrency(items, limit, fn) {
  * external images, no tracking pixels) rather than a heavy HTML template. */
 function buildWeeklyReportEmail(content, frontendUrl) {
   const { stats, recommendations, topMissingSkill } = content;
-  const reportUrl = `${frontendUrl.replace(/\/+$/, "")}/report`;
+  const baseUrl = frontendUrl.replace(/\/+$/, "");
+  const reportUrl = `${baseUrl}/report`;
+  const settingsUrl = `${baseUrl}/dashboard`;
 
   const responseRateLine =
     stats.responseRatePercent != null
@@ -368,6 +370,8 @@ function buildWeeklyReportEmail(content, frontendUrl) {
     skillLine ? `\n${skillLine}` : "",
     "",
     `View the full report: ${reportUrl}`,
+    "",
+    `You get this email because weekly reports are turned on for your Ascend account. To turn them off, open Ascend (${settingsUrl}), click your account menu in the top right, and choose Notifications.`,
   ]
     .filter(Boolean)
     .join("\n");
@@ -406,6 +410,11 @@ function buildWeeklyReportEmail(content, frontendUrl) {
       ${skillLine ? `<p style="color: #475569;">${escapeHtml(skillLine)}</p>` : ""}
       <p style="margin-top: 20px;">
         <a href="${reportUrl}" style="color: #0891b2;">View your full report on Ascend →</a>
+      </p>
+      <p style="margin-top: 24px; font-size: 12px; color: #64748b;">
+        You get this email because weekly reports are turned on for your Ascend account.
+        To turn them off, <a href="${settingsUrl}" style="color: #64748b;">open Ascend</a>,
+        click your account menu in the top right, and choose Notifications.
       </p>
     </div>
   `;

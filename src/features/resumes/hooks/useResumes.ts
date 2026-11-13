@@ -5,6 +5,9 @@ import type { SavedResume } from "../../../types/resume";
 
 const BUCKET = "resumes";
 
+/** Accounts whose earlier hide-only deletions have been finished in this page load. */
+const purgedFor = new Set<string>();
+
 type ResumeRow = {
   id: string;
   name: string;
@@ -73,6 +76,35 @@ export function useResumes() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Deleting a resume used to only hide it: the PDF and its text stayed in
+  // storage. Finish those earlier deletions the first time their owner comes
+  // back, so nothing a student deleted is still kept.
+  useEffect(() => {
+    if (!user || purgedFor.has(user.id)) return;
+    purgedFor.add(user.id);
+    void (async () => {
+      const { data } = await supabase.from("resumes").select("id, storage_path").not("deleted_at", "is", null);
+      const hidden = (data as { id: string; storage_path: string }[] | null) ?? [];
+      if (hidden.length === 0) return;
+      const paths = hidden.map((r) => r.storage_path).filter(Boolean);
+      if (paths.length > 0) {
+        const { error: removeError } = await supabase.storage.from(BUCKET).remove(paths);
+        if (removeError) {
+          console.error("[useResumes] could not remove files of deleted resumes:", removeError.message);
+          return; // keep the rows so the next visit can try again
+        }
+      }
+      const { error: deleteError } = await supabase
+        .from("resumes")
+        .delete()
+        .in(
+          "id",
+          hidden.map((r) => r.id),
+        );
+      if (deleteError) console.error("[useResumes] could not remove deleted resumes:", deleteError.message);
+    })();
+  }, [user]);
 
   const saveResume = useCallback(
     async (file: File, extractedText: string, name?: string): Promise<{ error: string | null; id?: string }> => {
@@ -172,15 +204,20 @@ export function useResumes() {
 
   const deleteResume = useCallback(
     async (id: string): Promise<{ error: string | null }> => {
-      const { error: err } = await supabase
-        .from("resumes")
-        .update({ deleted_at: new Date().toISOString(), is_default: false })
-        .eq("id", id);
+      // A real delete: the PDF goes from storage first, then the row with its
+      // extracted text. Roles and past analyses that pointed at this resume
+      // keep working; the database clears their link to it.
+      const target = resumes.find((r) => r.id === id);
+      if (target?.storagePath) {
+        const { error: removeError } = await supabase.storage.from(BUCKET).remove([target.storagePath]);
+        if (removeError) return { error: removeError.message };
+      }
+      const { error: err } = await supabase.from("resumes").delete().eq("id", id);
       if (err) return { error: err.message };
       refresh();
       return { error: null };
     },
-    [refresh],
+    [refresh, resumes],
   );
 
   const downloadResumeFile = useCallback(async (resume: SavedResume): Promise<File | null> => {

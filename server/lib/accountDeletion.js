@@ -21,10 +21,10 @@
  * field — e.g. straight from `select("storage_path")`), return the list of
  * Storage object paths that should be removed from the `resumes` bucket.
  *
- * Deliberately not filtered by `deleted_at`: soft-deleting a resume
- * (`useResumes.ts`'s `deleteResume`) only sets `deleted_at` on the row and
- * never removes the underlying Storage object, so a soft-deleted resume's
- * file is still sitting in the bucket and must be cleaned up here too.
+ * Deliberately not filtered by `deleted_at`. Deleting a resume now removes
+ * its file and row straight away (`useResumes.ts`'s `deleteResume`), but an
+ * older version only set `deleted_at` and left the file in the bucket. Any
+ * such row whose owner has not been back since is cleaned up here too.
  *
  * Defensive against malformed rows (null/undefined entries, missing or
  * non-string `storage_path`, blank strings) so a single bad row can't throw
