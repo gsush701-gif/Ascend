@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldAlert } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { Panel } from "../components/ui/Panel";
@@ -8,6 +8,7 @@ import { Button } from "../components/ui/Button";
 import { Skeleton } from "../components/ui/Skeleton";
 import { AdminTable } from "../components/admin/AdminTable";
 import { useAuth } from "../context/AuthContext";
+import { getVisitorId } from "../lib/analytics";
 import { pageHeader, pageTitle, pageSubtitle, card, sectionTitle } from "../lib/ui";
 import {
   AdminApiError,
@@ -20,6 +21,8 @@ import {
   fetchAdminJobsFeed,
   fetchAdminBilling,
   fetchAdminSystem,
+  markInternalBrowser,
+  setIncludeInternal,
   type AdminJobsFeed,
   type AdminTryFunnel,
   type AdminFeedbackItem,
@@ -117,6 +120,10 @@ export function Admin() {
   const [billingLoading, setBillingLoading] = useState(true);
   const [billingPage, setBillingPage] = useState(1);
 
+  // The owner's own accounts and browsers are hidden by default; this switches them back on.
+  const [showInternal, setShowInternal] = useState(false);
+  const browserMarked = useRef(false);
+
   const [system, setSystem] = useState<AdminSystem | null>(null);
   const [systemLoading, setSystemLoading] = useState(true);
   const [systemPage, setSystemPage] = useState(1);
@@ -157,7 +164,7 @@ export function Admin() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, accessToken]);
+  }, [authLoading, accessToken, showInternal]);
 
   const loadApplications = useCallback(
     (page: number) => {
@@ -212,9 +219,17 @@ export function Admin() {
       .then(setFunnel)
       .catch(() => {})
       .finally(() => setFunnelLoading(false));
-    fetchAdminTryFunnel(accessToken)
-      .then(setTryFunnel)
-      .catch(() => {});
+    // This browser is the owner's, so its page views stop counting (once per page load).
+    // The try-page numbers are fetched after, so they already leave it out.
+    const markFirst = browserMarked.current
+      ? Promise.resolve()
+      : markInternalBrowser(accessToken, getVisitorId()).catch(() => {});
+    browserMarked.current = true;
+    void markFirst.then(() =>
+      fetchAdminTryFunnel(accessToken)
+        .then(setTryFunnel)
+        .catch(() => {}),
+    );
     fetchAdminFeedback(accessToken)
       .then((r) => setFeedback(r.items))
       .catch(() => {});
@@ -224,7 +239,15 @@ export function Admin() {
     // Only re-run when we first become "ready" for this session's token —
     // per-section pagination is handled by the page-change handlers below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authState, accessToken]);
+  }, [authState, accessToken, showInternal]);
+
+  function toggleInternal() {
+    const next = !showInternal;
+    setIncludeInternal(next);
+    setShowInternal(next);
+    setApplicationsPage(1);
+    setBillingPage(1);
+  }
 
   function handleApplicationsPageChange(page: number) {
     setApplicationsPage(page);
@@ -302,6 +325,19 @@ export function Admin() {
             <p className={pageSubtitle}>Internal dashboard — users, applications, AI usage, billing, and system health.</p>
           </div>
         </header>
+
+        {overview?.internal && (overview.internal.accounts > 0 || overview.internal.browsers > 0) && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-600">
+            <span>
+              {showInternal ? "Showing" : "Hiding"} your own activity:{" "}
+              {overview.internal.accounts} {overview.internal.accounts === 1 ? "account" : "accounts"} and{" "}
+              {overview.internal.browsers} {overview.internal.browsers === 1 ? "browser" : "browsers"}.
+            </span>
+            <button type="button" onClick={toggleInternal} className="font-semibold text-cyan-700 hover:underline">
+              {showInternal ? "Hide it again" : "Show it"}
+            </button>
+          </div>
+        )}
 
         {/* --- Users --- */}
         <Panel title="Users" subtitle="Account and engagement overview.">

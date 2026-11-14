@@ -19,11 +19,24 @@ export class AdminApiError extends Error {
   }
 }
 
+/**
+ * Whether the dashboard currently shows the owner's own accounts and browsers.
+ * Off by default: they are hidden so a few real users are not drowned out.
+ */
+let includeInternal = false;
+export function setIncludeInternal(value: boolean) {
+  includeInternal = value;
+}
+
+/** What the server reports about the hidden accounts and browsers. */
+export type InternalSummary = { hidden: boolean; accounts: number; browsers: number };
+
 async function adminGet<T>(path: string, accessToken: string | undefined): Promise<T> {
   if (!accessToken) {
     throw new AdminApiError(401, "Login required");
   }
-  const res = await fetch(`${API_BASE}${path}`, {
+  const url = includeInternal ? `${path}${path.includes("?") ? "&" : "?"}includeInternal=1` : path;
+  const res = await fetch(`${API_BASE}${url}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const data = await res.json().catch(() => ({}));
@@ -42,6 +55,7 @@ export type PageResult<T> = {
 };
 
 export type AdminOverview = {
+  internal: InternalSummary;
   totalUsers: number;
   activeUsers: number;
   activeUserWindowDays: number;
@@ -141,6 +155,7 @@ export type AdminFunnel = {
 };
 
 export type AdminTryFunnel = {
+  internal: InternalSummary;
   windowDays: number;
   visitors: number;
   pageViews: number;
@@ -196,6 +211,16 @@ export type AdminFeedbackItem = {
 
 export function fetchAdminFeedback(accessToken: string | undefined) {
   return adminGet<{ items: AdminFeedbackItem[] }>("/api/admin/feedback", accessToken);
+}
+
+/** Tells the server that this browser is the owner's, so its page views stop counting. */
+export async function markInternalBrowser(accessToken: string | undefined, vid: string | undefined): Promise<void> {
+  if (!accessToken || !vid) return;
+  await fetch(`${API_BASE}/api/admin/internal-browser`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ vid }),
+  });
 }
 
 export function fetchAdminWhoAmI(accessToken: string | undefined) {

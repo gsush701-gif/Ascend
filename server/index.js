@@ -66,6 +66,13 @@ const { PLANS, DEFAULT_PLAN, USAGE_LABELS, getProPriceId } = require("./lib/plan
 const groq = require("./lib/groq");
 const { sanitizeAdviceHistory } = require("./lib/adviceHistory");
 const { sanitizeTrackMetadata } = require("./lib/redact");
+const {
+  INTERNAL_BROWSER_EVENT,
+  createInternalResolver,
+  dropInternalBrowsers,
+  dropInternalUsers,
+  isValidVisitorId,
+} = require("./lib/internal");
 const elevenlabs = require("./lib/elevenlabs");
 const { stripe, isStripeConfigured, stripeMode } = require("./lib/stripe");
 const billing = require("./lib/billing");
@@ -2969,6 +2976,40 @@ app.get("/api/public-profile/:slug", publicProfileLimiter, async (req, res) => {
 // `?page=<1-indexed>&pageSize=<n>` in, `{ page, pageSize, total, totalPages,
 // items }` out — server/lib/pagination.js.
 
+// The owner's own accounts and browsers are hidden from every Admin number by
+// default (server/lib/internal.js), so a handful of real users is not drowned
+// out by test accounts and the founder's own page views. `?includeInternal=1`
+// shows everything again.
+const internalResolver = createInternalResolver({
+  supabaseAdmin,
+  getEmailLists: () => [process.env.ADMIN_EMAILS, process.env.INTERNAL_EMAILS],
+});
+
+async function internalScope(req) {
+  let userIds = new Set();
+  let vids = new Set();
+  try {
+    ({ userIds, vids } = await internalResolver.get());
+  } catch (err) {
+    // Fail open: showing the owner's own activity is better than a dashboard that won't load.
+    console.warn("[admin] could not look up internal accounts:", err && err.message);
+  }
+  const showInternal = req.query.includeInternal === "1" || req.query.includeInternal === "true";
+  return {
+    hidden: !showInternal,
+    userIds: showInternal ? new Set() : userIds,
+    vids: showInternal ? new Set() : vids,
+    // What exists, whether or not it is currently hidden, so the page can say so.
+    summary: { hidden: !showInternal, accounts: userIds.size, browsers: vids.size },
+  };
+}
+
+/** Adds "not one of the internal accounts" to a query on a table whose user_id is never null. */
+function excludeInternalUsers(query, scope) {
+  if (scope.userIds.size === 0) return query;
+  return query.not("user_id", "in", `(${[...scope.userIds].join(",")})`);
+}
+
 // Cheap admin-access check with zero DB work — used by the frontend purely
 // to decide whether to show the "Admin" nav link / render the dashboard
 // shell, not as the real enforcement (every route below re-checks
@@ -3000,6 +3041,7 @@ app.get("/api/admin/overview", adminLimiter, optionalAuth, requireAdmin, async (
     return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
   }
   try {
+    const scope = await internalScope(req);
     const RECENT_SIGNUPS_COUNT = 10;
     // perPage=1 is enough to read the `total` users count off this response
     // (see @supabase/auth-js's GoTrueAdminApi.listUsers — it reports the
@@ -3015,7 +3057,8 @@ app.get("/api/admin/overview", adminLimiter, optionalAuth, requireAdmin, async (
     if (totalUsersResult.error) throw totalUsersResult.error;
     if (recentUsersResult.error) throw recentUsersResult.error;
 
-    const totalUsers = totalUsersResult.data.total || 0;
+    // The Auth API counts every account, so the hidden ones are taken off the total.
+    const totalUsers = Math.max(0, (totalUsersResult.data.total || 0) - scope.userIds.size);
     // Caveat, stated plainly rather than silently: if there are more than
     // 200 total users, this sort only considers the first 200 the Auth API
     // returns for page 1 (its own default order, not guaranteed to be
@@ -3023,7 +3066,8 @@ app.get("/api/admin/overview", adminLimiter, optionalAuth, requireAdmin, async (
     // signup if the account base has grown past that. Revisit (e.g. an
     // explicit created_at-sorted admin API call, once available) if/when
     // this app's user count approaches that scale.
-    const recentSignups = [...recentUsersResult.data.users]
+    const recentSignups = recentUsersResult.data.users
+      .filter((u) => !scope.userIds.has(u.id))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       .slice(0, RECENT_SIGNUPS_COUNT)
       .map((u) => ({ id: u.id, email: u.email || null, createdAt: u.created_at }));
@@ -3036,12 +3080,13 @@ app.get("/api/admin/overview", adminLimiter, optionalAuth, requireAdmin, async (
       .gte("created_at", thirtyDaysAgo)
       .limit(20000);
     if (usageErr) throw usageErr;
-    const activeUsers = countDistinct((recentUsageRows || []).map((r) => r.user_id));
+    const activeUsers = countDistinct(dropInternalUsers(recentUsageRows, scope.userIds).map((r) => r.user_id));
 
-    const { data: subscriptionRows, error: subsErr } = await supabaseAdmin
+    const { data: allSubscriptionRows, error: subsErr } = await supabaseAdmin
       .from("subscriptions")
-      .select("plan, status");
+      .select("plan, status, user_id");
     if (subsErr) throw subsErr;
+    const subscriptionRows = dropInternalUsers(allSubscriptionRows, scope.userIds);
     const byPlan = bucketCount((subscriptionRows || []).map((r) => r.plan));
     const byStatus = bucketCount((subscriptionRows || []).map((r) => r.status));
 
@@ -3049,6 +3094,7 @@ app.get("/api/admin/overview", adminLimiter, optionalAuth, requireAdmin, async (
       totalUsers,
       activeUsers,
       activeUserWindowDays: 30,
+      internal: scope.summary,
       recentSignups,
       subscriptions: {
         // Rows with no subscription row at all are implicitly "free" per
@@ -3076,10 +3122,12 @@ app.get("/api/admin/applications", adminLimiter, optionalAuth, requireAdmin, asy
   }
   try {
     const { page, pageSize, offset } = parsePagination(req.query);
+    const scope = await internalScope(req);
 
-    const { count: total, error: countErr } = await supabaseAdmin
-      .from("roles")
-      .select("id", { count: "exact", head: true });
+    const { count: total, error: countErr } = await excludeInternalUsers(
+      supabaseAdmin.from("roles").select("id", { count: "exact", head: true }),
+      scope,
+    );
     if (countErr) throw countErr;
 
     // `roles.status` has no CHECK constraint (any authenticated client can
@@ -3087,22 +3135,24 @@ app.get("/api/admin/applications", adminLimiter, optionalAuth, requireAdmin, asy
     // docs/SAAS_AUDIT.md §3/§8) so this bucketing can't assume a fixed
     // enum. Capped at 20,000 rows for the same current-scale reasoning as
     // the active-users count above.
-    const { data: statusRows, error: statusErr } = await supabaseAdmin
-      .from("roles")
-      .select("status")
-      .limit(20000);
+    const { data: statusRows, error: statusErr } = await excludeInternalUsers(
+      supabaseAdmin.from("roles").select("status"),
+      scope,
+    ).limit(20000);
     if (statusErr) throw statusErr;
     const byStatus = bucketCount((statusRows || []).map((r) => r.status));
 
-    const { data: recentRows, error: recentErr } = await supabaseAdmin
-      .from("roles")
-      .select("id, user_id, company, role, status, alignment, created_at, updated_at")
+    const { data: recentRows, error: recentErr } = await excludeInternalUsers(
+      supabaseAdmin.from("roles").select("id, user_id, company, role, status, alignment, created_at, updated_at"),
+      scope,
+    )
       .order("created_at", { ascending: false })
       .range(offset, offset + pageSize - 1);
     if (recentErr) throw recentErr;
 
     return res.json({
       total: total || 0,
+      internal: scope.summary,
       byStatus,
       recent: buildPageResult({ page, pageSize, total: total || 0, items: recentRows || [] }),
     });
@@ -3132,8 +3182,9 @@ app.get("/api/admin/ai-usage", adminLimiter, optionalAuth, requireAdmin, async (
     if (!Number.isFinite(windowDays) || windowDays < 1) windowDays = 30;
     windowDays = Math.min(windowDays, 90);
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+    const scope = await internalScope(req);
 
-    const { data: rows, error } = await supabaseAdmin
+    const { data: allRows, error } = await supabaseAdmin
       .from("usage_events")
       .select("event_type, user_id, metadata")
       .like("event_type", "ai.%")
@@ -3142,6 +3193,7 @@ app.get("/api/admin/ai-usage", adminLimiter, optionalAuth, requireAdmin, async (
       // on GET /api/admin/overview for the same current-scale reasoning.
       .limit(20000);
     if (error) throw error;
+    const rows = dropInternalUsers(allRows, scope.userIds);
 
     const byEventType = computeEventTypeStats(rows || []);
     const totalAiRequests = (rows || []).length;
@@ -3167,6 +3219,7 @@ app.get("/api/admin/ai-usage", adminLimiter, optionalAuth, requireAdmin, async (
 
     return res.json({
       windowDays,
+      internal: scope.summary,
       totalAiRequests,
       byEventType,
       errorRateReliable: {
@@ -3201,6 +3254,7 @@ app.get("/api/admin/funnel", adminLimiter, optionalAuth, requireAdmin, async (re
     windowDays = Math.min(windowDays, 90);
     const sinceMs = Date.now() - windowDays * 24 * 60 * 60 * 1000;
     const since = new Date(sinceMs).toISOString();
+    const scope = await internalScope(req);
 
     const COHORT_PAGE = 1000;
     const { data: usersData, error: usersErr } = await supabaseAdmin.auth.admin.listUsers({
@@ -3212,7 +3266,7 @@ app.get("/api/admin/funnel", adminLimiter, optionalAuth, requireAdmin, async (re
     // users than that, the newest may be missing, and the response says so.
     const truncated = (usersData.total || 0) > COHORT_PAGE;
     const cohort = (usersData.users || [])
-      .filter((u) => new Date(u.created_at).getTime() >= sinceMs)
+      .filter((u) => new Date(u.created_at).getTime() >= sinceMs && !scope.userIds.has(u.id))
       .map((u) => u.id);
 
     const { data: rows, error: rowsErr } = await supabaseAdmin
@@ -3224,7 +3278,7 @@ app.get("/api/admin/funnel", adminLimiter, optionalAuth, requireAdmin, async (re
       .limit(20000);
     if (rowsErr) throw rowsErr;
 
-    return res.json({ windowDays, truncated, ...computeFunnel(cohort, rows || []) });
+    return res.json({ windowDays, truncated, internal: scope.summary, ...computeFunnel(cohort, rows || []) });
   } catch (err) {
     console.error("admin/funnel failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
@@ -3290,15 +3344,18 @@ app.get("/api/admin/try-funnel", adminLimiter, optionalAuth, requireAdmin, async
     windowDays = Math.min(windowDays, 90);
     const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data: rows, error } = await supabaseAdmin
+    const scope = await internalScope(req);
+
+    const { data: allRows, error } = await supabaseAdmin
       .from("usage_events")
-      .select("event_type, metadata")
+      .select("event_type, metadata, user_id")
       .in("event_type", TRY_EVENTS)
       .gte("created_at", since)
       .limit(20000);
     if (error) throw error;
+    const rows = dropInternalBrowsers(dropInternalUsers(allRows, scope.userIds), scope.vids);
 
-    return res.json({ windowDays, ...computeTryStats(rows || []) });
+    return res.json({ windowDays, internal: scope.summary, ...computeTryStats(rows) });
   } catch (err) {
     console.error("admin/try-funnel failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
@@ -3322,10 +3379,12 @@ app.get("/api/admin/billing", adminLimiter, optionalAuth, requireAdmin, async (r
   }
   try {
     const { page, pageSize, offset } = parsePagination(req.query);
+    const scope = await internalScope(req);
 
-    const { data: allRows, error: allErr } = await supabaseAdmin
-      .from("subscriptions")
-      .select("plan, status");
+    const { data: allRows, error: allErr } = await excludeInternalUsers(
+      supabaseAdmin.from("subscriptions").select("plan, status"),
+      scope,
+    );
     if (allErr) throw allErr;
 
     const activeByPlan = bucketCount(
@@ -3333,19 +3392,24 @@ app.get("/api/admin/billing", adminLimiter, optionalAuth, requireAdmin, async (r
     );
     const byPlanStatus = bucketCount((allRows || []).map((r) => `${r.plan}:${r.status}`));
 
-    const { count: total, error: countErr } = await supabaseAdmin
-      .from("subscriptions")
-      .select("id", { count: "exact", head: true });
+    const { count: total, error: countErr } = await excludeInternalUsers(
+      supabaseAdmin.from("subscriptions").select("id", { count: "exact", head: true }),
+      scope,
+    );
     if (countErr) throw countErr;
 
-    const { data: recentRows, error: recentErr } = await supabaseAdmin
-      .from("subscriptions")
-      .select("id, user_id, plan, status, stripe_customer_id, current_period_end, updated_at")
+    const { data: recentRows, error: recentErr } = await excludeInternalUsers(
+      supabaseAdmin
+        .from("subscriptions")
+        .select("id, user_id, plan, status, stripe_customer_id, current_period_end, updated_at"),
+      scope,
+    )
       .order("updated_at", { ascending: false })
       .range(offset, offset + pageSize - 1);
     if (recentErr) throw recentErr;
 
     return res.json({
+      internal: scope.summary,
       totalSubscriptionRows: (allRows || []).length,
       activeByPlan,
       byPlanStatus,
@@ -3410,6 +3474,38 @@ app.get("/api/admin/system", adminLimiter, optionalAuth, requireAdmin, async (re
     console.error("admin/system failed:", err);
     captureException(err, { requestId: req.requestId, route: req.path });
     return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to load system data");
+  }
+});
+
+// POST /api/admin/internal-browser: the Admin page calls this with the visitor
+// id of the browser it is open in, so that browser's page views stop counting in
+// the numbers (server/lib/internal.js). Admin only, and idempotent. The event type
+// is deliberately not in TRACKABLE_EVENT_TYPES, so nobody else can write one.
+app.post("/api/admin/internal-browser", adminLimiter, optionalAuth, requireAdmin, async (req, res) => {
+  if (!supabaseAdmin) {
+    return sendError(req, res, 503, ErrorCodes.SERVICE_UNAVAILABLE, "Admin data is not configured on the server");
+  }
+  const vid = req.body && req.body.vid;
+  if (!isValidVisitorId(vid)) {
+    return sendError(req, res, 400, ErrorCodes.VALIDATION_ERROR, "Field 'vid' must be a visitor id");
+  }
+  try {
+    const { vids } = await internalResolver.get();
+    if (!vids.has(vid)) {
+      const { error } = await supabaseAdmin.from("usage_events").insert({
+        user_id: req.user.id,
+        event_type: INTERNAL_BROWSER_EVENT,
+        metadata: { vid },
+        request_id: req.requestId,
+      });
+      if (error) throw error;
+      internalResolver.clear();
+    }
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("admin/internal-browser failed:", err);
+    captureException(err, { requestId: req.requestId, route: req.path });
+    return sendError(req, res, 500, ErrorCodes.INTERNAL_ERROR, "Failed to save");
   }
 });
 
