@@ -1,0 +1,15 @@
+{
+  // Cloudflare hosting for the website (the React app only; the API stays on Render).
+  // Cloudflare builds the app with `npm run build`, then publishes the `dist` folder
+  // with `npx wrangler deploy`. See docs/CLOUDFLARE_HOSTING.md.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ascend",
+  "compatibility_date": "2025-09-27",
+  "assets": {
+    "directory": "./dist",
+    // The app is a single page that draws its own routes (/jobs, /roles/123, ...).
+    // Any address that is not a real file is answered with index.html, so opening
+    // or refreshing a deep link works instead of showing "not found".
+    "not_found_handling": "single-page-application"
+  }
+}
